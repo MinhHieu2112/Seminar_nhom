@@ -1,0 +1,161 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+//////////////////////////////////////////////////////
+// ENUMS
+//////////////////////////////////////////////////////
+
+enum RoleType {
+  admin
+  client
+  shipper
+  architect
+}
+
+enum CertificateRole {
+  shipper
+  architect
+}
+
+//////////////////////////////////////////////////////
+// ROLE MASTER
+//////////////////////////////////////////////////////
+
+model Role {
+  id        Int      @id @default(autoincrement())
+  name      RoleType @unique
+  createdAt DateTime @default(now())
+
+  users User[]
+}
+
+//////////////////////////////////////////////////////
+// USER CORE
+//////////////////////////////////////////////////////
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  fullName  String?
+  phone     String?
+  addresses UserAddress[]
+
+  roleId    Int
+  role      Role     @relation(fields: [roleId], references: [id])
+
+  isActive  Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  membership     UserMembership?
+  certificates   UserCertificate[]
+}
+
+//////////////////////////////////////////////////////
+// MEMBERSHIP MASTER
+//////////////////////////////////////////////////////
+
+model Membership {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  discount  Int      @default(0)
+  priority  Int      @default(0)
+
+  createdAt DateTime @default(now())
+
+  users UserMembership[]
+}
+
+//////////////////////////////////////////////////////
+// CLIENT MEMBERSHIP
+//////////////////////////////////////////////////////
+
+model UserMembership {
+  userId       String  @id
+  membershipId Int
+  expiredAt    DateTime?
+
+  createdAt    DateTime @default(now())
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  membership Membership @relation(fields: [membershipId], references: [id])
+}
+
+//////////////////////////////////////////////////////
+// CERTIFICATE CATALOG
+//////////////////////////////////////////////////////
+
+model CertificateCatalog {
+  id           Int              @id @default(autoincrement())
+  name         String           @unique
+  roleRequired CertificateRole
+  validYears   Int              @default(0)
+
+  createdAt    DateTime @default(now())
+
+  users UserCertificate[]
+}
+
+//////////////////////////////////////////////////////
+// USER CERTIFICATE
+//////////////////////////////////////////////////////
+
+model UserCertificate {
+  id            Int      @id @default(autoincrement())
+  userId        String
+  certificateId Int
+
+  certificateNumber String?
+  fileUrl           String?
+
+  issuedDate   DateTime?
+  expiredDate  DateTime?
+
+  verified     Boolean  @default(false)
+
+  createdAt    DateTime @default(now())
+
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  certificate CertificateCatalog @relation(fields: [certificateId], references: [id])
+
+  @@unique([userId, certificateId])
+}
+
+model UserAddress {
+  id        Int      @id @default(autoincrement())
+  userId    String
+
+  fullName  String
+  phone     String
+
+  addressLine String
+  ward        String?
+  district    String
+  city        String
+
+  latitude   Float?
+  longitude  Float?
+
+  isDefault  Boolean  @default(false)
+
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
