@@ -1,11 +1,13 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Product } from '../types';
-import { api } from '../api';
+import { Product } from '../../../types';
+import { api } from '../../../api';
 import { Link } from 'react-router-dom';
 import { Search, Loader2, SlidersHorizontal, Heart, ShoppingBag, ChevronLeft, ChevronRight } from 'lucide-react';
-import { PRODUCTS, CATEGORIES } from '../constants';
-import { useApp } from '../App';
+import { PRODUCTS, CATEGORIES } from '../../../constants';
+import { useApp } from '../../App/App';
+
+const MATERIALS = ['Tất cả', 'Gỗ', 'Kim loại', 'Vải', 'Đá', 'Da'];
 
 const ProductList: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -20,6 +22,7 @@ const ProductList: React.FC = () => {
 
   // Filter States
   const [selectedCategory, setSelectedCategory] = useState('Tất cả');
+  const [selectedMaterial, setSelectedMaterial] = useState('Tất cả');
   const [maxPrice, setMaxPrice] = useState<number>(30000000);
 
   useEffect(() => {
@@ -39,7 +42,7 @@ const ProductList: React.FC = () => {
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedCategory, maxPrice]);
+  }, [searchQuery, selectedCategory, maxPrice, selectedMaterial]);
 
   const filtered = useMemo(() => {
     return products.filter(p => {
@@ -47,9 +50,11 @@ const ProductList: React.FC = () => {
                             p.sku?.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesCategory = selectedCategory === 'Tất cả' || p.category === selectedCategory || p.category_id === selectedCategory;
       const matchesPrice = p.price <= maxPrice;
-      return matchesSearch && matchesCategory && matchesPrice;
+      const matchesMaterial = selectedMaterial === 'Tất cả' || p.material.toLowerCase().includes(selectedMaterial.toLowerCase());
+      
+      return matchesSearch && matchesCategory && matchesPrice && matchesMaterial;
     });
-  }, [products, searchQuery, selectedCategory, maxPrice]);
+  }, [products, searchQuery, selectedCategory, maxPrice, selectedMaterial]);
 
   // Paginated data
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
@@ -60,18 +65,14 @@ const ProductList: React.FC = () => {
 
   const clearAllFilters = () => {
     setSelectedCategory('Tất cả');
+    setSelectedMaterial('Tất cả');
     setMaxPrice(30000000);
     setSearchQuery('');
     setCurrentPage(1);
   };
 
-  const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
-    // Scroll small amount to show the grid start
     const gridElement = document.getElementById('product-grid');
     if (gridElement) {
       gridElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -119,6 +120,7 @@ const ProductList: React.FC = () => {
         <div className="flex flex-col lg:flex-row gap-12">
           {/* Filters Sidebar */}
           <div className={`${showFilters ? 'block' : 'hidden'} lg:w-64 flex-shrink-0 space-y-12 animate-in fade-in slide-in-from-left-4 duration-500`}>
+            {/* Category Filter */}
             <div>
               <div className="flex justify-between items-center mb-8">
                 <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400">Danh mục</h3>
@@ -136,6 +138,24 @@ const ProductList: React.FC = () => {
                 ))}
               </div>
             </div>
+
+            {/* Material Filter */}
+            <div>
+              <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400 mb-8">Chất liệu</h3>
+              <div className="flex flex-wrap gap-2">
+                {MATERIALS.map(mat => (
+                  <button 
+                    key={mat} 
+                    onClick={() => setSelectedMaterial(mat)} 
+                    className={`px-4 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest border transition-all ${selectedMaterial === mat ? 'bg-black text-white border-black' : 'bg-white text-gray-400 border-gray-100 hover:border-black hover:text-black'}`}
+                  >
+                    {mat}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Price Filter */}
             <div>
               <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400 mb-8">Giá tối đa</h3>
               <div className="px-2">
@@ -157,7 +177,6 @@ const ProductList: React.FC = () => {
                     const baseImageUrl = (product.images?.[0] || (product as any).image).split('?')[0];
                     return (
                       <div key={product.id} className="group flex flex-col animate-fade-in-up" style={{ animationDelay: `${idx * 100}ms` }}>
-                        {/* Improved Card Image Area */}
                         <div className="aspect-[4/5] overflow-hidden rounded-[3rem] bg-gray-50 mb-8 relative shadow-sm group-hover:shadow-2xl transition-all duration-700">
                           <Link to={`/product/${product.id}`} className="block w-full h-full">
                             <img 
@@ -168,7 +187,6 @@ const ProductList: React.FC = () => {
                             />
                           </Link>
                           
-                          {/* Heart Button Overlay */}
                           <button 
                             onClick={() => toggleWishlist(product)}
                             className="absolute top-8 right-8 p-3.5 bg-white/20 backdrop-blur-xl rounded-full text-white hover:bg-white hover:text-black transition-all z-20 shadow-xl border border-white/30"
@@ -176,7 +194,6 @@ const ProductList: React.FC = () => {
                             <Heart size={18} className={isInWishlist(product.id) ? "fill-red-500 text-red-500 border-none" : "transition-transform group-active:scale-90"} />
                           </button>
 
-                          {/* Quick Add Overlay */}
                           <div className="absolute inset-x-0 bottom-0 p-8 translate-y-full group-hover:translate-y-0 transition-transform duration-500 z-10">
                             <button 
                               onClick={() => addToCart(product, 1)}
@@ -194,7 +211,6 @@ const ProductList: React.FC = () => {
                           )}
                         </div>
 
-                        {/* Product Info */}
                         <div className="px-4">
                           <div className="flex justify-between items-start mb-2">
                              <Link to={`/product/${product.id}`} className="flex-grow">
@@ -204,7 +220,7 @@ const ProductList: React.FC = () => {
                           </div>
                           <div className="flex items-center justify-between">
                             <p className="text-[10px] font-bold text-gray-300 uppercase tracking-[0.2em]">{product.category}</p>
-                            <span className="text-[9px] font-bold text-gray-200 tracking-widest uppercase">SKU: {product.sku || 'N/A'}</span>
+                            <span className="text-[9px] font-bold text-gray-200 tracking-widest uppercase">{product.material.split(',')[0]}</span>
                           </div>
                         </div>
                       </div>
@@ -212,7 +228,6 @@ const ProductList: React.FC = () => {
                   })}
                 </div>
 
-                {/* Modern Pagination UI */}
                 {totalPages > 1 && (
                   <div className="mt-24 flex items-center justify-center space-x-3">
                     <button 
@@ -256,7 +271,7 @@ const ProductList: React.FC = () => {
                  </div>
                  <div className="max-w-xs">
                     <h3 className="text-xl font-bold mb-3 tracking-tight">KHÔNG TÌM THẤY SẢN PHẨM</h3>
-                    <p className="text-gray-400 font-light text-sm leading-relaxed">Hãy thử thay đổi từ khóa tìm kiếm hoặc điều chỉnh lại các tiêu chí lọc giá.</p>
+                    <p className="text-gray-400 font-light text-sm leading-relaxed">Hãy thử thay đổi từ khóa tìm kiếm hoặc điều chỉnh lại các tiêu chí lọc.</p>
                  </div>
                  <button onClick={clearAllFilters} className="px-12 py-4 bg-black text-white rounded-full text-[10px] font-bold uppercase tracking-[0.2em] hover:bg-gray-800 transition shadow-xl">Xóa tất cả bộ lọc</button>
               </div>

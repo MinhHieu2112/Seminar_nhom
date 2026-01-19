@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
-import { api } from '../api';
-import { useApp } from '../App';
+import { api } from '../../../api';
+import { useApp } from '../../App/App';
 import { CheckCircle, ArrowRight, Loader2, Award, Clock, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
 

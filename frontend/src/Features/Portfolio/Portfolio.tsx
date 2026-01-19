@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Project } from '../types';
-import { api } from '../api';
+import { Project } from '../../../types';
+import { api } from '../../../api';
 import { Maximize2, MapPin, Calendar, ArrowRight, Loader2, X, ChevronLeft, ChevronRight, Ruler } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 

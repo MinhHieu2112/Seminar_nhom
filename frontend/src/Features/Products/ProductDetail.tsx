@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { api } from '../api';
-import { useApp } from '../App';
+import { api } from '../../../api';
+import { useApp } from '../../App/App';
 import { Minus, Plus, ShoppingCart, Shield, Truck, Star, Send, User, Heart, CheckCircle2, Loader2 } from 'lucide-react';
-import { Product, Review } from '../types';
+import { Product, Review } from '../../../types';
 
 const ProductDetail: React.FC = () => {
   const { id } = useParams();

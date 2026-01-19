@@ -1,9 +1,9 @@
 
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useApp } from '../App';
+import { useApp } from '../../App/App';
 import { Trash2, Minus, Plus, ArrowLeft, Ticket, Check, X } from 'lucide-react';
-import { DISCOUNT_CODES } from '../constants';
+import { DISCOUNT_CODES } from '../../../constants';
 
 const Cart: React.FC = () => {
   const { cart, removeFromCart, updateQuantity, appliedDiscount, applyDiscount } = useApp();

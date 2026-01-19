@@ -1,10 +1,10 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useApp } from '../App';
-import { api } from '../api';
+import { useApp } from '../../App/App';
+import { api } from '../../../api';
 import { CreditCard, Truck, Loader2, CheckCircle2 } from 'lucide-react';
-import { OrderStatus } from '../types';
+import { OrderStatus } from '../../../types';
 
 const Checkout: React.FC = () => {
   const { cart, authState, clearCart, addOrder } = useApp();

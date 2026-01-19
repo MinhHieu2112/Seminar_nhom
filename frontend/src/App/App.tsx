@@ -1,20 +1,20 @@
 
 import React, { useState, useEffect, createContext, useContext } from 'react';
 import { HashRouter, Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom';
-import { Product, CartItem, User, Order, AuthState, DiscountCode } from './types';
-import Home from './pages/Home';
-import ProductList from './pages/ProductList';
-import ProductDetail from './pages/ProductDetail';
-import Cart from './pages/Cart';
-import Checkout from './pages/Checkout';
-import Profile from './pages/Profile';
-import Orders from './pages/Orders';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import ForgotPassword from './pages/ForgotPassword';
-import Portfolio from './pages/Portfolio';
-import Services from './pages/Services';
-import Wishlist from './pages/Wishlist';
+import { Product, CartItem, User, Order, AuthState, DiscountCode } from '../../types';
+import Home from '../Features/Home/Home';
+import ProductList from '../Features/Products/ProductList';
+import ProductDetail from '../Features/Products/ProductDetail';
+import Cart from '../Features/Cart/Cart';
+import Checkout from '../Features/Checkout/Checkout';
+import Profile from '../Features/Profile/Profile';
+import Orders from '../Features/Orders/Orders';
+import Login from '../Features/Authentication/Login';
+import Register from '../Features/Authentication/Register';
+import ForgotPassword from '../Features/Authentication/ForgotPassword';
+import Portfolio from '../Features/Portfolio/Portfolio';
+import Services from '../Features/Service/Services';
+import Wishlist from '../Features/Wishlist/Wishlist';
 import { ShoppingBag, User as UserIcon, LogOut, Menu, X, Heart, Facebook, Instagram, Linkedin, Twitter } from 'lucide-react';
 
 interface AppContextType {

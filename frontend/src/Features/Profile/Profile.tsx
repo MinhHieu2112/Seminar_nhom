@@ -1,9 +1,9 @@
 
 import React, { useState } from 'react';
-import { useApp } from '../App';
+import { useApp } from '../../App/App';
 import { useNavigate } from 'react-router-dom';
 import { User, Settings, MapPin, Bell, ShieldCheck, Heart, Plus, Trash2, CheckCircle2, Package, Tag, Info, ArrowRight, Loader2, KeyRound, X, Phone, User as UserIconAlt, AlertCircle } from 'lucide-react';
-import { Notification, Address } from '../types';
+import { Notification, Address } from '../../../types';
 
 const Profile: React.FC = () => {
   const { authState, wishlist } = useApp();

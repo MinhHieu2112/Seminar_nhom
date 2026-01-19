@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { PRODUCTS } from '../constants';
+import { PRODUCTS } from '../../../constants';
 import { ArrowRight, MessageSquare, ChevronLeft, ChevronRight, Heart, Sparkles, ShoppingBag } from 'lucide-react';
-import AIAssistant from '../components/AIAssistant';
-import { useApp } from '../App';
+import AIAssistant from '../../Components/AIAssistant';
+import { useApp } from '../../App/App';
 
 const SLIDES = [
   {

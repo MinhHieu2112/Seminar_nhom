@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { useApp } from '../App';
+import { useApp } from '../../App/App';
 import { Heart, ShoppingBag, Trash2, ArrowRight } from 'lucide-react';
 
 const Wishlist: React.FC = () => {

@@ -1,8 +1,8 @@
 
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useApp } from '../App';
-import { api } from '../api';
+import { useApp } from '@/App/App';
+import { api } from '../../../api';
 import { Loader2, ArrowLeft } from 'lucide-react';
 
 const Register: React.FC = () => {

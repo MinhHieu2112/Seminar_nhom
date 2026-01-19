@@ -1,8 +1,8 @@
 
 import React from 'react';
-import { useApp } from '../App';
+import { useApp } from '../../App/App';
 import { Package, ChevronRight, XCircle, ShoppingBag, Loader2 } from 'lucide-react';
-import { OrderStatus } from '../types';
+import { OrderStatus } from '../../../types';
 import { Link } from 'react-router-dom';
 
 const Orders: React.FC = () => {

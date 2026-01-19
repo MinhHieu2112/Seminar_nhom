@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { MessageSquare, X, Send, Loader2 } from 'lucide-react';
-import { getDesignAdvice } from '../geminiService';
+import { getDesignAdvice } from '../../geminiService';
 
 const AIAssistant: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
