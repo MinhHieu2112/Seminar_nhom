@@ -1,20 +1,20 @@
 
 import React, { useState, useEffect, createContext, useContext } from 'react';
 import { HashRouter, Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom';
-import { Product, CartItem, User, Order, AuthState, DiscountCode } from '../../types';
-import Home from '../Features/Home/Home';
-import ProductList from '../Features/Products/ProductList';
-import ProductDetail from '../Features/Products/ProductDetail';
-import Cart from '../Features/Cart/Cart';
-import Checkout from '../Features/Checkout/Checkout';
-import Profile from '../Features/Profile/Profile';
-import Orders from '../Features/Orders/Orders';
-import Login from '../Features/Authentication/Login';
-import Register from '../Features/Authentication/Register';
-import ForgotPassword from '../Features/Authentication/ForgotPassword';
-import Portfolio from '../Features/Portfolio/Portfolio';
-import Services from '../Features/Service/Services';
-import Wishlist from '../Features/Wishlist/Wishlist';
+import { Product, CartItem, User, Order, AuthState, DiscountCode } from '../types/types';
+import Home from '../fearures/Home/Home';
+import ProductList from '../fearures/Products/ProductList';
+import ProductDetail from '../fearures/Products/ProductDetail';
+import Cart from '../fearures/Cart/Cart';
+import Checkout from '../fearures/Checkout/Checkout';
+import Profile from '../fearures/Profile/Profile';
+import Orders from '../fearures/Orders/Orders';
+import Login from '../fearures/Authentication/Login';
+import Register from '../fearures/Authentication/Register';
+import ForgotPassword from '../fearures/Authentication/ForgotPassword';
+import Portfolio from '../fearures/Portfolio/Portfolio';
+import Services from '../fearures/Service/Services';
+import Wishlist from '../fearures/Wishlist/Wishlist';
 import { ShoppingBag, User as UserIcon, LogOut, Menu, X, Heart, Facebook, Instagram, Linkedin, Twitter } from 'lucide-react';
 
 interface AppContextType {
