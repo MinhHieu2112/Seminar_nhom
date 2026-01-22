@@ -2,7 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { hashPassword } from '@/helpers/util';
-import { PrismaService } from 'src/prisma/prisma.service';
+import { PrismaService } from '@/prisma/prisma.service';
 import { User } from '@prisma/client';
 import aqp from 'api-query-params';
 
@@ -17,6 +17,8 @@ export class UsersService {
     });
     return existingUser;
   };
+
+  /* ======================= CREATE USER =======================*/
 
   async create(createUserDto: CreateUserDto, currentUser?: User) {
     try {
@@ -60,6 +62,8 @@ export class UsersService {
       throw error;
     }
   }
+
+  /* ======================= FIND ALL USER =======================*/
 
   async findAll(query: any) {
     // 1. aqp cần một chuỗi query string.
@@ -106,15 +110,59 @@ export class UsersService {
     };
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} user`;
+  /* ======================= FIND ONE USER =======================*/
+
+  async findOne(id: number) {
+    return await this.prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        createdAt: true,
+      },
+    });
   }
 
-  update(id: number, updateUserDto: UpdateUserDto) {
-    return `This action updates a #${id} user`;
+  /* ======================= FIND BY EMAIL USER =======================*/
+
+  async findByEmail(email: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+    });
+    if (!user) {
+      throw new BadRequestException(`Vui lòng kiểm tra lại tài khoản!`);
+    } else {
+      return user;
+    }
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} user`;
+  /* ======================= UPDATE USER =======================*/
+
+  async update(updateUserDto: UpdateUserDto) {
+    // Tách id ra khỏi data để update
+    const { id, ...data } = updateUserDto;
+    return await this.prisma.user.update({
+      where: { id: +id },
+      data: {
+        ...data,
+      },
+    });
+  }
+
+  /* ======================= DELETE USER =======================*/
+
+  async remove(id: number) {
+    // check id
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) {
+      throw new BadRequestException(`Người dùng không tồn tại!`);
+    } else {
+      // Xoá user
+      return await this.prisma.user.delete({
+        where: { id },
+      });
+    }
   }
 }

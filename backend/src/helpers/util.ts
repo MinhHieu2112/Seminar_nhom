@@ -8,3 +8,14 @@ export const hashPassword = async (plainPassword: string): Promise<string> => {
     throw error;
   }
 };
+
+export const comparePassword = async (
+  plainPassword: string,
+  hashPassword: string,
+): Promise<boolean> => {
+  try {
+    return await bcrypt.compare(plainPassword, hashPassword);
+  } catch (error) {
+    throw error;
+  }
+};

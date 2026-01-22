@@ -1,5 +1,7 @@
+import { Role } from '@prisma/client';
 import {
   IsEmail,
+  IsEnum,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -23,8 +25,9 @@ export class CreateUserDto {
   @MinLength(6, { message: 'Mật khẩu phải có ít nhất 6 ký tự' })
   password: string; // Trong DTO dùng 'password', sau đó Service sẽ hash thành 'passwordHash'
 
+  @IsEnum(['admin', 'customer', 'staff'], { message: 'Vai trò không hợp lệ' })
   @IsOptional()
-  role?: string;
+  role?: Role;
 
   @IsString()
   @IsOptional()

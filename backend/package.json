@@ -24,6 +24,7 @@
     "@nestjs/common": "^11.1.12",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.1.12",
+    "@nestjs/jwt": "11.0.2",
     "@nestjs/mapped-types": "^2.1.0",
     "@nestjs/platform-express": "^11.1.12",
     "@prisma/client": "^6.19.2",
@@ -75,6 +76,12 @@
     "collectCoverageFrom": [
       "**/*.(t|j)s"
     ],
+    "transformIgnorePatterns": [
+      "node_modules/(?!(api-query-params)/)"
+    ],
+    "moduleNameMapper": {
+      "^@/(.*)$": "<rootDir>/$1"
+    },
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"
   }
