@@ -10,12 +10,13 @@ export enum OrderStatus {
 
 // Fix: Added Review interface to support product reviews in constants and detail page
 export interface Review {
-  id: string;
-  user_name: string;
+  id: number;
   rating: number;
   comment: string;
-  date: string;
-  avatar?: string;
+  createdAt: string;
+  productId: number;
+  userId: number;
+  user?: User; // Để lấy avatar/name từ đây
 }
 
 export interface User {
@@ -48,27 +49,36 @@ export interface Notification {
 }
 
 export interface Category {
-  id: string;
+  id: number;
   name: string;
-  parent_id?: string;
+  parentId?: number | null;
 }
 
+// Product Image
+export interface ProductImage {
+  id: number;
+  productId: number;
+  imageUrl: string;
+}
+
+// Product (Định nghĩa lại hoàn toàn)
 export interface Product {
-  id: string;
+  id: number;
   name: string;
   sku: string;
   price: number;
   discount: number;
+  stock: number;
   material: string;
   dimension: string;
   weight: number;
   description: string;
-  category_id: string;
-  category?: string;
   status: 'active' | 'inactive';
-  created_at?: string;
-  images: string[];
-  rating?: number;
+  rating: number;
+  createdAt: string;
+  categoryId: number;
+  category?: Category;      // Object thay vì string
+  images: ProductImage[];   // Array object thay vì array string
   reviews?: Review[];
 }
 
@@ -109,15 +119,23 @@ export interface ServiceRequest {
   created_at?: string;
 }
 
+// Định nghĩa cấu trúc cho từng tấm ảnh của dự án
+export interface ProjectImage {
+  id: number;
+  projectId: number;
+  imageUrl: string; // Sử dụng imageUrl thay vì url để khớp với Prisma
+}
+
+// Cập nhật Interface Project chính
 export interface Project {
-  id: string;
+  id: number;
   name: string;
   location: string;
   area: number;
   style: string;
-  completed_year: number;
+  completedYear: number;
   description: string;
-  images: string[];
+  images: ProjectImage[]; 
 }
 
 export interface AuthState {
