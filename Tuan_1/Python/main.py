@@ -6,6 +6,7 @@ from typing import Dict, List, Optional
 
 from fastapi import FastAPI
 from fastapi import FastAPI, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 
@@ -51,6 +52,15 @@ app = FastAPI(
 	title="LuxDecor Example API",
 	version="0.1.0",
 	description="Minimal FastAPI app with root and health endpoints",
+)
+
+# Configure CORS
+app.add_middleware(
+	CORSMiddleware,
+	allow_origins=["*"],
+	allow_credentials=True,
+	allow_methods=["*"],
+	allow_headers=["*"],
 )
 
 
