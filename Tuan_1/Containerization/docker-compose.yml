@@ -1,0 +1,29 @@
+version: '3.8'
+services:
+  python-api:
+    build:
+      context: ./python
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  java-api:
+    build:
+      context: ./java
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+  blazor-client:
+    build:
+      context: ./blazor
+      dockerfile: Dockerfile
+    ports:
+      - "5000:80"
+    restart: unless-stopped
+
+networks:
+  default:
+    name: luxdecor-network
