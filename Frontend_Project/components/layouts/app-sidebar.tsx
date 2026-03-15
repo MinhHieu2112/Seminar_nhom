@@ -64,6 +64,11 @@ const mainNavItems = [
     icon: Route,
   },
   {
+    title: "Courses",
+    url: "/courses",
+    icon: Trophy,
+  },
+  {
     title: "Mini Games",
     url: "/mini-games",
     icon: Gamepad2,

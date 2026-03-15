@@ -368,4 +368,6 @@ export interface LearningModule {
   problems: Problem[]
   isUnlocked: boolean
   isCompleted: boolean
+  unlockCost?: number
+  unlockXpRequirement?: number
 }

@@ -1,182 +1,131 @@
-import { Metadata } from "next"
-import { Trophy, Flame, Target, BookOpen, Code2, Gamepad2 } from "lucide-react"
+"use client"
+
+import { useEffect } from "react"
+import { Trophy, Flame, Target, BookOpen, CheckCircle2, XCircle, Clock } from "lucide-react"
+import { toast } from "sonner"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
+import { Skeleton } from "@/components/ui/skeleton"
 
-export const metadata: Metadata = {
-  title: "Dashboard",
-  description: "Your learning progress and statistics",
+import { useCurrentUser } from "@/lib/api/services/user-service"
+import { useRecentSubmissions } from "@/lib/api/services/submission-service"
+import { useEnrolledPaths } from "@/lib/api/services/learning-path-service"
+import { getUnlockHistory } from "@/lib/utils/unlock-history"
+
+const statusMap: Record<string, { icon: React.ComponentType<{ className?: string }>; label: string; color: string }> = {
+  accepted: { icon: CheckCircle2, label: "Accepted", color: "text-emerald-600" },
+  wrong_answer: { icon: XCircle, label: "Wrong Answer", color: "text-red-600" },
+  time_limit_exceeded: { icon: Clock, label: "TLE", color: "text-amber-600" },
+  runtime_error: { icon: XCircle, label: "Error", color: "text-red-600" },
+  pending: { icon: Clock, label: "Pending", color: "text-slate-600" },
 }
 
-// Mock data for demonstration
-const stats = [
-  {
-    title: "Current Level",
-    value: "12",
-    description: "2,450 / 3,000 XP to next level",
-    icon: Trophy,
-    color: "text-level",
-    bgColor: "bg-level/10",
-    progress: 82,
-  },
-  {
-    title: "Day Streak",
-    value: "7",
-    description: "Keep it up! Longest: 14 days",
-    icon: Flame,
-    color: "text-streak",
-    bgColor: "bg-streak/10",
-    progress: 50,
-  },
-  {
-    title: "Problems Solved",
-    value: "47",
-    description: "12 this week",
-    icon: Target,
-    color: "text-primary",
-    bgColor: "bg-primary/10",
-    progress: 47,
-  },
-  {
-    title: "Courses Completed",
-    value: "3",
-    description: "2 in progress",
-    icon: BookOpen,
-    color: "text-success",
-    bgColor: "bg-success/10",
-    progress: 60,
-  },
-]
-
-const recentActivity = [
-  { type: "problem", title: "Two Sum", difficulty: "Easy", xp: 50, time: "2h ago" },
-  { type: "lesson", title: "Array Methods", course: "JavaScript Basics", xp: 25, time: "3h ago" },
-  { type: "game", title: "Code Golf Challenge", score: 850, xp: 75, time: "5h ago" },
-  { type: "problem", title: "Valid Parentheses", difficulty: "Medium", xp: 100, time: "1d ago" },
-]
-
 export default function DashboardPage() {
-  return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Welcome back, Alex!</h1>
-        <p className="text-muted-foreground">
-          {"Here's"} what{"'s"} happening with your learning journey.
-        </p>
-      </div>
+  const { data: userResp, isLoading: userLoading } = useCurrentUser()
+  const { data: recentResp, isLoading: recentLoading } = useRecentSubmissions(6)
+  const { data: enrolledResp, isLoading: enrolledLoading } = useEnrolledPaths()
 
-      {/* Stats Grid */}
+  const user = userResp?.data
+  const submissions = recentResp?.data ?? []
+  const enrolled = enrolledResp?.data ?? []
+
+  useEffect(() => {
+    const history = getUnlockHistory()
+    if (history.length > 0) {
+      toast.success(`Unlocked ${history[0].moduleTitle} in ${history[0].courseTitle}`)
+    }
+  }, [])
+
+  if (userLoading || recentLoading || enrolledLoading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-8 w-1/3" />
+        <Skeleton className="h-48 w-full" />
+      </div>
+    )
+  }
+
+  const xpProgress = user?.xpToNextLevel ? Math.min(100, Math.round((user.xp / user.xpToNextLevel) * 100)) : 0
+
+  const stats = [
+    { title: "Level", value: user?.level ?? 0, description: `${user?.xp ?? 0}/${user?.xpToNextLevel ?? 1} XP`, icon: Trophy, progress: xpProgress, color: "text-amber-500", bg: "bg-amber-500/10" },
+    { title: "Streak", value: user?.streak ?? 0, description: "Current streak", icon: Flame, progress: Math.min(100, (user?.streak ?? 0) * 10), color: "text-rose-500", bg: "bg-rose-500/10" },
+    { title: "Solved", value: user?.totalSolved ?? 0, description: "Problems solved", icon: Target, progress: Math.min(100, ((user?.totalSolved ?? 0) / 100) * 100), color: "text-sky-500", bg: "bg-sky-500/10" },
+    { title: "Courses", value: enrolled.filter((p) => p.progress >= 100).length, description: `${enrolled.length} enrolled`, icon: BookOpen, progress: enrolled.length ? Math.round((enrolled.filter((p) => p.progress >= 100).length / enrolled.length) * 100) : 0, color: "text-emerald-500", bg: "bg-emerald-500/10" },
+  ]
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold">Hello, {user?.username ?? "Learner"}</h1>
+        <p className="text-muted-foreground">Overview of progress and recent activity.</p>
+      </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => (
           <Card key={stat.title}>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                {stat.title}
-              </CardTitle>
-              <div className={`rounded-full p-2 ${stat.bgColor}`}>
+            <CardHeader className="flex items-center justify-between pb-2">
+              <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{stat.title}</CardTitle>
+              <div className={`rounded-full p-2 ${stat.bg}`}>
                 <stat.icon className={`size-4 ${stat.color}`} />
               </div>
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stat.value}</div>
+            <CardContent className="space-y-2">
+              <div className="text-2xl font-semibold">{stat.value}</div>
               <p className="text-xs text-muted-foreground">{stat.description}</p>
-              <Progress value={stat.progress} className="mt-3 h-1" />
+              <Progress value={stat.progress} className="h-1" />
             </CardContent>
           </Card>
         ))}
       </div>
-
-      {/* Main Content */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Recent Activity */}
+      <div className="grid gap-6 xl:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
-            <CardDescription>Your latest learning activities</CardDescription>
+            <CardTitle>Recent Submissions</CardTitle>
+            <CardDescription>Latest solves and results</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-col gap-4">
-              {recentActivity.map((activity, index) => (
-                <div
-                  key={index}
-                  className="flex items-center gap-4 rounded-lg border p-3"
-                >
-                  <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted">
-                    {activity.type === "problem" && <Code2 className="size-5 text-primary" />}
-                    {activity.type === "lesson" && <BookOpen className="size-5 text-success" />}
-                    {activity.type === "game" && <Gamepad2 className="size-5 text-accent" />}
+            <div className="space-y-2">
+              {submissions.length === 0 ? <p className="text-sm text-muted-foreground">No submissions yet.</p> : submissions.map((s) => {
+                const status = statusMap[s.status] ?? statusMap.pending
+                const Icon = status.icon
+                return (
+                  <div key={s.id} className="rounded-lg border p-3">
+                    <div className="flex items-start justify-between">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-sm truncate">{s.problemTitle}</p>
+                        <p className="text-xs text-muted-foreground">{s.language} • {new Date(s.createdAt).toLocaleDateString()}</p>
+                      </div>
+                      <div className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${status.color}`}>
+                        <Icon className="size-3" />{status.label}
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">+{s.xpEarned} XP</p>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="truncate font-medium">{activity.title}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {activity.type === "problem" && `Difficulty: ${activity.difficulty}`}
-                      {activity.type === "lesson" && activity.course}
-                      {activity.type === "game" && `Score: ${activity.score}`}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-medium text-xp">+{activity.xp} XP</p>
-                    <p className="text-xs text-muted-foreground">{activity.time}</p>
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </CardContent>
         </Card>
-
-        {/* Continue Learning */}
         <Card>
           <CardHeader>
             <CardTitle>Continue Learning</CardTitle>
-            <CardDescription>Pick up where you left off</CardDescription>
+            <CardDescription>Resume your paths</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-col gap-4">
-              <div className="rounded-lg border p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10">
-                      <BookOpen className="size-5 text-primary" />
-                    </div>
+            <div className="space-y-2">
+              {enrolled.length === 0 ? <p className="text-sm text-muted-foreground">No enrolled paths yet.</p> : enrolled.slice(0, 4).map((path) => (
+                <div key={path.id} className="rounded-lg border p-3">
+                  <div className="flex justify-between">
                     <div>
-                      <p className="font-medium">JavaScript Fundamentals</p>
-                      <p className="text-sm text-muted-foreground">12 of 24 lessons completed</p>
+                      <p className="font-medium">{path.title}</p>
+                      <p className="text-xs text-muted-foreground">{path.completedModules}/{path.totalModules ?? 0} modules</p>
                     </div>
+                    <span className="text-xs font-semibold">{path.progress ?? 0}%</span>
                   </div>
+                  <Progress value={path.progress ?? 0} className="mt-2 h-2" />
                 </div>
-                <Progress value={50} className="mt-4 h-2" />
-              </div>
-
-              <div className="rounded-lg border p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="flex size-10 items-center justify-center rounded-lg bg-success/10">
-                      <Code2 className="size-5 text-success" />
-                    </div>
-                    <div>
-                      <p className="font-medium">Data Structures</p>
-                      <p className="text-sm text-muted-foreground">8 of 20 lessons completed</p>
-                    </div>
-                  </div>
-                </div>
-                <Progress value={40} className="mt-4 h-2" />
-              </div>
-
-              <div className="rounded-lg border p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="flex size-10 items-center justify-center rounded-lg bg-level/10">
-                      <Target className="size-5 text-level" />
-                    </div>
-                    <div>
-                      <p className="font-medium">Algorithm Challenges</p>
-                      <p className="text-sm text-muted-foreground">5 of 15 challenges completed</p>
-                    </div>
-                  </div>
-                </div>
-                <Progress value={33} className="mt-4 h-2" />
-              </div>
+              ))}
             </div>
           </CardContent>
         </Card>

@@ -6,18 +6,25 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Lock, CheckCircle2, ChevronDown, ChevronUp } from 'lucide-react'
 import { useState } from 'react'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { LessonCard } from './lesson-card'
-import type { LearningModule } from '@/lib/api/types'
+import type { LearningModule, User } from '@/lib/api/types'
 
 interface ModuleSectionProps {
   module: LearningModule
   pathId: string
-  onUnlock?: (moduleId: string) => void
+  user?: User
+  onUnlock?: (moduleId: string, moduleTitle: string) => void
 }
 
-export function ModuleSection({ module, pathId, onUnlock }: ModuleSectionProps) {
+export function ModuleSection({ module, pathId, user, onUnlock }: ModuleSectionProps) {
   const [isExpanded, setIsExpanded] = useState(module.isUnlocked && !module.isCompleted)
+
+  const unlockCost = module.unlockCost ?? Math.max(20, module.order * 15)
+  const unlockXpRequirement = module.unlockXpRequirement ?? Math.max(50, module.order * 30)
+  const hasEnoughCoins = user ? user.coins >= unlockCost : true
+  const hasEnoughXp = user ? user.xp >= unlockXpRequirement : true
 
   const completedLessons = module.problems.filter((p) => p.isCompleted).length
   const totalLessons = module.problems.length
@@ -25,7 +32,13 @@ export function ModuleSection({ module, pathId, onUnlock }: ModuleSectionProps) 
 
   const handleUnlock = () => {
     if (!module.isUnlocked && onUnlock) {
-      onUnlock(module.id)
+      if (!hasEnoughCoins || !hasEnoughXp) {
+        toast.error(
+          `Can't unlock yet. You need ${unlockCost} coins and ${unlockXpRequirement} XP.`
+        )
+        return
+      }
+      onUnlock(module.id, module.title)
     }
   }
 
@@ -57,30 +70,44 @@ export function ModuleSection({ module, pathId, onUnlock }: ModuleSectionProps) 
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            {module.isCompleted && (
-              <Badge variant="outline" className="bg-success/10 text-success border-success/20">
-                Completed
-              </Badge>
-            )}
-            {!module.isUnlocked && (
-              <Button size="sm" variant="outline" onClick={handleUnlock}>
-                Unlock Module
-              </Button>
-            )}
-            {module.isUnlocked && module.problems.length > 0 && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setIsExpanded(!isExpanded)}
-              >
-                {isExpanded ? (
-                  <ChevronUp className="size-4" />
-                ) : (
-                  <ChevronDown className="size-4" />
-                )}
-              </Button>
-            )}
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              {module.isCompleted && (
+                <Badge variant="outline" className="bg-success/10 text-success border-success/20">
+                  Completed
+                </Badge>
+              )}
+              {!module.isUnlocked && (
+                <Badge variant="secondary" className="text-xs">
+                  Unlock: {unlockCost} coins, {unlockXpRequirement} XP
+                </Badge>
+              )}
+              {!module.isUnlocked && (!hasEnoughCoins || !hasEnoughXp) && (
+                <Badge variant="destructive" className="text-xs">
+                  Insufficient rewards
+                </Badge>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {!module.isUnlocked && (
+                <Button size="sm" variant="outline" onClick={handleUnlock}>
+                  {hasEnoughCoins && hasEnoughXp ? 'Unlock Module' : 'Cannot Unlock'}
+                </Button>
+              )}
+              {module.isUnlocked && module.problems.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setIsExpanded(!isExpanded)}
+                >
+                  {isExpanded ? (
+                    <ChevronUp className="size-4" />
+                  ) : (
+                    <ChevronDown className="size-4" />
+                  )}
+                </Button>
+              )}
+            </div>
           </div>
         </div>
         {module.isUnlocked && (

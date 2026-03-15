@@ -51,7 +51,13 @@ export default function LearningPathPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
+      <div className="space-y-1">
+        <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-muted-foreground">
+          <span className="text-primary">Dashboard</span>
+          <span>/</span>
+          <span className="text-primary">Learning Path</span>
+        </div>
+        <p className="text-sm font-medium text-muted-foreground">Courses and Learning Paths</p>
         <h1 className="text-2xl font-bold tracking-tight">Learning Paths</h1>
         <p className="text-muted-foreground">
           Follow structured courses to build your programming skills step by step.

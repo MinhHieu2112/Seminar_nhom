@@ -1,31 +1,28 @@
-import { Metadata } from "next"
+"use client"
+
+import { useRecentSubmissions } from "@/lib/api/services"
 import { CheckCircle2, XCircle, Clock } from "lucide-react"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 
-export const metadata: Metadata = {
-  title: "Submissions",
-  description: "View your submission history",
-}
-
-// Mock data for demonstration
-const submissions = [
-  { id: 1, problem: "Two Sum", language: "JavaScript", status: "Accepted", runtime: "72ms", memory: "42.1MB", time: "2 hours ago" },
-  { id: 2, problem: "Valid Parentheses", language: "TypeScript", status: "Accepted", runtime: "56ms", memory: "41.8MB", time: "3 hours ago" },
-  { id: 3, problem: "Longest Substring", language: "JavaScript", status: "Wrong Answer", runtime: "-", memory: "-", time: "5 hours ago" },
-  { id: 4, problem: "Maximum Subarray", language: "Python", status: "Time Limit Exceeded", runtime: "-", memory: "-", time: "1 day ago" },
-  { id: 5, problem: "Binary Tree Inorder", language: "JavaScript", status: "Accepted", runtime: "64ms", memory: "43.2MB", time: "1 day ago" },
-  { id: 6, problem: "Climbing Stairs", language: "TypeScript", status: "Accepted", runtime: "48ms", memory: "40.9MB", time: "2 days ago" },
-]
 
 const statusConfig = {
-  "Accepted": { icon: CheckCircle2, color: "text-success", bg: "bg-success/10" },
-  "Wrong Answer": { icon: XCircle, color: "text-destructive", bg: "bg-destructive/10" },
-  "Time Limit Exceeded": { icon: Clock, color: "text-xp", bg: "bg-xp/10" },
+  accepted: { icon: CheckCircle2, color: "text-success", bg: "bg-success/10", label: "Accepted" },
+  wrong_answer: { icon: XCircle, color: "text-destructive", bg: "bg-destructive/10", label: "Wrong Answer" },
+  time_limit_exceeded: { icon: Clock, color: "text-xp", bg: "bg-xp/10", label: "TLE" },
+  runtime_error: { icon: XCircle, color: "text-destructive", bg: "bg-destructive/10", label: "Error" },
+  pending: { icon: Clock, color: "text-muted-foreground", bg: "bg-muted/10", label: "Pending" },
 }
 
 export default function SubmissionsPage() {
+  const { data, isLoading } = useRecentSubmissions(10)
+  const submissions = data?.data || []
+
+  if (isLoading) {
+    return <div className="min-h-[200px] flex items-center justify-center text-muted-foreground">Loading submissions…</div>
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div>
