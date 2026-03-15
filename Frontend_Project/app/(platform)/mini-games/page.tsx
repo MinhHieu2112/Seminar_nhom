@@ -1,56 +1,45 @@
-import { Metadata } from "next"
-import { Gamepad2, Zap, Timer, Trophy, Users } from "lucide-react"
+'use client'
+
+import { useRouter } from "next/navigation"
+import { Bug, Code2, ListOrdered, Trophy } from "lucide-react"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 
-export const metadata: Metadata = {
-  title: "Mini Games",
-  description: "Fun coding games to sharpen your skills",
-}
-
-// Mock data for demonstration
 const games = [
   {
-    id: 1,
-    title: "Code Golf",
-    description: "Write the shortest code to solve the challenge",
-    icon: Zap,
-    players: "Solo",
-    bestScore: 850,
-    xpReward: 75,
-    color: "bg-xp/10 text-xp",
-  },
-  {
-    id: 2,
-    title: "Speed Coding",
-    description: "Race against the clock to complete challenges",
-    icon: Timer,
-    players: "Solo",
-    bestScore: 1200,
-    xpReward: 100,
-    color: "bg-streak/10 text-streak",
-  },
-  {
-    id: 3,
-    title: "Code Battle",
-    description: "Compete head-to-head with other coders",
-    icon: Users,
-    players: "Multiplayer",
-    bestScore: 2100,
-    xpReward: 150,
-    color: "bg-level/10 text-level",
-  },
-  {
-    id: 4,
-    title: "Debug Quest",
+    id: 'debug',
+    title: "Debug Challenge",
     description: "Find and fix bugs in broken code",
-    icon: Gamepad2,
+    icon: Bug,
     players: "Solo",
     bestScore: 950,
     xpReward: 80,
-    color: "bg-success/10 text-success",
+    color: "bg-destructive/10 text-destructive",
+    route: "/mini-games/debug",
+  },
+  {
+    id: 'output',
+    title: "Output Prediction Quiz",
+    description: "Predict what code will output",
+    icon: Code2,
+    players: "Solo",
+    bestScore: 1200,
+    xpReward: 100,
+    color: "bg-xp/10 text-xp",
+    route: "/mini-games/output",
+  },
+  {
+    id: 'ordering',
+    title: "Code Ordering Puzzle",
+    description: "Arrange code blocks in the correct order",
+    icon: ListOrdered,
+    players: "Solo",
+    bestScore: 850,
+    xpReward: 75,
+    color: "bg-level/10 text-level",
+    route: "/mini-games/ordering",
   },
 ]
 
@@ -63,6 +52,8 @@ const leaderboard = [
 ]
 
 export default function MiniGamesPage() {
+  const router = useRouter()
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -100,7 +91,12 @@ export default function MiniGamesPage() {
                         <span className="font-semibold text-xp">+{game.xpReward} XP</span>
                       </div>
                     </div>
-                    <Button className="mt-4 w-full">Play Now</Button>
+                    <Button 
+                      className="mt-4 w-full"
+                      onClick={() => router.push(game.route)}
+                    >
+                      Play Now
+                    </Button>
                   </CardContent>
                 </Card>
               )

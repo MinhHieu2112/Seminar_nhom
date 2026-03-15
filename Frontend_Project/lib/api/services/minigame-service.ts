@@ -45,6 +45,12 @@ export const minigameApi = {
   // Get active session
   getActiveSession: (sessionId: string) =>
     api.get<ApiResponse<StartMinigameResponse>>(`/minigames/session/${sessionId}`),
+
+  // Get minigame rewards
+  getMinigameRewards: (minigameId: string, score: number, timeSpent: number) =>
+    api.get<ApiResponse<{ xp: number; coins: number }>>(`/minigames/${minigameId}/rewards`, {
+      params: { score, timeSpent },
+    }),
 }
 
 // ============================================
@@ -119,5 +125,14 @@ export function useSubmitMinigame() {
       // Invalidate rewards (may have earned achievements)
       queryClient.invalidateQueries({ queryKey: queryKeys.rewards.all })
     },
+  })
+}
+
+// Get minigame rewards
+export function useMinigameRewards(minigameId: string, score: number, timeSpent: number) {
+  return useQuery({
+    queryKey: ['minigames', minigameId, 'rewards', score, timeSpent],
+    queryFn: () => minigameApi.getMinigameRewards(minigameId, score, timeSpent),
+    enabled: !!minigameId && score > 0,
   })
 }
