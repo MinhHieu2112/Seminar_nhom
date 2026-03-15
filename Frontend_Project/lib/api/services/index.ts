@@ -56,3 +56,15 @@ export {
   useStartMinigame,
   useSubmitMinigame,
 } from './minigame-service'
+
+// Learning Path Service
+export {
+  learningPathApi,
+  useLearningPaths,
+  useLearningPath,
+  useEnrolledPaths,
+  usePathProgress,
+  useEnrollInPath,
+  useUnlockModule,
+  useCompleteLesson,
+} from './learning-path-service'

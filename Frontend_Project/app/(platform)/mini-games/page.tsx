@@ -84,7 +84,7 @@ export default function MiniGamesPage() {
                     <div className="flex items-center justify-between">
                       <div className="flex flex-col gap-1">
                         <span className="text-xs text-muted-foreground">Best Score</span>
-                        <span className="font-semibold">{game.bestScore.toLocaleString()}</span>
+                        <span className="font-semibold">{game.bestScore.toLocaleString('en-US')}</span>
                       </div>
                       <div className="flex flex-col gap-1 text-right">
                         <span className="text-xs text-muted-foreground">Reward</span>
@@ -137,7 +137,7 @@ export default function MiniGamesPage() {
                         {player.name}
                       </p>
                     </div>
-                    <span className="text-sm font-semibold">{player.score.toLocaleString()}</span>
+                    <span className="text-sm font-semibold">{player.score.toLocaleString('en-US')}</span>
                   </div>
                 ))}
               </div>

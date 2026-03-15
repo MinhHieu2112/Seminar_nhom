@@ -43,7 +43,7 @@ export function XPProgressBar({
           </div>
           <div className="flex items-center gap-1 text-xp">
             <Zap className="size-4" />
-            <span className="text-sm font-medium">{xp.toLocaleString()}</span>
+            <span className="text-sm font-medium">{xp.toLocaleString('en-US')}</span>
           </div>
         </div>
       )}
@@ -53,7 +53,7 @@ export function XPProgressBar({
           <div className="mt-1.5 flex items-center justify-between text-xs">
             <span className="text-muted-foreground">XP Progress</span>
             <span className="font-medium text-xp">
-              {xp.toLocaleString()} / {xpToNextLevel.toLocaleString()}
+              {xp.toLocaleString('en-US')} / {xpToNextLevel.toLocaleString('en-US')}
             </span>
           </div>
         )}

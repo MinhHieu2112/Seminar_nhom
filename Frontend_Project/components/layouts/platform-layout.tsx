@@ -3,6 +3,7 @@
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/layouts/app-sidebar"
 import { AppHeader } from "@/components/layouts/app-header"
+import { Toaster } from "@/components/ui/sonner"
 
 interface PlatformLayoutProps {
   children: React.ReactNode
@@ -21,6 +22,7 @@ export function PlatformLayout({ children, defaultOpen = true }: PlatformLayoutP
           </div>
         </main>
       </SidebarInset>
+      <Toaster />
     </SidebarProvider>
   )
 }
