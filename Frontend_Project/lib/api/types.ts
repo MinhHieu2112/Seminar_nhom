@@ -152,6 +152,7 @@ export interface User {
   level: number
   xp: number
   xpToNextLevel: number
+  coins: number
   streak: number
   longestStreak: number
   rank: number

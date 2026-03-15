@@ -43,6 +43,7 @@
   --streak: oklch(0.6 0.22 25);
   --level: oklch(0.6 0.2 280);
   --success: oklch(0.55 0.2 145);
+  --coin: oklch(0.7 0.18 60);
 }
 
 .dark {
@@ -84,6 +85,7 @@
   --streak: oklch(0.65 0.22 25);
   --level: oklch(0.65 0.2 280);
   --success: oklch(0.65 0.2 145);
+  --coin: oklch(0.75 0.18 60);
 }
 
 @theme inline {
@@ -117,6 +119,7 @@
   --color-streak: var(--streak);
   --color-level: var(--level);
   --color-success: var(--success);
+  --color-coin: var(--coin);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
