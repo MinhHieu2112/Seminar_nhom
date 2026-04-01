@@ -19,12 +19,12 @@ export function UserSidebar() {
   ]
 
   return (
-    <aside className={`bg-slate-950 border-r border-slate-800 transition-all ${isOpen ? 'w-64' : 'w-20'}`}>
+    <aside className={`bg-white border-r border-gray-200 transition-all ${isOpen ? 'w-64' : 'w-20'}`}>
       <div className="h-screen flex flex-col">
-        <div className="p-4 border-b border-slate-800">
+        <div className="p-4 border-b border-gray-200">
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className="text-slate-400 hover:text-white transition-colors"
+            className="text-gray-500 hover:text-gray-900 transition-colors"
           >
             {isOpen ? '←' : '→'}
           </button>
@@ -36,12 +36,12 @@ export function UserSidebar() {
               <div
                 className={`flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${
                   pathname === item.href
-                    ? 'bg-purple-600 text-white'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                    ? 'bg-blue-600 text-white shadow-md'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                 }`}
               >
                 <span className="text-lg">{item.icon}</span>
-                {isOpen && <span>{item.label}</span>}
+                {isOpen && <span className="font-medium">{item.label}</span>}
               </div>
             </Link>
           ))}

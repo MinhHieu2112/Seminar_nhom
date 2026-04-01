@@ -6,6 +6,7 @@ import { useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAnalytics } from '@/hooks/useUser';
 import { Skeleton } from '@/components/ui/skeleton';
+import { BookOpen, Code2, Flame, Trophy, Target, TrendingUp } from 'lucide-react';
 
 export default function DashboardPage() {
   const { user, isAuthenticated, loading: authLoading } = useAuth();
@@ -39,99 +40,150 @@ export default function DashboardPage() {
   const userStats = analytics?.user_stats;
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold text-white mb-2">Welcome, {user?.username}!</h1>
-        <p className="text-gray-400">Your learning journey starts here</p>
+    <div className="max-w-5xl mx-auto space-y-8">
+      {/* Welcome Section */}
+      <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 rounded-2xl p-8 text-white shadow-lg shadow-purple-200">
+        <div className="flex items-center gap-4 mb-4">
+          <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-sm">
+            <span className="text-3xl">👋</span>
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold">Welcome back, {user?.username || 'Learner'}!</h1>
+            <p className="text-white/80">Ready to continue your coding journey?</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 text-sm text-white/70">
+          <Target className="w-4 h-4" />
+          <span>You&apos;re on a {userStats?.current_streak || 0} day streak! Keep it up!</span>
+        </div>
       </div>
 
+      {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="bg-slate-900/50 border-purple-500/20">
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-gray-300">Courses</CardTitle>
+        <Card className="border-0 shadow-lg bg-white hover:shadow-xl transition-shadow">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
+                <BookOpen className="w-5 h-5 text-blue-600" />
+              </div>
+              <CardTitle className="text-sm font-medium text-gray-600">Courses</CardTitle>
+            </div>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold text-white">{userStats?.lessons_completed || 0}</p>
-            <p className="text-xs text-gray-400 mt-1">Lessons Completed</p>
+            <p className="text-3xl font-bold text-gray-900">{userStats?.lessons_completed || 0}</p>
+            <p className="text-xs text-gray-500 mt-1">Lessons Completed</p>
           </CardContent>
         </Card>
 
-        <Card className="bg-slate-900/50 border-purple-500/20">
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-gray-300">Exercises</CardTitle>
+        <Card className="border-0 shadow-lg bg-white hover:shadow-xl transition-shadow">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center">
+                <Code2 className="w-5 h-5 text-purple-600" />
+              </div>
+              <CardTitle className="text-sm font-medium text-gray-600">Exercises</CardTitle>
+            </div>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold text-white">{userStats?.exercises_solved || 0}</p>
-            <p className="text-xs text-gray-400 mt-1">Completed</p>
+            <p className="text-3xl font-bold text-gray-900">{userStats?.exercises_solved || 0}</p>
+            <p className="text-xs text-gray-500 mt-1">Completed</p>
           </CardContent>
         </Card>
 
-        <Card className="bg-slate-900/50 border-purple-500/20">
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-gray-300">Streak</CardTitle>
+        <Card className="border-0 shadow-lg bg-white hover:shadow-xl transition-shadow">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center">
+                <Flame className="w-5 h-5 text-orange-600" />
+              </div>
+              <CardTitle className="text-sm font-medium text-gray-600">Streak</CardTitle>
+            </div>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold text-white">{userStats?.current_streak || 0}</p>
-            <p className="text-xs text-gray-400 mt-1">Days</p>
+            <p className="text-3xl font-bold text-gray-900">{userStats?.current_streak || 0}</p>
+            <p className="text-xs text-gray-500 mt-1">Days</p>
           </CardContent>
         </Card>
       </div>
 
-      <div className="mt-8">
-        <h2 className="text-2xl font-bold text-white mb-4">Your Progress</h2>
-        <Card className="bg-slate-900/50 border-purple-500/20">
-          <CardContent className="pt-6">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="text-center">
-                <p className="text-2xl font-bold text-purple-400">{userStats?.total_solved || 0}</p>
-                <p className="text-sm text-gray-400">Total Solved</p>
-              </div>
-              <div className="text-center">
-                <p className="text-2xl font-bold text-emerald-400">{userStats?.easy_solved || 0}</p>
-                <p className="text-sm text-gray-400">Easy</p>
-              </div>
-              <div className="text-center">
-                <p className="text-2xl font-bold text-amber-400">{userStats?.medium_solved || 0}</p>
-                <p className="text-sm text-gray-400">Medium</p>
-              </div>
-              <div className="text-center">
-                <p className="text-2xl font-bold text-red-400">{userStats?.hard_solved || 0}</p>
-                <p className="text-sm text-gray-400">Hard</p>
+      {/* Progress Section */}
+      <Card className="border-0 shadow-lg bg-white">
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center">
+              <Trophy className="w-5 h-5 text-purple-600" />
+            </div>
+            <div>
+              <CardTitle className="text-lg font-semibold text-gray-900">Your Progress</CardTitle>
+              <p className="text-sm text-gray-500">Keep pushing your limits!</p>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <div className="text-center p-4 rounded-xl bg-gray-50">
+              <p className="text-2xl font-bold text-gray-900">{userStats?.total_solved || 0}</p>
+              <p className="text-sm text-gray-500 mt-1">Total Solved</p>
+            </div>
+            <div className="text-center p-4 rounded-xl bg-green-50">
+              <p className="text-2xl font-bold text-green-600">{userStats?.easy_solved || 0}</p>
+              <p className="text-sm text-gray-500 mt-1">Easy</p>
+            </div>
+            <div className="text-center p-4 rounded-xl bg-yellow-50">
+              <p className="text-2xl font-bold text-yellow-600">{userStats?.medium_solved || 0}</p>
+              <p className="text-sm text-gray-500 mt-1">Medium</p>
+            </div>
+            <div className="text-center p-4 rounded-xl bg-red-50">
+              <p className="text-2xl font-bold text-red-600">{userStats?.hard_solved || 0}</p>
+              <p className="text-sm text-gray-500 mt-1">Hard</p>
+            </div>
+          </div>
+          {userStats?.global_rank && (
+            <div className="mt-6 pt-4 border-t border-gray-100">
+              <div className="flex items-center justify-center gap-2 text-gray-600">
+                <TrendingUp className="w-5 h-5 text-purple-600" />
+                <span>Global Rank:</span>
+                <span className="text-purple-600 font-bold">{'#'}{userStats.global_rank}</span>
               </div>
             </div>
-            {userStats?.global_rank && (
-              <div className="mt-6 pt-4 border-t border-slate-700">
-                <p className="text-center text-gray-400">
-                  {'Global Rank: '}
-                  <span className="text-purple-400 font-bold">
-                    {'#'}{userStats.global_rank}
-                  </span>
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+          )}
+        </CardContent>
+      </Card>
 
-      <div className="mt-8">
-        <h2 className="text-2xl font-bold text-white mb-4">Continue Learning</h2>
+      {/* Continue Learning */}
+      <div>
+        <h2 className="text-xl font-bold text-gray-900 mb-4">Continue Learning</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Card
-            className="bg-slate-900/50 border-purple-500/20 hover:border-purple-500/50 transition-colors cursor-pointer"
+            className="border-0 shadow-lg bg-white hover:shadow-xl transition-all cursor-pointer group"
             onClick={() => router.push('/courses')}
           >
-            <CardContent className="pt-6">
-              <p className="text-lg font-semibold text-white mb-2">Explore Courses</p>
-              <p className="text-sm text-gray-400">Continue your learning journey with our comprehensive courses.</p>
+            <CardContent className="p-6">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <BookOpen className="w-6 h-6 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-1">Explore Courses</h3>
+                  <p className="text-sm text-gray-500">Continue your learning journey with our comprehensive courses.</p>
+                </div>
+              </div>
             </CardContent>
           </Card>
           <Card
-            className="bg-slate-900/50 border-purple-500/20 hover:border-purple-500/50 transition-colors cursor-pointer"
+            className="border-0 shadow-lg bg-white hover:shadow-xl transition-all cursor-pointer group"
             onClick={() => router.push('/practice')}
           >
-            <CardContent className="pt-6">
-              <p className="text-lg font-semibold text-white mb-2">Practice Coding</p>
-              <p className="text-sm text-gray-400">Sharpen your skills with coding exercises.</p>
+            <CardContent className="p-6">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <Code2 className="w-6 h-6 text-purple-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-1">Practice Coding</h3>
+                  <p className="text-sm text-gray-500">Sharpen your skills with coding exercises.</p>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </div>

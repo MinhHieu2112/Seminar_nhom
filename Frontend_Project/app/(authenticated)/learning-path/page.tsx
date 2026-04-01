@@ -47,17 +47,17 @@ export default function LearningPathPage() {
   }, [user?.id])
 
   return (
-    <div className="min-h-screen bg-slate-950 p-8">
+    <div className="p-6">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">Learning Path</h1>
-          <p className="text-slate-400">Track your progress and build a consistent learning habit</p>
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">Learning Path</h1>
+          <p className="text-gray-500">Track your progress and build a consistent learning habit</p>
         </div>
 
         {loading ? (
           <div className="text-center py-12">
             <div className="inline-flex items-center justify-center">
-              <div className="w-8 h-8 rounded-full border-4 border-purple-600 border-t-transparent animate-spin" />
+              <div className="w-8 h-8 rounded-full border-4 border-blue-600 border-t-transparent animate-spin" />
             </div>
           </div>
         ) : (
@@ -87,47 +87,47 @@ export default function LearningPathPage() {
             </div>
 
             {/* Progress Bar */}
-            <div className="bg-slate-900 rounded-lg p-6">
-              <h2 className="text-xl font-bold text-white mb-4">Overall Progress</h2>
+            <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+              <h2 className="text-xl font-bold text-gray-900 mb-4">Overall Progress</h2>
               <ProgressBar value={stats?.overall_progress || 0} />
             </div>
 
             {/* Chart */}
-            <div className="bg-slate-900 rounded-lg p-6">
-              <h2 className="text-xl font-bold text-white mb-4">Completion by Difficulty</h2>
+            <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+              <h2 className="text-xl font-bold text-gray-900 mb-4">Completion by Difficulty</h2>
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                  <XAxis dataKey="name" stroke="#94a3b8" />
-                  <YAxis stroke="#94a3b8" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="name" stroke="#6b7280" />
+                  <YAxis stroke="#6b7280" />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: '#1e293b',
-                      border: '1px solid #475569',
+                      backgroundColor: '#ffffff',
+                      border: '1px solid #e5e7eb',
                       borderRadius: '8px',
                     }}
                     formatter={(value) => [value, '']}
                   />
-                  <Bar dataKey="completed" fill="#a855f7" />
+                  <Bar dataKey="completed" fill="#3b82f6" />
                 </BarChart>
               </ResponsiveContainer>
             </div>
 
             {/* Daily Plan */}
-            <div className="bg-slate-900 rounded-lg p-6">
-              <h2 className="text-xl font-bold text-white mb-4">Today's Plan</h2>
+            <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+              <h2 className="text-xl font-bold text-gray-900 mb-4">Today's Plan</h2>
               <div className="space-y-3">
-                <label className="flex items-center gap-3 p-3 bg-slate-800 rounded-lg cursor-pointer hover:bg-slate-700">
-                  <input type="checkbox" className="w-5 h-5" defaultChecked />
-                  <span className="text-slate-300">Solve 2 Easy Problems</span>
+                <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
+                  <input type="checkbox" className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500" defaultChecked />
+                  <span className="text-gray-700">Solve 2 Easy Problems</span>
                 </label>
-                <label className="flex items-center gap-3 p-3 bg-slate-800 rounded-lg cursor-pointer hover:bg-slate-700">
-                  <input type="checkbox" className="w-5 h-5" />
-                  <span className="text-slate-300">Complete 1 Medium Problem</span>
+                <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
+                  <input type="checkbox" className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                  <span className="text-gray-700">Complete 1 Medium Problem</span>
                 </label>
-                <label className="flex items-center gap-3 p-3 bg-slate-800 rounded-lg cursor-pointer hover:bg-slate-700">
-                  <input type="checkbox" className="w-5 h-5" />
-                  <span className="text-slate-300">Watch 1 Course Lesson</span>
+                <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
+                  <input type="checkbox" className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                  <span className="text-gray-700">Watch 1 Course Lesson</span>
                 </label>
               </div>
             </div>

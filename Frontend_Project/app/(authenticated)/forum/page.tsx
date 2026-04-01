@@ -58,7 +58,7 @@ export default function ForumPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-950 p-8">
+      <div className="p-6">
         <div className="max-w-4xl mx-auto space-y-4">
           <Skeleton className="h-12 w-48" />
           <Skeleton className="h-10 w-full" />
@@ -72,7 +72,7 @@ export default function ForumPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-slate-950 p-8">
+      <div className="p-6">
         <div className="max-w-4xl mx-auto">
           <EmptyState
             icon="⚠️"
@@ -85,18 +85,18 @@ export default function ForumPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 p-8">
+    <div className="p-6">
       <div className="max-w-4xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">Forum</h1>
-          <p className="text-slate-400">Ask questions and share knowledge with the community</p>
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">Forum</h1>
+          <p className="text-gray-500">Ask questions and share knowledge with the community</p>
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value as QuestionFilter['sort'])}
-            className="bg-slate-800 border border-slate-700 text-white rounded-lg px-4 py-2 focus:outline-none focus:border-purple-500"
+            className="bg-white border border-gray-200 text-gray-900 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
           >
             {SORT_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -106,39 +106,46 @@ export default function ForumPage() {
           </select>
 
           {user && (
-            <Button onClick={() => setShowCreateForm(!showCreateForm)}>
+            <Button 
+              onClick={() => setShowCreateForm(!showCreateForm)}
+              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+            >
               {showCreateForm ? 'Cancel' : 'Ask Question'}
             </Button>
           )}
         </div>
 
         {showCreateForm && (
-          <div className="bg-slate-900 rounded-lg p-6 border border-slate-800 mb-8">
-            <h2 className="text-xl font-bold text-white mb-4">Ask a Question</h2>
+          <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm mb-8">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Ask a Question</h2>
             <form onSubmit={handleCreate}>
               <div className="mb-4">
-                <label className="block text-sm font-medium text-slate-300 mb-2">Title</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
                 <input
                   type="text"
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-4 py-2 focus:outline-none focus:border-purple-500"
+                  className="w-full bg-gray-50 border border-gray-200 text-gray-900 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
                   placeholder="What's your question?"
                   required
                 />
               </div>
               <div className="mb-6">
-                <label className="block text-sm font-medium text-slate-300 mb-2">Content</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Content</label>
                 <textarea
                   value={formData.content}
                   onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                  className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-4 py-2 h-32 focus:outline-none focus:border-purple-500 resize-none"
+                  className="w-full bg-gray-50 border border-gray-200 text-gray-900 rounded-lg px-4 py-2 h-32 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 resize-none"
                   placeholder="Provide more details..."
                   required
                 />
               </div>
               <div className="flex gap-2">
-                <Button type="submit" disabled={createQuestion.isPending}>
+                <Button 
+                  type="submit" 
+                  disabled={createQuestion.isPending}
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+                >
                   {createQuestion.isPending ? 'Posting...' : 'Post Question'}
                 </Button>
               </div>
@@ -157,40 +164,40 @@ export default function ForumPage() {
             {questions.map((question) => (
               <div
                 key={question.id}
-                className="bg-slate-900 rounded-lg border border-slate-800 p-4 hover:border-purple-500 transition-colors"
+                className="bg-white rounded-xl border border-gray-200 p-4 hover:border-blue-500 hover:shadow-md transition-all"
               >
                 <div className="flex items-start gap-4">
                   <div className="flex flex-col items-center gap-1">
                     <button
                       onClick={() => handleVote(question.id, VoteType.UPVOTE)}
-                      className="p-1 hover:bg-slate-800 rounded transition-colors"
+                      className="p-1 hover:bg-gray-100 rounded transition-colors"
                       disabled={voteQuestion.isPending}
                     >
-                      <ThumbsUp className="w-5 h-5 text-slate-400 hover:text-purple-400" />
+                      <ThumbsUp className="w-5 h-5 text-gray-400 hover:text-blue-500" />
                     </button>
-                    <span className="text-sm font-medium text-white">
+                    <span className="text-sm font-medium text-gray-900">
                       {question.answer_count || 0}
                     </span>
                     <button
                       onClick={() => handleVote(question.id, VoteType.DOWNVOTE)}
-                      className="p-1 hover:bg-slate-800 rounded transition-colors"
+                      className="p-1 hover:bg-gray-100 rounded transition-colors"
                       disabled={voteQuestion.isPending}
                     >
-                      <ThumbsDown className="w-5 h-5 text-slate-400 hover:text-red-400" />
+                      <ThumbsDown className="w-5 h-5 text-gray-400 hover:text-red-500" />
                     </button>
                   </div>
 
                   <div className="flex-1 min-w-0">
                     <Link href={`/forum/${question.id}`}>
-                      <h3 className="text-lg font-semibold text-white hover:text-purple-400 mb-2">
+                      <h3 className="text-lg font-semibold text-gray-900 hover:text-blue-600 mb-2">
                         {question.title}
                         {question.is_resolved && (
-                          <CheckCircle className="inline-block w-5 h-5 text-emerald-400 ml-2" />
+                          <CheckCircle className="inline-block w-5 h-5 text-green-500 ml-2" />
                         )}
                       </h3>
                     </Link>
-                    <p className="text-slate-400 text-sm mb-3 line-clamp-2">{question.content}</p>
-                    <div className="flex items-center gap-4 text-sm text-slate-500">
+                    <p className="text-gray-500 text-sm mb-3 line-clamp-2">{question.content}</p>
+                    <div className="flex items-center gap-4 text-sm text-gray-400">
                       <span>Posted by {question.user?.username || 'Unknown'}</span>
                       <span>•</span>
                       <span>{new Date(question.created_at).toLocaleDateString()}</span>

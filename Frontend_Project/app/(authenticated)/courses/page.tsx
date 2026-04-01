@@ -42,7 +42,7 @@ export default function CoursesPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-950 p-8">
+      <div className="p-6">
         <div className="max-w-7xl mx-auto">
           <div className="mb-8">
             <Skeleton className="h-10 w-48 mb-2" />
@@ -65,7 +65,7 @@ export default function CoursesPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-slate-950 p-8">
+      <div className="p-6">
         <div className="max-w-7xl mx-auto">
           <EmptyState
             icon="⚠️"
@@ -78,11 +78,11 @@ export default function CoursesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 p-8">
+    <div className="p-6">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">Courses</h1>
-          <p className="text-slate-400">Explore our comprehensive course catalog</p>
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">Courses</h1>
+          <p className="text-gray-500">Explore our comprehensive course catalog</p>
         </div>
 
         <div className="flex flex-wrap gap-2 mb-8">
@@ -92,8 +92,8 @@ export default function CoursesPage() {
               onClick={() => setActiveFilter(f.value)}
               className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                 activeFilter === f.value
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                  ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-md'
+                  : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
               }`}
             >
               {f.label}
