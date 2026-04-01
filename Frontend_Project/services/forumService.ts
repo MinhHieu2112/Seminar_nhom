@@ -1,88 +1,57 @@
-import { supabase } from '@/lib/supabase'
+import { api } from '@/lib/api-client';
+import type {
+  ForumQuestion,
+  ForumAnswer,
+  CreateQuestionRequest,
+  CreateAnswerRequest,
+  VoteRequest,
+  VoteResponse,
+  QuestionFilter,
+} from '@/types/api-types';
 
-export async function getThreads(page = 1, limit = 20) {
-  const offset = (page - 1) * limit
+export const forumService = {
+  getQuestions: async (filter?: QuestionFilter): Promise<ForumQuestion[]> => {
+    const queryParams = new URLSearchParams();
+    
+    if (filter?.lesson_id) {
+      queryParams.append('lesson_id', filter.lesson_id);
+    }
+    if (filter?.search) {
+      queryParams.append('search', filter.search);
+    }
+    if (filter?.sort) {
+      queryParams.append('sort', filter.sort);
+    }
 
-  const { data, error } = await supabase
-    .from('forum_questions')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1)
+    const query = queryParams.toString();
+    return api.get<ForumQuestion[]>(`/forum/questions${query ? `?${query}` : ''}`);
+  },
 
-  if (error) {
-    console.error('Error fetching threads:', error)
-    return []
-  }
+  getQuestionById: async (questionId: string): Promise<ForumQuestion> => {
+    return api.get<ForumQuestion>(`/forum/questions/${questionId}`);
+  },
 
-  return data || []
-}
+  createQuestion: async (data: CreateQuestionRequest): Promise<ForumQuestion> => {
+    return api.post<ForumQuestion>('/forum/questions', data);
+  },
 
-export async function getThreadById(id: string) {
-  const { data, error } = await supabase
-    .from('forum_questions')
-    .select('*')
-    .eq('id', id)
-    .single()
+  getAnswers: async (questionId: string): Promise<ForumAnswer[]> => {
+    return api.get<ForumAnswer[]>(`/forum/questions/${questionId}/answers`);
+  },
 
-  if (error) {
-    console.error('Error fetching thread:', error)
-    return null
-  }
+  createAnswer: async (questionId: string, data: CreateAnswerRequest): Promise<ForumAnswer> => {
+    return api.post<ForumAnswer>(`/forum/questions/${questionId}/answers`, data);
+  },
 
-  return data
-}
+  acceptAnswer: async (questionId: string, answerId: string): Promise<ForumAnswer> => {
+    return api.put<ForumAnswer>(`/forum/questions/${questionId}/answers/${answerId}/accept`);
+  },
 
-export async function getReplies(threadId: string) {
-  const { data, error } = await supabase
-    .from('forum_answers')
-    .select('*')
-    .eq('question_id', threadId)
-    .order('created_at', { ascending: true })
+  voteQuestion: async (questionId: string, data: VoteRequest): Promise<VoteResponse> => {
+    return api.post<VoteResponse>(`/forum/questions/${questionId}/vote`, data);
+  },
 
-  if (error) {
-    console.error('Error fetching replies:', error)
-    return []
-  }
-
-  return data || []
-}
-
-export async function createThread(userId: string, title: string, description: string) {
-  const { data, error } = await supabase
-    .from('forum_questions')
-    .insert({
-      user_id: userId,
-      title,
-      description,
-      created_at: new Date().toISOString(),
-    })
-    .select()
-    .single()
-
-  if (error) {
-    console.error('Error creating thread:', error)
-    throw error
-  }
-
-  return data
-}
-
-export async function createReply(userId: string, threadId: string, content: string) {
-  const { data, error } = await supabase
-    .from('forum_answers')
-    .insert({
-      user_id: userId,
-      question_id: threadId,
-      answer_text: content,
-      created_at: new Date().toISOString(),
-    })
-    .select()
-    .single()
-
-  if (error) {
-    console.error('Error creating reply:', error)
-    throw error
-  }
-
-  return data
-}
+  voteAnswer: async (answerId: string, data: VoteRequest): Promise<VoteResponse> => {
+    return api.post<VoteResponse>(`/forum/answers/${answerId}/vote`, data);
+  },
+};

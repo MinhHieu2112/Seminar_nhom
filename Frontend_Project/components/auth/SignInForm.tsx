@@ -31,7 +31,7 @@ export function SignInForm() {
 
     try {
       await signIn(data.email, data.password);
-      router.push('/user-pages/dashboard');
+      router.push('/dashboard');
     } catch (err: any) {
       setError(err.message || 'Failed to sign in. Please check your credentials.');
       console.error('Sign in error:', err);

@@ -1,8 +1,9 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { authService } from '@/services/authService';
 import { supabase } from '@/lib/supabase';
-import type { User, LearningProfile, AuthContextType } from '@/types';
+import type { User, LearningProfile, AuthContextType } from '@/types/api-types';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -10,101 +11,38 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Initialize auth state from session
+  // Initialize auth state from localStorage token
   useEffect(() => {
     const initializeAuth = async () => {
       try {
-        if (!supabase.auth) {
-          console.warn('Supabase not initialized properly');
-          setLoading(false);
-          return;
-        }
-
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-
-        if (session?.user) {
-          // Fetch user profile from database
-          const { data, error } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-
-          if (!error && data) {
-            setUser(data);
-          }
+        const token = authService.getToken();
+        if (token) {
+          // Token exists, fetch user from backend
+          const user = await authService.getCurrentUser();
+          setUser(user);
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
+        // Clear invalid token
+        authService.logout();
       } finally {
         setLoading(false);
       }
     };
 
     initializeAuth();
-
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
-        const { data } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
-
-        if (data) {
-          setUser(data);
-        }
-      } else {
-        setUser(null);
-      }
-    });
-
-    return () => subscription?.unsubscribe();
   }, []);
 
   const signUp = useCallback(
     async (email: string, password: string, username: string) => {
       try {
-        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
-
-        // Create user via backend (which creates Supabase auth user + public_users row)
-        const res = await fetch(`${backendUrl}/auth/sign-up`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ email, password, username }),
-        });
-
-        if (!res.ok) {
-          const errBody = await res.json().catch(() => ({}));
-          throw new Error(errBody.message || 'Failed to create account');
-        }
-
-        // Ensure Supabase client has a session for RLS-protected queries
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        if (signInError) throw signInError;
-
-        // Fetch the created user record from public.users
-        const { data: userData, error: userError } = await supabase
-          .from('users')
-          .select('*')
-          .eq('email', email)
-          .single();
-
-        if (userError) throw userError;
-        if (userData) {
-          setUser(userData as User);
-        }
+        // Sign up and store token (handled by authService)
+        const user = await authService.signUp({ email, password, username });
+        setUser(user);
       } catch (error) {
+        // Clear any partial auth state
+        authService.logout();
+        setUser(null);
         throw error;
       }
     },
@@ -113,37 +51,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signIn = useCallback(async (email: string, password: string) => {
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) throw error;
-
-      // Cập nhật User ngay lập tức trước khi trả về kết quả cho Form
-      if (data.session?.user) {
-        const { data: profile } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', data.session.user.id)
-          .single();
-        
-        if (profile) {
-          setUser(profile); // Ép state cập nhật ngay
-        }
-      }
+      // Sign in and store token (handled by authService)
+      const user = await authService.signIn({ email, password });
+      setUser(user);
     } catch (error) {
+      // Clear any partial auth state
+      authService.logout();
+      setUser(null);
       throw error;
     }
   }, []);
 
   const logout = useCallback(async () => {
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      authService.logout();
       setUser(null);
     } catch (error) {
-      throw error;
+      console.error('Logout error:', error);
     }
   }, []);
 
@@ -157,9 +81,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           ...profile,
         });
 
-        if (error) throw error;
-      } catch (error) {
-        throw error;
+        if (error) {
+          console.error('Supabase learning_profiles insert error:', error);
+          // Extract meaningful error message from Supabase error
+          const errorMessage =
+            error.message ||
+            error.details ||
+            error.hint ||
+            (typeof error === 'string' ? error : 'Failed to create learning profile');
+          throw new Error(errorMessage);
+        }
+      } catch (error: any) {
+        console.error('setupLearningProfile error:', error);
+        // Re-throw with extracted message
+        if (error instanceof Error) {
+          throw error;
+        }
+        throw new Error(
+          error?.message || error?.details || 'Failed to create learning profile'
+        );
       }
     },
     [user]

@@ -1,57 +1,33 @@
-import { supabase } from '@/lib/supabase'
+import { api } from '@/lib/api-client';
+import type {
+  Project,
+  ProjectStage,
+  ProjectSubmission,
+} from '@/types/api-types';
 
-export async function getProjects() {
-  const { data, error } = await supabase.from('mini_projects').select('*')
+export const projectService = {
+  getProjects: async (): Promise<Project[]> => {
+    return api.get<Project[]>('/projects');
+  },
 
-  if (error) {
-    console.error('Error fetching projects:', error)
-    return []
-  }
+  getProjectById: async (projectId: string): Promise<Project> => {
+    return api.get<Project>(`/projects/${projectId}`);
+  },
 
-  return data || []
-}
+  getProjectStages: async (projectId: string): Promise<ProjectStage[]> => {
+    return api.get<ProjectStage[]>(`/projects/${projectId}/stages`);
+  },
 
-export async function getProjectById(id: string) {
-  const { data, error } = await supabase.from('mini_projects').select('*').eq('id', id).single()
-
-  if (error) {
-    console.error('Error fetching project:', error)
-    return null
-  }
-
-  return data
-}
-
-export async function getProjectStages(projectId: string) {
-  const { data, error } = await supabase
-    .from('project_stages')
-    .select('*')
-    .eq('project_id', projectId)
-    .order('stage_order', { ascending: true })
-
-  if (error) {
-    console.error('Error fetching stages:', error)
-    return []
-  }
-
-  return data || []
-}
-
-export async function submitProjectStage(userId: string, stageId: string, code: string) {
-  const { data, error } = await supabase
-    .from('project_submissions')
-    .insert({
-      user_id: userId,
-      stage_id: stageId,
+  submitProjectStage: async (
+    stageId: string,
+    code: string
+  ): Promise<ProjectSubmission> => {
+    return api.post<ProjectSubmission>(`/projects/stages/${stageId}/submissions`, {
       code,
-    })
-    .select()
-    .single()
+    });
+  },
 
-  if (error) {
-    console.error('Error submitting stage:', error)
-    throw error
-  }
-
-  return data
-}
+  getMyProjectSubmissions: async (projectId: string): Promise<ProjectSubmission[]> => {
+    return api.get<ProjectSubmission[]>(`/projects/${projectId}/my-submissions`);
+  },
+};

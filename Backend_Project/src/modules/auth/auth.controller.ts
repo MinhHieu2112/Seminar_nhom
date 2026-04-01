@@ -27,6 +27,6 @@ export class AuthController {
   @Get('me')
   @UseGuards(AuthGuard)
   async getCurrentUser(@CurrentUser() user: any) {
-    return this.authService.getCurrentUser(user.sub);
+    return this.authService.getCurrentUser(user.id);
   }
 }

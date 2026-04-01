@@ -1,80 +1,40 @@
-import { supabase } from '@/lib/supabase'
+import { api } from '@/lib/api-client';
+import type {
+  Exercise,
+  ExerciseDetail,
+  ExerciseFilter,
+  Submission,
+  SubmissionWithResults,
+  CreateSubmissionRequest,
+} from '@/types/api-types';
 
-export async function getExercises(filter?: { difficulty?: string; language?: string }) {
-  let query = supabase.from('exercises').select('*')
+export const exerciseService = {
+  getExercises: async (filter?: ExerciseFilter): Promise<Exercise[]> => {
+    const queryParams = new URLSearchParams();
+    
+    if (filter?.difficulty) {
+      queryParams.append('difficulty', filter.difficulty);
+    }
+    if (filter?.lesson_id) {
+      queryParams.append('lesson_id', filter.lesson_id);
+    }
 
-  if (filter?.difficulty) {
-    query = query.eq('difficulty', filter.difficulty)
-  }
-  if (filter?.language) {
-    // Schema uses `language_id` (UUID). Treat `filter.language` as language_id if provided.
-    query = query.eq('language_id', filter.language)
-  }
+    const query = queryParams.toString();
+    return api.get<Exercise[]>(`/exercises${query ? `?${query}` : ''}`);
+  },
 
-  const { data, error } = await query
+  getExerciseById: async (exerciseId: string): Promise<ExerciseDetail> => {
+    return api.get<ExerciseDetail>(`/exercises/${exerciseId}`);
+  },
 
-  if (error) {
-    console.error('Error fetching exercises:', error)
-    return []
-  }
+  createSubmission: async (
+    exerciseId: string,
+    data: CreateSubmissionRequest
+  ): Promise<Submission> => {
+    return api.post<Submission>(`/exercises/${exerciseId}/submissions`, data);
+  },
 
-  return data || []
-}
-
-export async function getExerciseById(id: string) {
-  const { data, error } = await supabase.from('exercises').select('*').eq('id', id).single()
-
-  if (error) {
-    console.error('Error fetching exercise:', error)
-    return null
-  }
-
-  return data
-}
-
-export async function getTestCases(exerciseId: string) {
-  const { data, error } = await supabase
-    .from('test_cases')
-    .select('*')
-    .eq('exercise_id', exerciseId)
-    .eq('is_hidden', false)
-
-  if (error) {
-    console.error('Error fetching test cases:', error)
-    return []
-  }
-
-  return data || []
-}
-
-export async function submitCode(userId: string, exerciseId: string, code: string, language: string) {
-  const { data, error } = await supabase.from('submissions').insert({
-    user_id: userId,
-    exercise_id: exerciseId,
-    code,
-    status: 'QUEUED',
-  }).select().single()
-
-  if (error) {
-    console.error('Error submitting code:', error)
-    throw error
-  }
-
-  return data
-}
-
-export async function getSubmissionStatus(submissionId: string) {
-  const { data, error } = await supabase
-    .from('submissions')
-    // Include results if Supabase relation exists; otherwise returns `*`.
-    .select('*, submission_results(*)')
-    .eq('id', submissionId)
-    .single()
-
-  if (error) {
-    console.error('Error fetching submission:', error)
-    return null
-  }
-
-  return data
-}
+  getSubmission: async (submissionId: string): Promise<SubmissionWithResults> => {
+    return api.get<SubmissionWithResults>(`/submissions/${submissionId}`);
+  },
+};

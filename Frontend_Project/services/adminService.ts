@@ -1,140 +1,81 @@
-'use client';
-
-import { supabase } from '@/lib/supabase';
+import { api } from '@/lib/api-client';
+import type {
+  User,
+  UserWithStats,
+  ForumQuestion,
+  Course,
+  Exercise,
+  Project,
+  AdminDashboardStats,
+} from '@/types/api-types';
 
 export const adminService = {
   // User management
-  getUsers: async (limit = 50, offset = 0) => {
-    const { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
-
-    if (error) throw error;
-    return data;
+  getUsers: async (limit = 50, offset = 0): Promise<User[]> => {
+    return api.get<User[]>(`/admin/users?limit=${limit}&offset=${offset}`);
   },
 
-  getUserCount: async () => {
-    const { count, error } = await supabase
-      .from('users')
-      .select('*', { count: 'exact', head: true });
-
-    if (error) throw error;
-    return count || 0;
+  getUserCount: async (): Promise<number> => {
+    const response = await api.get<{ count: number }>('/admin/users/count');
+    return response.count;
   },
 
-  getUserDetail: async (userId: string) => {
-    const { data: user, error: userError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', userId)
-      .single();
-
-    if (userError) throw userError;
-
-    // Get user stats
-    const { data: stats, error: statsError } = await supabase
-      .from('user_stats')
-      .select('*')
-      .eq('user_id', userId)
-      .single();
-
-    if (statsError && statsError.code !== 'PGRST116') throw statsError;
-
-    return { user, stats };
+  getUserDetail: async (userId: string): Promise<UserWithStats> => {
+    return api.get<UserWithStats>(`/admin/users/${userId}`);
   },
 
-  updateUserRole: async (userId: string, role: 'USER' | 'ADMIN') => {
-    const { error } = await supabase
-      .from('users')
-      .update({ role })
-      .eq('id', userId);
-
-    if (error) throw error;
+  updateUserRole: async (userId: string, role: 'USER' | 'ADMIN'): Promise<void> => {
+    await api.put(`/admin/users/${userId}/role`, { role });
   },
 
   // Analytics
-  getAnalyticsDashboard: async () => {
-    try {
-      const totalUsersRes = await supabase
-        .from('users')
-        .select('*', { count: 'exact', head: true });
-      
-      const totalCoursesRes = await supabase
-        .from('courses')
-        .select('*', { count: 'exact', head: true });
-
-      const totalSubmissionsRes = await supabase
-        .from('submissions')
-        .select('*', { count: 'exact', head: true });
-
-      const acceptedRes = await supabase
-        .from('submissions')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'ACCEPTED');
-
-      const totalUsers = totalUsersRes.count || 0;
-      const totalCourses = totalCoursesRes.count || 0;
-      const totalSubmissions = totalSubmissionsRes.count || 0;
-      const acceptedSubmissions = acceptedRes.count || 0;
-
-      return {
-        totalUsers,
-        totalCourses,
-        totalSubmissions,
-        successRate: totalSubmissions > 0 ? ((acceptedSubmissions / totalSubmissions) * 100).toFixed(1) : 0,
-        activeUsersToday: Math.floor(totalUsers * 0.3), // Estimated
-      };
-    } catch (error) {
-      console.error('Error fetching analytics:', error);
-      throw error;
-    }
+  getDashboardStats: async (): Promise<AdminDashboardStats> => {
+    return api.get<AdminDashboardStats>('/admin/dashboard/stats');
   },
 
   // Forum moderation
-  getForumThreads: async (limit = 20, offset = 0) => {
-    const { data, error } = await supabase
-      .from('forum_questions')
-      .select('id,title,user_id,views_count,created_at,updated_at')
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
-
-    if (error) throw error;
-    return data;
+  getForumThreads: async (limit = 20, offset = 0): Promise<ForumQuestion[]> => {
+    return api.get<ForumQuestion[]>(`/admin/forum/threads?limit=${limit}&offset=${offset}`);
   },
 
-  getForumThreadDetail: async (threadId: string) => {
-    const { data: thread, error: threadError } = await supabase
-      .from('forum_questions')
-      .select('*')
-      .eq('id', threadId)
-      .single();
-
-    if (threadError) throw threadError;
-
-    const { data: replies, error: repliesError } = await supabase
-      .from('forum_answers')
-      .select('*')
-      .eq('question_id', threadId)
-      .order('created_at', { ascending: true });
-
-    if (repliesError) throw repliesError;
-
-    return { thread, replies };
+  deleteForumThread: async (threadId: string): Promise<void> => {
+    await api.delete(`/admin/forum/threads/${threadId}`);
   },
 
-  updateForumThreadStatus: async (threadId: string, status: string) => {
-    // Schema does not include `status/flagged` on forum_questions.
-    // For now, treat "DELETED" as deleting the question (answers cascade in DB).
-    if (status === 'DELETED') {
-      const { error } = await supabase.from('forum_questions').delete().eq('id', threadId);
-      if (error) throw error;
-      return;
-    }
+  // Content management
+  createCourse: async (data: Partial<Course>): Promise<Course> => {
+    return api.post<Course>('/admin/courses', data);
+  },
 
-    // No-op for unsupported statuses to avoid inventing schema fields.
-    return;
+  updateCourse: async (courseId: string, data: Partial<Course>): Promise<Course> => {
+    return api.put<Course>(`/admin/courses/${courseId}`, data);
+  },
 
+  deleteCourse: async (courseId: string): Promise<void> => {
+    await api.delete(`/admin/courses/${courseId}`);
+  },
+
+  createExercise: async (data: Partial<Exercise>): Promise<Exercise> => {
+    return api.post<Exercise>('/admin/exercises', data);
+  },
+
+  updateExercise: async (exerciseId: string, data: Partial<Exercise>): Promise<Exercise> => {
+    return api.put<Exercise>(`/admin/exercises/${exerciseId}`, data);
+  },
+
+  deleteExercise: async (exerciseId: string): Promise<void> => {
+    await api.delete(`/admin/exercises/${exerciseId}`);
+  },
+
+  createProject: async (data: Partial<Project>): Promise<Project> => {
+    return api.post<Project>('/admin/projects', data);
+  },
+
+  updateProject: async (projectId: string, data: Partial<Project>): Promise<Project> => {
+    return api.put<Project>(`/admin/projects/${projectId}`, data);
+  },
+
+  deleteProject: async (projectId: string): Promise<void> => {
+    await api.delete(`/admin/projects/${projectId}`);
   },
 };
