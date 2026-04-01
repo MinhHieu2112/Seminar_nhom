@@ -4,8 +4,8 @@ export async function getThreads(page = 1, limit = 20) {
   const offset = (page - 1) * limit
 
   const { data, error } = await supabase
-    .from('forum_threads')
-    .select('*, forum_replies(count)')
+    .from('forum_questions')
+    .select('*')
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1)
 
@@ -19,7 +19,7 @@ export async function getThreads(page = 1, limit = 20) {
 
 export async function getThreadById(id: string) {
   const { data, error } = await supabase
-    .from('forum_threads')
+    .from('forum_questions')
     .select('*')
     .eq('id', id)
     .single()
@@ -34,9 +34,9 @@ export async function getThreadById(id: string) {
 
 export async function getReplies(threadId: string) {
   const { data, error } = await supabase
-    .from('forum_replies')
+    .from('forum_answers')
     .select('*')
-    .eq('thread_id', threadId)
+    .eq('question_id', threadId)
     .order('created_at', { ascending: true })
 
   if (error) {
@@ -49,7 +49,7 @@ export async function getReplies(threadId: string) {
 
 export async function createThread(userId: string, title: string, description: string) {
   const { data, error } = await supabase
-    .from('forum_threads')
+    .from('forum_questions')
     .insert({
       user_id: userId,
       title,
@@ -69,11 +69,11 @@ export async function createThread(userId: string, title: string, description: s
 
 export async function createReply(userId: string, threadId: string, content: string) {
   const { data, error } = await supabase
-    .from('forum_replies')
+    .from('forum_answers')
     .insert({
       user_id: userId,
-      thread_id: threadId,
-      content,
+      question_id: threadId,
+      answer_text: content,
       created_at: new Date().toISOString(),
     })
     .select()

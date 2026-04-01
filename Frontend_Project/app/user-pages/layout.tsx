@@ -17,7 +17,7 @@ export default function UserPagesLayout({
 
   useEffect(() => {
     if (!loading && !isAuthenticated) {
-      router.push('/sign-in');
+      router.push('/auth/sign-in');
     }
     // Redirect admins to admin panel  
     if (!loading && isAdmin) {

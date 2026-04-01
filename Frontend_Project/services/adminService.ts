@@ -96,7 +96,7 @@ export const adminService = {
   getForumThreads: async (limit = 20, offset = 0) => {
     const { data, error } = await supabase
       .from('forum_questions')
-      .select('*')
+      .select('id,title,user_id,views_count,created_at,updated_at')
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
@@ -125,11 +125,16 @@ export const adminService = {
   },
 
   updateForumThreadStatus: async (threadId: string, status: string) => {
-    const { error } = await supabase
-      .from('forum_questions')
-      .update({ status })
-      .eq('id', threadId);
+    // Schema does not include `status/flagged` on forum_questions.
+    // For now, treat "DELETED" as deleting the question (answers cascade in DB).
+    if (status === 'DELETED') {
+      const { error } = await supabase.from('forum_questions').delete().eq('id', threadId);
+      if (error) throw error;
+      return;
+    }
 
-    if (error) throw error;
+    // No-op for unsupported statuses to avoid inventing schema fields.
+    return;
+
   },
 };

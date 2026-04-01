@@ -6,16 +6,19 @@ interface ExerciseCardProps {
   id: string
   title: string
   description: string
-  difficulty: 'easy' | 'medium' | 'hard'
-  acceptanceRate: number
+  difficulty?: string | null
+  acceptanceRate?: number
   status?: 'not_attempted' | 'attempted' | 'accepted'
-  language: string
+  language?: string
 }
 
 const difficultyColors = {
   easy: 'bg-emerald-900 text-emerald-200',
+  beginner: 'bg-emerald-900 text-emerald-200',
   medium: 'bg-amber-900 text-amber-200',
+  intermediate: 'bg-amber-900 text-amber-200',
   hard: 'bg-red-900 text-red-200',
+  advanced: 'bg-red-900 text-red-200',
 }
 
 const statusColors = {
@@ -35,17 +38,20 @@ export function ExerciseCard({
   title,
   description,
   difficulty,
-  acceptanceRate,
+  acceptanceRate = 0,
   status = 'not_attempted',
-  language,
+  language = '',
 }: ExerciseCardProps) {
+  const difficultyKey = (difficulty || '').toLowerCase()
+  const difficultyClass = difficultyColors[difficultyKey as keyof typeof difficultyColors] || 'bg-slate-700 text-slate-200'
+
   return (
     <Link href={`/practice/${id}`}>
       <div className="bg-slate-900 rounded-lg border border-slate-800 p-4 hover:border-purple-500 transition-all hover:shadow-lg hover:shadow-purple-500/20 cursor-pointer">
         <div className="flex items-start justify-between mb-3">
           <div className="flex gap-2">
-            <span className={`text-xs px-2 py-1 rounded ${difficultyColors[difficulty]}`}>
-              {difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}
+            <span className={`text-xs px-2 py-1 rounded ${difficultyClass}`}>
+              {(difficultyKey ? difficultyKey : 'unknown').charAt(0).toUpperCase() + (difficultyKey ? difficultyKey.slice(1) : 'unknown').slice(1)}
             </span>
             <span className={`text-xs px-2 py-1 rounded ${statusColors[status]}`}>
               {statusLabels[status]}

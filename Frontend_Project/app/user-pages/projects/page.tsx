@@ -12,7 +12,7 @@ export default function ProjectsPage() {
   useEffect(() => {
     async function fetchProjects() {
       try {
-        const { data, error } = await supabase.from('projects').select('*')
+        const { data, error } = await supabase.from('mini_projects').select('*')
 
         if (error) throw error
         setProjects(data || [])
@@ -54,7 +54,7 @@ export default function ProjectsPage() {
                   <h3 className="text-lg font-semibold text-white mb-2">{project.title}</h3>
                   <p className="text-slate-400 text-sm mb-4 line-clamp-2">{project.description}</p>
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-slate-400">Stages: {project.num_stages || 0}</span>
+                    <span className="text-slate-400">Stages: {project.stages_count || 0}</span>
                     <div className="text-slate-400">→</div>
                   </div>
                 </div>

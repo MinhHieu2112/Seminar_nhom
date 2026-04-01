@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase'
 
 export async function getProjects() {
-  const { data, error } = await supabase.from('projects').select('*')
+  const { data, error } = await supabase.from('mini_projects').select('*')
 
   if (error) {
     console.error('Error fetching projects:', error)
@@ -12,7 +12,7 @@ export async function getProjects() {
 }
 
 export async function getProjectById(id: string) {
-  const { data, error } = await supabase.from('projects').select('*').eq('id', id).single()
+  const { data, error } = await supabase.from('mini_projects').select('*').eq('id', id).single()
 
   if (error) {
     console.error('Error fetching project:', error)
@@ -27,7 +27,7 @@ export async function getProjectStages(projectId: string) {
     .from('project_stages')
     .select('*')
     .eq('project_id', projectId)
-    .order('order', { ascending: true })
+    .order('stage_order', { ascending: true })
 
   if (error) {
     console.error('Error fetching stages:', error)
@@ -44,7 +44,6 @@ export async function submitProjectStage(userId: string, stageId: string, code: 
       user_id: userId,
       stage_id: stageId,
       code,
-      submitted_at: new Date().toISOString(),
     })
     .select()
     .single()

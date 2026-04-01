@@ -20,7 +20,7 @@ export function middleware(request: NextRequest) {
     if (!token) {
       // Redirect to sign-in
       const url = request.nextUrl.clone()
-      url.pathname = '/sign-in'
+      url.pathname = '/auth/sign-in'
       return NextResponse.redirect(url)
     }
   }

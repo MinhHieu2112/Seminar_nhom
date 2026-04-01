@@ -20,13 +20,38 @@ export default function ForumPage() {
 
   async function fetchThreads() {
     try {
-      const { data, error } = await supabase
-        .from('forum_threads')
-        .select('*, forum_replies(count)')
+      const { data: questions, error } = await supabase
+        .from('forum_questions')
+        .select('*')
         .order('created_at', { ascending: false })
 
       if (error) throw error
-      setThreads(data || [])
+      const safeQuestions = questions || []
+
+      // Compute replies count by counting forum_answers per question_id
+      const questionIds = safeQuestions.map((q: any) => q.id)
+      let repliesCountByQuestionId: Record<string, number> = {}
+
+      if (questionIds.length > 0) {
+        const { data: answers } = await supabase
+          .from('forum_answers')
+          .select('question_id')
+          .in('question_id', questionIds)
+
+        if (answers) {
+          repliesCountByQuestionId = answers.reduce((acc: Record<string, number>, a: any) => {
+            acc[a.question_id] = (acc[a.question_id] || 0) + 1
+            return acc
+          }, {})
+        }
+      }
+
+      setThreads(
+        safeQuestions.map((q: any) => ({
+          ...q,
+          replies_count: repliesCountByQuestionId[q.id] || 0,
+        }))
+      )
     } catch (error) {
       console.error('Error fetching threads:', error)
     } finally {
@@ -39,7 +64,7 @@ export default function ForumPage() {
     if (!user || !formData.title.trim()) return
 
     try {
-      const { error } = await supabase.from('forum_threads').insert({
+      const { error } = await supabase.from('forum_questions').insert({
         user_id: user.id,
         title: formData.title,
         description: formData.description,
@@ -138,7 +163,7 @@ export default function ForumPage() {
                       {new Date(thread.created_at).toLocaleDateString()}
                     </span>
                     <span className="text-slate-400">
-                      {thread.forum_replies?.[0]?.count || 0} replies
+                      {thread.replies_count || 0} replies
                     </span>
                   </div>
                 </div>

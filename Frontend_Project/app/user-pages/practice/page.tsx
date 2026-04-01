@@ -10,6 +10,7 @@ export default function PracticePage() {
   const [loading, setLoading] = useState(true)
   const [difficulty, setDifficulty] = useState<'all' | 'easy' | 'medium' | 'hard'>('all')
   const [language, setLanguage] = useState<'all' | 'python' | 'javascript' | 'java' | 'cpp'>('all')
+  const [languageLabel, setLanguageLabel] = useState<string>('')
 
   useEffect(() => {
     fetchExercises()
@@ -23,8 +24,23 @@ export default function PracticePage() {
       if (difficulty !== 'all') {
         query = query.eq('difficulty', difficulty)
       }
+
+      // exercises schema uses `language_id`; map UI language label -> language.id
       if (language !== 'all') {
-        query = query.eq('language', language)
+        setLanguageLabel(language)
+
+        const { data: langRow, error: langError } = await supabase
+          .from('languages')
+          .select('id,name')
+          .ilike('name', `%${language}%`)
+          .limit(1)
+          .single()
+
+        if (!langError && langRow?.id) {
+          query = query.eq('language_id', langRow.id)
+        }
+      } else {
+        setLanguageLabel('')
       }
 
       const { data, error } = await query
@@ -99,8 +115,8 @@ export default function PracticePage() {
                 title={exercise.title}
                 description={exercise.description}
                 difficulty={exercise.difficulty}
-                acceptanceRate={exercise.acceptance_rate || 0}
-                language={exercise.language}
+                acceptanceRate={0}
+                language={languageLabel}
               />
             ))}
           </div>

@@ -8,14 +8,12 @@ import { DataTable, Column } from '@/components/shared/tables/DataTable';
 import { TableSkeleton } from '@/components/shared/loaders/SkeletonLoader';
 import { format } from 'date-fns';
 import { ConfirmDialog } from '@/components/shared/dialogs/ConfirmDialog';
-import { AlertCircle } from 'lucide-react';
 
 interface ForumThread {
   id: string;
   title: string;
-  created_by: string;
-  status: string;
-  flagged: boolean;
+  user_id: string;
+  views_count?: number;
   created_at: string;
 }
 
@@ -65,33 +63,14 @@ export default function AdminForumPage() {
       sortable: true,
       render: (value, row) => (
         <div className="flex items-start gap-2">
-          {row.flagged && <AlertCircle size={16} className="text-red-400 mt-0.5 flex-shrink-0" />}
           <span className="truncate">{value}</span>
         </div>
       ),
     },
     {
-      key: 'created_by',
-      label: 'Author',
+      key: 'user_id',
+      label: 'Author (user_id)',
       sortable: true,
-    },
-    {
-      key: 'status',
-      label: 'Status',
-      sortable: true,
-      render: (value) => (
-        <span
-          className={`inline-block px-2 py-1 rounded text-xs font-medium ${
-            value === 'ACTIVE'
-              ? 'bg-green-500/20 text-green-400'
-              : value === 'FLAGGED'
-              ? 'bg-red-500/20 text-red-400'
-              : 'bg-slate-700/50 text-slate-300'
-          }`}
-        >
-          {value}
-        </span>
-      ),
     },
     {
       key: 'created_at',

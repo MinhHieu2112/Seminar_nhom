@@ -7,7 +7,8 @@ export async function getExercises(filter?: { difficulty?: string; language?: st
     query = query.eq('difficulty', filter.difficulty)
   }
   if (filter?.language) {
-    query = query.eq('language', filter.language)
+    // Schema uses `language_id` (UUID). Treat `filter.language` as language_id if provided.
+    query = query.eq('language_id', filter.language)
   }
 
   const { data, error } = await query
@@ -51,9 +52,7 @@ export async function submitCode(userId: string, exerciseId: string, code: strin
     user_id: userId,
     exercise_id: exerciseId,
     code,
-    language,
-    status: 'pending',
-    submitted_at: new Date().toISOString(),
+    status: 'QUEUED',
   }).select().single()
 
   if (error) {
@@ -67,7 +66,8 @@ export async function submitCode(userId: string, exerciseId: string, code: strin
 export async function getSubmissionStatus(submissionId: string) {
   const { data, error } = await supabase
     .from('submissions')
-    .select('*')
+    // Include results if Supabase relation exists; otherwise returns `*`.
+    .select('*, submission_results(*)')
     .eq('id', submissionId)
     .single()
 

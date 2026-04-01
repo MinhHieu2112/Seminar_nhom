@@ -11,7 +11,7 @@ export function AdminNavbar() {
 
   const handleLogout = async () => {
     await logout();
-    router.push('/sign-in');
+    router.push('/auth/sign-in');
   };
 
   return (

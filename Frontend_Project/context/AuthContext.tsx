@@ -70,35 +70,39 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signUp = useCallback(
     async (email: string, password: string, username: string) => {
       try {
-        // Create auth user
-        const { data: authData, error: authError } = await supabase.auth.signUp({
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+
+        // Create user via backend (which creates Supabase auth user + public_users row)
+        const res = await fetch(`${backendUrl}/auth/sign-up`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email, password, username }),
+        });
+
+        if (!res.ok) {
+          const errBody = await res.json().catch(() => ({}));
+          throw new Error(errBody.message || 'Failed to create account');
+        }
+
+        // Ensure Supabase client has a session for RLS-protected queries
+        const { error: signInError } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
+        if (signInError) throw signInError;
 
-        if (authError) throw authError;
-
-        if (!authData.user) throw new Error('Failed to create user');
-
-        // Create user profile
-        const { error: profileError } = await supabase.from('users').insert({
-          id: authData.user.id,
-          email,
-          username,
-          role: 'USER',
-        });
-
-        if (profileError) throw profileError;
-
-        // Fetch the created user
-        const { data: userData } = await supabase
+        // Fetch the created user record from public.users
+        const { data: userData, error: userError } = await supabase
           .from('users')
           .select('*')
-          .eq('id', authData.user.id)
+          .eq('email', email)
           .single();
 
+        if (userError) throw userError;
         if (userData) {
-          setUser(userData);
+          setUser(userData as User);
         }
       } catch (error) {
         throw error;
@@ -109,12 +113,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signIn = useCallback(async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) throw error;
+
+      // Cập nhật User ngay lập tức trước khi trả về kết quả cho Form
+      if (data.session?.user) {
+        const { data: profile } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', data.session.user.id)
+          .single();
+        
+        if (profile) {
+          setUser(profile); // Ép state cập nhật ngay
+        }
+      }
     } catch (error) {
       throw error;
     }
