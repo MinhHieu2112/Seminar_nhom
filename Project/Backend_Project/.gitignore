@@ -1,0 +1,41 @@
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# environment
+.env
+.env.local
+.env.*.local
+
+# production
+/dist
+/build
+
+# misc
+.DS_Store
+*.pem
+*.log
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+*~
+.project
+.classpath
+.c9/
+
+# OS
+Thumbs.db
+
+# database
+*.sqlite
+*.sqlite3
+
+# Prisma
+.prisma/
+
+# testing
+/coverage

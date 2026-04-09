@@ -1,6 +1,0 @@
-export const APP_CONSTANTS = {
-  PASSWORD_MIN_LENGTH: 8,
-  CODE_HASH_ALGO: 'sha256',
-  CODE_HASH_HEX_LENGTH: 64,
-} as const;
-

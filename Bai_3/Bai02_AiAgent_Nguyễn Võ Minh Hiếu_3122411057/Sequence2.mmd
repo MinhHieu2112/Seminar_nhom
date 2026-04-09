@@ -1,0 +1,15 @@
+sequenceDiagram
+    participant U as Người dùng
+    participant T as Telegram Trigger
+    participant S as Switch Node
+    participant L as Basic LLM Chain
+    participant G as Google Gemini API
+    participant B as Telegram Bot
+
+    U->>T: Gửi câu hỏi tự do (vd: "Chào bạn")
+    T->>S: Chuyển tiếp tin nhắn
+    S->>L: Điều hướng sang luồng AI (Default/Chat)
+    L->>G: Gửi nội dung câu hỏi (Prompt)
+    G-->>L: Phản hồi nội dung văn bản (Text)
+    L-->>B: Gửi tin nhắn trả lời
+    B-->>U: Trả lời người dùng trên Telegram
