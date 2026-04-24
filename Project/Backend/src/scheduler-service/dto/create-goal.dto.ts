@@ -2,7 +2,7 @@ import { IsString, IsOptional, IsDateString } from 'class-validator';
 
 export class CreateGoalDto {
   @IsString()
-  title: string;
+  title!: string;
 
   @IsOptional()
   @IsString()

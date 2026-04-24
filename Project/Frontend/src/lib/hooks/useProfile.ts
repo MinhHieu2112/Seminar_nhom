@@ -1,3 +1,5 @@
+'use client';
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { profileApi } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth-store';
@@ -18,6 +20,7 @@ export function useProfile() {
 
 export function useUpdateProfile() {
   const queryClient = useQueryClient();
+  // FIX: auth-store now has setUser method
   const setUser = useAuthStore((state) => state.setUser);
 
   return useMutation({
@@ -26,9 +29,7 @@ export function useUpdateProfile() {
       return response.data;
     },
     onSuccess: (updatedUser: User) => {
-      // Update cache
       queryClient.setQueryData(PROFILE_QUERY_KEY, updatedUser);
-      // Update auth store
       setUser(updatedUser);
     },
   });

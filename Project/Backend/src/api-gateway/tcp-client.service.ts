@@ -1,46 +1,70 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  OnModuleInit,
+  OnModuleDestroy,
+  Logger,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ClientTCP } from '@nestjs/microservices';
 import { lastValueFrom } from 'rxjs';
 
 @Injectable()
-export class TcpClientService implements OnModuleInit {
+export class TcpClientService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(TcpClientService.name);
   private clients: Map<string, ClientTCP> = new Map();
 
   constructor(private readonly configService: ConfigService) {}
 
-  onModuleInit() {
-    // Initialize TCP clients for each microservice
-    // Using 50001+ to avoid conflict with NextJS (3000) and Gateway (50000)
+  async onModuleInit() {
     this.registerClient('user-service', {
       host: this.configService.get('USER_SERVICE_HOST', 'localhost'),
-      port: this.configService.get('USER_SERVICE_PORT', 8001),
-    });
-
-    this.registerClient('ai-service', {
-      host: this.configService.get('AI_SERVICE_HOST', 'localhost'),
-      port: this.configService.get('AI_SERVICE_PORT', 8002),
+      port: this.configService.get<number>('USER_SERVICE_PORT', 8001),
     });
 
     this.registerClient('calendar-service', {
       host: this.configService.get('CALENDAR_SERVICE_HOST', 'localhost'),
-      port: this.configService.get('CALENDAR_SERVICE_PORT', 3004),
+      port: this.configService.get<number>('CALENDAR_SERVICE_PORT', 8004),
     });
 
     this.registerClient('scheduler-service', {
       host: this.configService.get('SCHEDULER_SERVICE_HOST', 'localhost'),
-      port: this.configService.get('SCHEDULER_SERVICE_PORT', 8003),
+      port: this.configService.get<number>('SCHEDULER_SERVICE_PORT', 8003),
     });
 
     this.registerClient('notification-service', {
       host: this.configService.get('NOTIFICATION_SERVICE_HOST', 'localhost'),
-      port: this.configService.get('NOTIFICATION_SERVICE_PORT', 8002),
+      port: this.configService.get<number>('NOTIFICATION_SERVICE_PORT', 8002),
     });
 
     this.registerClient('analytics-service', {
       host: this.configService.get('ANALYTICS_SERVICE_HOST', 'localhost'),
-      port: this.configService.get('ANALYTICS_SERVICE_PORT', 8006),
+      port: this.configService.get<number>('ANALYTICS_SERVICE_PORT', 8006),
     });
+
+    // Connect all clients
+    for (const [name, client] of this.clients.entries()) {
+      try {
+        await client.connect();
+        this.logger.log(`Connected to ${name}`);
+      } catch (err) {
+        // Not fatal at startup — service may not be ready yet
+        this.logger.warn(
+          `Could not connect to ${name}: ${err instanceof Error ? err.message : 'unknown'}`,
+        );
+      }
+    }
+  }
+
+  async onModuleDestroy() {
+    for (const [name, client] of this.clients.entries()) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/await-thenable
+        await client.close();
+        this.logger.log(`Disconnected from ${name}`);
+      } catch {
+        // ignore
+      }
+    }
   }
 
   private registerClient(
@@ -57,16 +81,17 @@ export class TcpClientService implements OnModuleInit {
   async send<T>(service: string, pattern: string, data: unknown): Promise<T> {
     const client = this.clients.get(service);
     if (!client) {
-      throw new Error(`Service ${service} not found`);
+      throw new Error(`Service "${service}" not registered`);
     }
 
     try {
-      const result: unknown = await lastValueFrom(client.send(pattern, data));
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      const result = await lastValueFrom(client.send(pattern, data));
       return result as T;
     } catch (error) {
-      throw new Error(
-        `Error calling ${service}.${pattern}: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      );
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Error calling ${service}.${pattern}: ${msg}`);
+      throw new Error(`Error calling ${service}.${pattern}: ${msg}`);
     }
   }
 }

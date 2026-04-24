@@ -1,11 +1,11 @@
-// ============================================================
-// Shared types — MUST match backend DTOs exactly
-// ============================================================
+// Shared types — must match backend DTOs exactly
 
-// --- Enums ---
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
 export type UserRole = 'client' | 'admin';
 
-// --- User ---
+// ─── User ────────────────────────────────────────────────────────────────────
+
 export interface User {
   id: string;
   email: string;
@@ -17,75 +17,42 @@ export interface User {
   updatedAt: string;
 }
 
-// --- Auth DTOs ---
-export interface RegisterRequest {
-  email: string;
-  password: string;
-}
+// ─── Auth DTOs ────────────────────────────────────────────────────────────────
 
-export interface LoginRequest {
-  email: string;
-  password: string;
-}
+export interface RegisterRequest { email: string; password: string; }
+export interface LoginRequest { email: string; password: string; }
+export interface RefreshRequest { refreshToken: string; }
+export interface AuthResponse { accessToken: string; refreshToken: string; user: User; }
+export interface LogoutRequest { userId: string; jti: string; }
 
-export interface RefreshRequest {
-  refreshToken: string;
-}
+// ─── Profile DTOs ─────────────────────────────────────────────────────────────
 
-export interface AuthResponse {
-  accessToken: string;
-  refreshToken: string;
-  user: User;
-}
-
-export interface LogoutRequest {
-  userId: string;
-  jti: string;
-}
-
-// --- Profile DTOs ---
 export interface UpdateProfileRequest {
   timezone?: string;
   preferences?: Record<string, unknown>;
 }
 
-// --- Password DTOs ---
-export interface ChangePasswordRequest {
-  oldPassword: string;
-  newPassword: string;
-}
+// ─── Password DTOs ────────────────────────────────────────────────────────────
 
-export interface ForgotPasswordRequest {
-  email: string;
-}
+export interface ChangePasswordRequest { oldPassword: string; newPassword: string; }
+export interface ForgotPasswordRequest { email: string; }
+export interface ResetPasswordRequest { email: string; otp: string; newPassword: string; }
 
-export interface ResetPasswordRequest {
-  email: string;
-  otp: string;
-  newPassword: string;
-}
+// ─── Admin DTOs ───────────────────────────────────────────────────────────────
 
-// --- Admin DTOs ---
-export interface AdminListUsersResponse {
-  data: User[];
-  total: number;
-}
+export interface AdminListUsersResponse { data: User[]; total: number; }
+export interface AdminToggleUserRequest { userId: string; }
 
-export interface AdminToggleUserRequest {
-  userId: string;
-}
+// ─── API envelope ─────────────────────────────────────────────────────────────
 
-// --- API Envelope ---
 export interface ApiResponse<T> {
   success: boolean;
   data?: T;
-  error?: {
-    code: string;
-    message: string;
-  };
+  error?: { code: string; message: string; };
 }
 
-// --- JWT Payload (decoded) ---
+// ─── JWT payload (decoded) ────────────────────────────────────────────────────
+
 export interface JwtPayload {
   sub: string;
   email: string;
@@ -95,14 +62,12 @@ export interface JwtPayload {
   exp: number;
 }
 
-// ============================================================
-// Scheduler Types
-// ============================================================
+// ─── Scheduler ────────────────────────────────────────────────────────────────
 
 export type TaskStatus = 'pending' | 'scheduled' | 'done' | 'skipped';
 export type TaskType = 'theory' | 'practice' | 'review';
 export type TaskSource = 'manual' | 'ai';
-export type GoalStatus = 'active' | 'archived';
+export type GoalStatus = 'active' | 'completed' | 'paused';
 
 export interface Goal {
   id: string;
@@ -138,26 +103,17 @@ export interface ScheduleBlock {
   pomodoroIndex: number;
   status: TaskStatus;
   createdAt: string;
+  task?: Pick<Task, 'id' | 'title' | 'durationMin' | 'priority' | 'type'>;
 }
 
-// --- Scheduler DTOs ---
-export interface CreateGoalRequest {
-  title: string;
-  description?: string;
-  deadline?: string;
-}
-
+export interface CreateGoalRequest { title: string; description?: string; deadline?: string; }
 export interface CreateTaskRequest {
   title: string;
   durationMin: number;
   priority?: number;
   type?: TaskType;
 }
-
-export interface GenerateScheduleRequest {
-  fromDate?: string;
-  toDate?: string;
-}
+export interface GenerateScheduleRequest { fromDate?: string; toDate?: string; }
 
 export interface ScheduledBlockDto {
   id: string;
@@ -174,4 +130,52 @@ export interface ScheduleResult {
   scheduled: ScheduledBlockDto[];
   overflow: string[];
   message: string;
+}
+
+// ─── Calendar ─────────────────────────────────────────────────────────────────
+
+export type EventSource = 'manual' | 'google' | 'system';
+
+export interface CalendarEvent {
+  id: string;
+  userId: string;
+  title: string;
+  startTime: string;
+  endTime: string;
+  recurrenceRule: string | null;
+  priority: number;
+  source: EventSource;
+  isAllDay: boolean;
+  description: string | null;
+  externalId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateEventRequest {
+  title: string;
+  startTime: string;
+  endTime: string;
+  description?: string;
+  recurrenceRule?: string;
+  priority?: number;
+  isAllDay?: boolean;
+  source?: EventSource;
+}
+
+export interface FreeSlot {
+  start: string;
+  end: string;
+  durationMin: number;
+}
+
+export interface WorkingHoursConfig {
+  id: string;
+  userId: string;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  isWorkingDay: boolean;
+  createdAt: string;
+  updatedAt: string;
 }

@@ -17,9 +17,13 @@ import type {
   CreateTaskRequest,
   GenerateScheduleRequest,
   ScheduleResult,
+  CalendarEvent,
+  CreateEventRequest,
+  FreeSlot,
 } from '@/types/api';
 
-// --- Auth ---
+// ─── Auth ────────────────────────────────────────────────────────────────────
+
 export const authApi = {
   register: (data: RegisterRequest) =>
     apiClient.post<ApiResponse<AuthResponse>>('/auth/register', data),
@@ -37,15 +41,16 @@ export const authApi = {
     apiClient.post('/auth/logout', { userId, jti }),
 };
 
-// --- Profile ---
+// ─── Profile ─────────────────────────────────────────────────────────────────
+
 export const profileApi = {
   get: () => apiClient.get<User>('/users/me'),
-
   update: (data: UpdateProfileRequest) =>
     apiClient.patch<User>('/users/me', data),
 };
 
-// --- Password ---
+// ─── Password ─────────────────────────────────────────────────────────────────
+
 export const passwordApi = {
   change: (data: ChangePasswordRequest) =>
     apiClient.post<{ success: boolean }>('/users/password/change', data),
@@ -63,60 +68,84 @@ export const passwordApi = {
     ),
 };
 
-// --- Admin ---
+// ─── Admin ────────────────────────────────────────────────────────────────────
+
 export const adminApi = {
   listUsers: (page = 1, limit = 20) =>
     apiClient.get<AdminListUsersResponse>('/admin/users', {
       params: { page, limit },
     }),
 
+  // FIX: original used POST /admin/users/:userId/toggle with body — URL now matches controller
   toggleUser: (userId: string) =>
     apiClient.post<User>(`/admin/users/${userId}/toggle`),
 };
 
-// --- Scheduler (Goals) ---
+// ─── Goals ────────────────────────────────────────────────────────────────────
+
 export const goalApi = {
   list: () => apiClient.get<Goal[]>('/scheduler/goals'),
-
   get: (id: string) => apiClient.get<Goal>(`/scheduler/goals/${id}`),
-
   create: (data: CreateGoalRequest) =>
     apiClient.post<Goal>('/scheduler/goals', data),
-
   update: (id: string, data: Partial<CreateGoalRequest>) =>
     apiClient.patch<Goal>(`/scheduler/goals/${id}`, data),
-
   delete: (id: string) =>
     apiClient.delete<{ success: boolean }>(`/scheduler/goals/${id}`),
 };
 
-// --- Scheduler (Tasks) ---
+// ─── Tasks ────────────────────────────────────────────────────────────────────
+
 export const taskApi = {
   listByGoal: (goalId: string) =>
     apiClient.get<Task[]>(`/scheduler/goals/${goalId}/tasks`),
-
   get: (id: string) => apiClient.get<Task>(`/scheduler/tasks/${id}`),
-
   create: (goalId: string, data: CreateTaskRequest) =>
     apiClient.post<Task>(`/scheduler/goals/${goalId}/tasks`, data),
-
-  update: (id: string, data: Partial<CreateTaskRequest>) =>
+  update: (id: string, data: Partial<CreateTaskRequest> & { status?: string }) =>
     apiClient.patch<Task>(`/scheduler/tasks/${id}`, data),
-
   delete: (id: string) =>
     apiClient.delete<{ success: boolean }>(`/scheduler/tasks/${id}`),
 };
 
-// --- Scheduler (Schedule) ---
+// ─── Schedule ─────────────────────────────────────────────────────────────────
+
 export const scheduleApi = {
   generate: (data?: GenerateScheduleRequest) =>
-    apiClient.post<ScheduleResult>('/scheduler/schedule/generate', data || {}),
-
+    apiClient.post<ScheduleResult>('/scheduler/schedule/generate', data ?? {}),
   view: (from: string, to: string) =>
     apiClient.get<ScheduleBlock[]>('/scheduler/schedule/view', {
       params: { from, to },
     }),
-
   clear: (from?: string) =>
     apiClient.post('/scheduler/schedule/clear', { from }),
+};
+
+// ─── Calendar ─────────────────────────────────────────────────────────────────
+
+export const calendarApi = {
+  listEvents: (from?: string, to?: string) =>
+    apiClient.get<CalendarEvent[]>('/calendar/events', {
+      params: { from, to },
+    }),
+
+  createEvent: (data: CreateEventRequest) =>
+    apiClient.post<CalendarEvent>('/calendar/events', data),
+
+  updateEvent: (id: string, data: Partial<CreateEventRequest>) =>
+    apiClient.patch<CalendarEvent>(`/calendar/events/${id}`, data),
+
+  deleteEvent: (id: string) =>
+    apiClient.delete<{ success: boolean }>(`/calendar/events/${id}`),
+
+  getFreeSlots: (from: string, to: string, minDurationMin?: number) =>
+    apiClient.get<FreeSlot[]>('/calendar/free-slots', {
+      params: { from, to, minDurationMin },
+    }),
+
+  checkConflict: (startTime: string, endTime: string, excludeEventId?: string) =>
+    apiClient.post<{ hasConflict: boolean; conflicts: CalendarEvent[] }>(
+      '/calendar/conflicts/check',
+      { startTime, endTime, excludeEventId },
+    ),
 };

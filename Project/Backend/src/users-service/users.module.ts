@@ -25,6 +25,7 @@ import { UsersController } from './users.controller';
         retryDelay: 3000,
       }),
     }),
+    // FIX: UsersController now injects UserRepository directly for password reset
     TypeOrmModule.forFeature([User]),
     JwtModule.register({}),
     BullModule.forRootAsync({
@@ -38,9 +39,7 @@ import { UsersController } from './users.controller';
         },
       }),
     }),
-    BullModule.registerQueue({
-      name: 'notification-jobs',
-    }),
+    BullModule.registerQueue({ name: 'notification-jobs' }),
   ],
   controllers: [UsersController],
   providers: [AuthService, TokenService, OtpService, UserService],

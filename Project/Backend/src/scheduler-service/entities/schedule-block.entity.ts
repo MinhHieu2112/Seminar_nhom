@@ -16,30 +16,30 @@ export type BlockStatus = 'planned' | 'done' | 'missed' | 'shifted';
 @Index(['taskId'])
 export class ScheduleBlock {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @Column('uuid')
-  userId: string;
+  userId!: string;
 
   @Column('uuid')
-  taskId: string;
+  taskId!: string;
 
   @ManyToOne(() => Task, (task) => task.scheduleBlocks, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'taskId' })
-  task: Task;
+  task!: Task;
 
   @Column('timestamptz', { name: 'planned_start' })
-  plannedStart: Date;
+  plannedStart!: Date;
 
   @Column('timestamptz', { name: 'planned_end' })
-  plannedEnd: Date;
+  plannedEnd!: Date;
 
   @Column('smallint', { name: 'pomodoro_index', default: 1 })
-  pomodoroIndex: number;
+  pomodoroIndex!: number;
 
   @Column('varchar', { length: 20, default: 'planned' })
-  status: BlockStatus;
+  status!: BlockStatus;
 
   @CreateDateColumn({ type: 'timestamptz' })
-  createdAt: Date;
+  createdAt!: Date;
 }

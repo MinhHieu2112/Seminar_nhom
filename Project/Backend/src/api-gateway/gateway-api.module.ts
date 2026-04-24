@@ -7,6 +7,7 @@ import {
   UsersGatewayController,
   AdminGatewayController,
   SchedulerGatewayController,
+  CalendarGatewayController,
 } from './auth.gateway.controller';
 
 @Module({
@@ -16,6 +17,7 @@ import {
     UsersGatewayController,
     AdminGatewayController,
     SchedulerGatewayController,
+    CalendarGatewayController,
   ],
   providers: [TcpClientService],
   exports: [TcpClientService],

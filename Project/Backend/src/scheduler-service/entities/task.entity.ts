@@ -20,39 +20,39 @@ export type TaskSource = 'ai' | 'manual';
 @Index(['goalId'])
 export class Task {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @Column('uuid')
-  userId: string;
+  userId!: string;
 
   @Column('uuid')
-  goalId: string;
+  goalId!: string;
 
   @ManyToOne(() => Goal, (goal) => goal.tasks, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'goalId' })
-  goal: Goal;
+  goal!: Goal;
 
   @Column('text')
-  title: string;
+  title!: string;
 
   @Column('int', { name: 'duration_min' })
-  durationMin: number;
+  durationMin!: number;
 
   @Column('smallint', { default: 3 })
-  priority: number;
+  priority!: number;
 
   @Column('varchar', { length: 20, default: 'theory' })
-  type: TaskType;
+  type!: TaskType;
 
   @Column('varchar', { length: 20, default: 'pending' })
-  status: TaskStatus;
+  status!: TaskStatus;
 
   @Column('varchar', { length: 20, default: 'ai' })
-  source: TaskSource;
+  source!: TaskSource;
 
   @CreateDateColumn({ type: 'timestamptz' })
-  createdAt: Date;
+  createdAt!: Date;
 
   @OneToMany(() => ScheduleBlock, (block) => block.task, { cascade: true })
-  scheduleBlocks: ScheduleBlock[];
+  scheduleBlocks!: ScheduleBlock[];
 }

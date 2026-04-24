@@ -6,10 +6,16 @@ interface GoalDetailPageProps {
   params: Promise<{ id: string }>;
 }
 
+// UUID v4 pattern — bất kỳ giá trị nào không phải UUID đều bị chặn
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 export default async function GoalDetailPage({ params }: GoalDetailPageProps) {
   const { id } = await params;
 
-  if (!id) {
+  // FIX: "new" (và các string không phải UUID) bị Next.js route-match vào [id].
+  // Nếu không chặn ở đây, TaskList sẽ gọi GET /scheduler/goals/new/tasks → backend 500.
+  if (!id || !UUID_REGEX.test(id)) {
     notFound();
   }
 

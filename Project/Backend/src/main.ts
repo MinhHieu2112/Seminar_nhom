@@ -9,7 +9,7 @@ async function bootstrap() {
     credentials: true,
   });
 
-  const port = parseInt(process.env.GATEWAY_PORT || '3000', 10);
+  const port = parseInt(process.env.GATEWAY_PORT || '5000', 10);
   await app.listen(port, '0.0.0.0');
   console.log(`API Gateway listening on http://0.0.0.0:${port}`);
   console.log('Available routes:');

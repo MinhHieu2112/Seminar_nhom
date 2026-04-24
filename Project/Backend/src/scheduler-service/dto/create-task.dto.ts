@@ -2,14 +2,14 @@ import { IsString, IsInt, IsOptional, IsEnum, Min, Max } from 'class-validator';
 
 export class CreateTaskDto {
   @IsString()
-  goalId: string;
+  goalId!: string;
 
   @IsString()
-  title: string;
+  title!: string;
 
   @IsInt()
   @Min(1)
-  durationMin: number;
+  durationMin!: number;
 
   @IsOptional()
   @IsInt()

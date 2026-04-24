@@ -16,6 +16,24 @@ import { TcpClientService } from './tcp-client.service';
 import { JwtService } from '@nestjs/jwt';
 import type { JwtPayload } from '../users-service/auth/auth.service';
 
+// Shared token extractor — avoids duplicating this logic in every controller
+function extractUserId(authHeader: string, jwtService: JwtService): string {
+  if (!authHeader?.startsWith('Bearer ')) {
+    throw new UnauthorizedException('No token provided');
+  }
+  const token = authHeader.substring(7);
+  try {
+    const payload = jwtService.verify<JwtPayload>(token, {
+      secret: process.env.JWT_SECRET,
+    });
+    return payload.sub;
+  } catch {
+    throw new UnauthorizedException('Invalid token');
+  }
+}
+
+// ─── Auth ────────────────────────────────────────────────────────────────────
+
 @Controller('api/v1/auth')
 export class AuthGatewayController {
   constructor(
@@ -23,66 +41,54 @@ export class AuthGatewayController {
     private readonly jwtService: JwtService,
   ) {}
 
-  private extractUserId(authHeader: string): string {
-    if (!authHeader?.startsWith('Bearer ')) {
-      throw new UnauthorizedException('No token provided');
-    }
-    const token = authHeader.substring(7);
-    try {
-      const payload = this.jwtService.verify<JwtPayload>(token, {
-        secret: process.env.JWT_SECRET,
-      });
-      return payload.sub;
-    } catch {
-      throw new UnauthorizedException('Invalid token');
-    }
-  }
-
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
-  async register(@Body() dto: { email: string; password: string }) {
+  register(@Body() dto: { email: string; password: string }) {
     return this.tcpClient.send('user-service', 'user.register', dto);
   }
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  async login(@Body() dto: { email: string; password: string }) {
+  login(@Body() dto: { email: string; password: string }) {
     return this.tcpClient.send('user-service', 'user.login', dto);
   }
 
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
-  async refresh(@Body() dto: { refreshToken: string }) {
+  refresh(@Body() dto: { refreshToken: string }) {
     return this.tcpClient.send('user-service', 'user.refresh', dto);
   }
 
   @Post('logout')
   @HttpCode(HttpStatus.OK)
-  async logout(
+  logout(
     @Headers('authorization') authHeader: string,
     @Body() data: { userId?: string; jti?: string },
   ) {
-    const userId = data.userId || this.extractUserId(authHeader);
+    // Allow explicit userId in body (e.g., mobile clients) or extract from token
+    const userId = data.userId ?? extractUserId(authHeader, this.jwtService);
     return this.tcpClient.send('user-service', 'user.logout', {
       userId,
-      jti: data.jti || 'logout-all',
+      jti: data.jti ?? 'logout-all',
     });
   }
 
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
-  async forgotPassword(@Body() dto: { email: string }) {
+  forgotPassword(@Body() dto: { email: string }) {
     return this.tcpClient.send('user-service', 'user.password.forgot', dto);
   }
 
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
-  async resetPassword(
+  resetPassword(
     @Body() dto: { email: string; otp: string; newPassword: string },
   ) {
     return this.tcpClient.send('user-service', 'user.password.reset', dto);
   }
 }
+
+// ─── Users (profile) ─────────────────────────────────────────────────────────
 
 @Controller('api/v1/users')
 export class UsersGatewayController {
@@ -91,33 +97,18 @@ export class UsersGatewayController {
     private readonly jwtService: JwtService,
   ) {}
 
-  private extractUserId(authHeader: string): string {
-    if (!authHeader?.startsWith('Bearer ')) {
-      throw new UnauthorizedException('No token provided');
-    }
-    const token = authHeader.substring(7);
-    try {
-      const payload = this.jwtService.verify<JwtPayload>(token, {
-        secret: process.env.JWT_SECRET,
-      });
-      return payload.sub;
-    } catch {
-      throw new UnauthorizedException('Invalid token');
-    }
-  }
-
   @Get('me')
-  async getProfile(@Headers('authorization') authHeader: string) {
-    const userId = this.extractUserId(authHeader);
+  getProfile(@Headers('authorization') authHeader: string) {
+    const userId = extractUserId(authHeader, this.jwtService);
     return this.tcpClient.send('user-service', 'user.profile.get', { userId });
   }
 
   @Patch('me')
-  async updateProfile(
+  updateProfile(
     @Headers('authorization') authHeader: string,
     @Body() dto: { timezone?: string; preferences?: Record<string, unknown> },
   ) {
-    const userId = this.extractUserId(authHeader);
+    const userId = extractUserId(authHeader, this.jwtService);
     return this.tcpClient.send('user-service', 'user.profile.update', {
       userId,
       ...dto,
@@ -126,11 +117,11 @@ export class UsersGatewayController {
 
   @Post('password/change')
   @HttpCode(HttpStatus.OK)
-  async changePassword(
+  changePassword(
     @Headers('authorization') authHeader: string,
     @Body() dto: { oldPassword: string; newPassword: string },
   ) {
-    const userId = this.extractUserId(authHeader);
+    const userId = extractUserId(authHeader, this.jwtService);
     return this.tcpClient.send('user-service', 'user.password.change', {
       userId,
       ...dto,
@@ -139,18 +130,20 @@ export class UsersGatewayController {
 
   @Post('password/forgot')
   @HttpCode(HttpStatus.OK)
-  async forgotPassword(@Body() dto: { email: string }) {
+  forgotPassword(@Body() dto: { email: string }) {
     return this.tcpClient.send('user-service', 'user.password.forgot', dto);
   }
 
   @Post('password/reset')
   @HttpCode(HttpStatus.OK)
-  async resetPassword(
+  resetPassword(
     @Body() dto: { email: string; otp: string; newPassword: string },
   ) {
     return this.tcpClient.send('user-service', 'user.password.reset', dto);
   }
 }
+
+// ─── Admin ────────────────────────────────────────────────────────────────────
 
 @Controller('api/v1/admin')
 export class AdminGatewayController {
@@ -159,39 +152,32 @@ export class AdminGatewayController {
     private readonly jwtService: JwtService,
   ) {}
 
-  private extractUserId(authHeader: string): string {
-    if (!authHeader?.startsWith('Bearer ')) {
-      throw new UnauthorizedException('No token provided');
-    }
-    const token = authHeader.substring(7);
-    try {
-      const payload = this.jwtService.verify<JwtPayload>(token, {
-        secret: process.env.JWT_SECRET,
-      });
-      return payload.sub;
-    } catch {
-      throw new UnauthorizedException('Invalid token');
-    }
-  }
-
   @Get('users')
-  async listUsers(
+  listUsers(
     @Headers('authorization') authHeader: string,
-    @Body() query: { page?: number; limit?: number },
+    @Query('page') page = 1,
+    @Query('limit') limit = 20,
   ) {
-    this.extractUserId(authHeader); // Validate token
-    return this.tcpClient.send('user-service', 'user.admin.list', query);
+    extractUserId(authHeader, this.jwtService); // validate token
+    return this.tcpClient.send('user-service', 'user.admin.list', {
+      page: Number(page),
+      limit: Number(limit),
+    });
   }
 
+  // FIX: was using @Body() for userId — must use @Param()
   @Post('users/:userId/toggle')
-  async toggleUser(
+  @HttpCode(HttpStatus.OK)
+  toggleUser(
     @Headers('authorization') authHeader: string,
-    @Body() data: { userId: string },
+    @Param('userId') userId: string,
   ) {
-    this.extractUserId(authHeader); // Validate token
-    return this.tcpClient.send('user-service', 'user.admin.toggle', data);
+    extractUserId(authHeader, this.jwtService); // validate token
+    return this.tcpClient.send('user-service', 'user.admin.toggle', { userId });
   }
 }
+
+// ─── Scheduler ───────────────────────────────────────────────────────────────
 
 @Controller('api/v1/scheduler')
 export class SchedulerGatewayController {
@@ -200,36 +186,22 @@ export class SchedulerGatewayController {
     private readonly jwtService: JwtService,
   ) {}
 
-  private extractUserId(authHeader: string): string {
-    if (!authHeader?.startsWith('Bearer ')) {
-      throw new UnauthorizedException('No token provided');
-    }
-    const token = authHeader.substring(7);
-    try {
-      const payload = this.jwtService.verify<JwtPayload>(token, {
-        secret: process.env.JWT_SECRET,
-      });
-      return payload.sub;
-    } catch {
-      throw new UnauthorizedException('Invalid token');
-    }
-  }
+  // ── Goals ──────────────────────────────────────────────────────────────────
 
-  // ========== GOALS ==========
   @Get('goals')
-  async listGoals(@Headers('authorization') authHeader: string) {
-    const userId = this.extractUserId(authHeader);
+  listGoals(@Headers('authorization') authHeader: string) {
+    const userId = extractUserId(authHeader, this.jwtService);
     return this.tcpClient.send('scheduler-service', 'scheduler.goal.list', {
       userId,
     });
   }
 
   @Post('goals')
-  async createGoal(
+  createGoal(
     @Headers('authorization') authHeader: string,
     @Body() dto: { title: string; description?: string; deadline?: string },
   ) {
-    const userId = this.extractUserId(authHeader);
+    const userId = extractUserId(authHeader, this.jwtService);
     return this.tcpClient.send('scheduler-service', 'scheduler.goal.create', {
       userId,
       dto,
@@ -237,11 +209,11 @@ export class SchedulerGatewayController {
   }
 
   @Get('goals/:id')
-  async getGoal(
+  getGoal(
     @Headers('authorization') authHeader: string,
     @Param('id') id: string,
   ) {
-    const userId = this.extractUserId(authHeader);
+    const userId = extractUserId(authHeader, this.jwtService);
     return this.tcpClient.send('scheduler-service', 'scheduler.goal.get', {
       id,
       userId,
@@ -249,13 +221,13 @@ export class SchedulerGatewayController {
   }
 
   @Patch('goals/:id')
-  async updateGoal(
+  updateGoal(
     @Headers('authorization') authHeader: string,
     @Param('id') id: string,
     @Body()
     dto: Partial<{ title: string; description: string; deadline: string }>,
   ) {
-    const userId = this.extractUserId(authHeader);
+    const userId = extractUserId(authHeader, this.jwtService);
     return this.tcpClient.send('scheduler-service', 'scheduler.goal.update', {
       id,
       userId,
@@ -264,24 +236,25 @@ export class SchedulerGatewayController {
   }
 
   @Delete('goals/:id')
-  async deleteGoal(
+  deleteGoal(
     @Headers('authorization') authHeader: string,
     @Param('id') id: string,
   ) {
-    const userId = this.extractUserId(authHeader);
+    const userId = extractUserId(authHeader, this.jwtService);
     return this.tcpClient.send('scheduler-service', 'scheduler.goal.delete', {
       id,
       userId,
     });
   }
 
-  // ========== TASKS ==========
+  // ── Tasks ──────────────────────────────────────────────────────────────────
+
   @Get('goals/:goalId/tasks')
-  async listTasks(
+  listTasks(
     @Headers('authorization') authHeader: string,
     @Param('goalId') goalId: string,
   ) {
-    const userId = this.extractUserId(authHeader);
+    const userId = extractUserId(authHeader, this.jwtService);
     return this.tcpClient.send('scheduler-service', 'scheduler.task.list', {
       goalId,
       userId,
@@ -289,7 +262,7 @@ export class SchedulerGatewayController {
   }
 
   @Post('goals/:goalId/tasks')
-  async createTask(
+  createTask(
     @Headers('authorization') authHeader: string,
     @Param('goalId') goalId: string,
     @Body()
@@ -297,10 +270,10 @@ export class SchedulerGatewayController {
       title: string;
       durationMin: number;
       priority?: number;
-      type?: 'theory' | 'practice' | 'review';
+      type?: 'theory' | 'practice';
     },
   ) {
-    const userId = this.extractUserId(authHeader);
+    const userId = extractUserId(authHeader, this.jwtService);
     return this.tcpClient.send('scheduler-service', 'scheduler.task.create', {
       goalId,
       userId,
@@ -309,11 +282,11 @@ export class SchedulerGatewayController {
   }
 
   @Get('tasks/:id')
-  async getTask(
+  getTask(
     @Headers('authorization') authHeader: string,
     @Param('id') id: string,
   ) {
-    const userId = this.extractUserId(authHeader);
+    const userId = extractUserId(authHeader, this.jwtService);
     return this.tcpClient.send('scheduler-service', 'scheduler.task.get', {
       id,
       userId,
@@ -321,7 +294,7 @@ export class SchedulerGatewayController {
   }
 
   @Patch('tasks/:id')
-  async updateTask(
+  updateTask(
     @Headers('authorization') authHeader: string,
     @Param('id') id: string,
     @Body()
@@ -329,10 +302,10 @@ export class SchedulerGatewayController {
       title: string;
       durationMin: number;
       priority: number;
-      status: 'pending' | 'scheduled' | 'done';
+      status: 'pending' | 'scheduled' | 'done' | 'skipped';
     }>,
   ) {
-    const userId = this.extractUserId(authHeader);
+    const userId = extractUserId(authHeader, this.jwtService);
     return this.tcpClient.send('scheduler-service', 'scheduler.task.update', {
       id,
       userId,
@@ -341,41 +314,38 @@ export class SchedulerGatewayController {
   }
 
   @Delete('tasks/:id')
-  async deleteTask(
+  deleteTask(
     @Headers('authorization') authHeader: string,
     @Param('id') id: string,
   ) {
-    const userId = this.extractUserId(authHeader);
+    const userId = extractUserId(authHeader, this.jwtService);
     return this.tcpClient.send('scheduler-service', 'scheduler.task.delete', {
       id,
       userId,
     });
   }
 
-  // ========== SCHEDULE ==========
+  // ── Schedule ───────────────────────────────────────────────────────────────
+
   @Post('schedule/generate')
-  async generateSchedule(
+  generateSchedule(
     @Headers('authorization') authHeader: string,
     @Body() dto?: { fromDate?: string; toDate?: string },
   ) {
-    const userId = this.extractUserId(authHeader);
+    const userId = extractUserId(authHeader, this.jwtService);
     return this.tcpClient.send(
       'scheduler-service',
       'scheduler.schedule.generate',
-      {
-        userId,
-        fromDate: dto?.fromDate,
-        toDate: dto?.toDate,
-      },
+      { userId, fromDate: dto?.fromDate, toDate: dto?.toDate },
     );
   }
 
   @Get('schedule/view')
-  async viewSchedule(
+  viewSchedule(
     @Headers('authorization') authHeader: string,
     @Query() query: { from: string; to: string },
   ) {
-    const userId = this.extractUserId(authHeader);
+    const userId = extractUserId(authHeader, this.jwtService);
     return this.tcpClient.send('scheduler-service', 'scheduler.schedule.view', {
       userId,
       from: query.from,
@@ -384,14 +354,137 @@ export class SchedulerGatewayController {
   }
 
   @Post('schedule/clear')
-  async clearSchedule(
+  @HttpCode(HttpStatus.OK)
+  clearSchedule(
     @Headers('authorization') authHeader: string,
     @Body() dto?: { from?: string },
   ) {
-    const userId = this.extractUserId(authHeader);
-    return this.tcpClient.send('scheduler-service', 'scheduler.schedule.clear', {
+    const userId = extractUserId(authHeader, this.jwtService);
+    return this.tcpClient.send(
+      'scheduler-service',
+      'scheduler.schedule.clear',
+      {
+        userId,
+        from: dto?.from,
+      },
+    );
+  }
+}
+
+// ─── Calendar ─────────────────────────────────────────────────────────────────
+
+@Controller('api/v1/calendar')
+export class CalendarGatewayController {
+  constructor(
+    private readonly tcpClient: TcpClientService,
+    private readonly jwtService: JwtService,
+  ) {}
+
+  @Post('events')
+  createEvent(
+    @Headers('authorization') authHeader: string,
+    @Body()
+    dto: {
+      title: string;
+      startTime: string;
+      endTime: string;
+      description?: string;
+      recurrenceRule?: string;
+      priority?: number;
+      isAllDay?: boolean;
+    },
+  ) {
+    const userId = extractUserId(authHeader, this.jwtService);
+    return this.tcpClient.send('calendar-service', 'calendar.event.create', {
       userId,
-      from: dto?.from,
+      dto,
+    });
+  }
+
+  @Get('events')
+  listEvents(
+    @Headers('authorization') authHeader: string,
+    @Query() query: { from?: string; to?: string },
+  ) {
+    const userId = extractUserId(authHeader, this.jwtService);
+    return this.tcpClient.send('calendar-service', 'calendar.event.list', {
+      userId,
+      from: query.from,
+      to: query.to,
+    });
+  }
+
+  @Get('events/:id')
+  getEvent(
+    @Headers('authorization') authHeader: string,
+    @Param('id') id: string,
+  ) {
+    const userId = extractUserId(authHeader, this.jwtService);
+    return this.tcpClient.send('calendar-service', 'calendar.event.get', {
+      id,
+      userId,
+    });
+  }
+
+  @Patch('events/:id')
+  updateEvent(
+    @Headers('authorization') authHeader: string,
+    @Param('id') id: string,
+    @Body()
+    dto: Partial<{
+      title: string;
+      startTime: string;
+      endTime: string;
+      description: string;
+    }>,
+  ) {
+    const userId = extractUserId(authHeader, this.jwtService);
+    return this.tcpClient.send('calendar-service', 'calendar.event.update', {
+      id,
+      userId,
+      dto,
+    });
+  }
+
+  @Delete('events/:id')
+  deleteEvent(
+    @Headers('authorization') authHeader: string,
+    @Param('id') id: string,
+  ) {
+    const userId = extractUserId(authHeader, this.jwtService);
+    return this.tcpClient.send('calendar-service', 'calendar.event.delete', {
+      id,
+      userId,
+    });
+  }
+
+  @Get('free-slots')
+  getFreeSlots(
+    @Headers('authorization') authHeader: string,
+    @Query() query: { from: string; to: string; minDurationMin?: string },
+  ) {
+    const userId = extractUserId(authHeader, this.jwtService);
+    return this.tcpClient.send('calendar-service', 'calendar.freeslots.get', {
+      userId,
+      from: query.from,
+      to: query.to,
+      minDurationMin: query.minDurationMin
+        ? Number(query.minDurationMin)
+        : undefined,
+    });
+  }
+
+  @Post('conflicts/check')
+  @HttpCode(HttpStatus.OK)
+  checkConflict(
+    @Headers('authorization') authHeader: string,
+    @Body()
+    dto: { startTime: string; endTime: string; excludeEventId?: string },
+  ) {
+    const userId = extractUserId(authHeader, this.jwtService);
+    return this.tcpClient.send('calendar-service', 'calendar.conflict.check', {
+      userId,
+      ...dto,
     });
   }
 }

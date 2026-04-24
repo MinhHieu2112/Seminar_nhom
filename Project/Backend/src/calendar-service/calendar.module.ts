@@ -6,6 +6,7 @@ import { CalendarEvent, WorkingHoursConfig } from './entities';
 import { CalendarController } from './calendar.controller';
 import { EventService } from './event/event.service';
 import { AvailabilityService } from './availability/availability.service';
+import { WorkingHoursService } from './working-hours/working-hours.service';
 
 @Module({
   imports: [
@@ -36,7 +37,7 @@ import { AvailabilityService } from './availability/availability.service';
     }),
   ],
   controllers: [CalendarController],
-  providers: [EventService, AvailabilityService],
+  providers: [EventService, AvailabilityService, WorkingHoursService],
   exports: [EventService, AvailabilityService],
 })
 export class CalendarModule {}

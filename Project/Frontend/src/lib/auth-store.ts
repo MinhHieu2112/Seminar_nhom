@@ -1,10 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import Cookies from 'js-cookie';
-import {
-  setAccessToken,
-  clearAuth,
-} from '@/lib/api-client';
+import { setAccessToken, clearAuth } from '@/lib/api-client';
 import type { User } from '@/types/api';
 
 interface AuthState {
@@ -15,6 +12,7 @@ interface AuthState {
   isLoading: boolean;
   login: (accessToken: string, refreshToken: string, user: User) => void;
   logout: () => void;
+  setUser: (user: User) => void; // FIX: was missing — used by useUpdateProfile hook
   setLoading: (loading: boolean) => void;
 }
 
@@ -55,10 +53,13 @@ export const useAuthStore = create<AuthState>()(
         });
       },
 
+      // FIX: added missing setUser — called by useUpdateProfile after a successful PATCH
+      setUser: (user: User) => set({ user }),
+
       setLoading: (isLoading) => set({ isLoading }),
     }),
     {
       name: 'auth-storage',
-    }
-  )
+    },
+  ),
 );

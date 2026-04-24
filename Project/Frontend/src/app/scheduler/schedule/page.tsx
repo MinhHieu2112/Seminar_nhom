@@ -1,8 +1,14 @@
+'use client';
+
 import Link from 'next/link';
+import { useState } from 'react';
 import { ScheduleView } from '@/components/scheduler/ScheduleView';
+import { GoalModal } from '@/components/scheduler/GoalModal';
 import { Calendar, Target, Clock, ArrowLeft } from 'lucide-react';
 
 export default function SchedulePage() {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
   return (
     <div className="space-y-6">
       {/* Header Section */}
@@ -19,13 +25,14 @@ export default function SchedulePage() {
             <ArrowLeft className="h-4 w-4" />
             Back to Goals
           </Link>
-          <Link
-            href="/scheduler/goals/new"
+          {/* FIX: was href="/scheduler/goals/new" which matched [id] route with id="new" */}
+          <button
+            onClick={() => setIsModalOpen(true)}
             className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 px-4 py-2.5 text-sm font-medium text-white shadow-lg shadow-blue-200 transition-all hover:shadow-xl hover:shadow-blue-300"
           >
             <Target className="h-4 w-4" />
             Add Goal
-          </Link>
+          </button>
         </div>
       </div>
 
@@ -70,6 +77,9 @@ export default function SchedulePage() {
       <div className="rounded-xl bg-white p-6 shadow-sm">
         <ScheduleView />
       </div>
+
+      {/* Goal Modal */}
+      <GoalModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
     </div>
   );
 }

@@ -2,9 +2,13 @@ import { Controller, Logger } from '@nestjs/common';
 import { MessagePattern, Payload } from '@nestjs/microservices';
 import { InjectQueue } from '@nestjs/bull';
 import type { Queue } from 'bull';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth/auth.service';
 import { UserService } from './user/user.service';
 import { OtpService } from './auth/otp.service';
+import { User } from './user/user.entity';
 import {
   RegisterDto,
   LoginDto,
@@ -23,6 +27,8 @@ export class UsersController {
     private readonly authService: AuthService,
     private readonly userService: UserService,
     private readonly otpService: OtpService,
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
     @InjectQueue('notification-jobs')
     private readonly notificationQueue: Queue,
   ) {}
@@ -66,36 +72,51 @@ export class UsersController {
 
   @MessagePattern('user.password.forgot')
   async forgotPassword(@Payload() dto: ForgotPasswordDto) {
+    // Generate OTP regardless of whether email exists (prevent user enumeration)
     const otp = await this.otpService.generateOtp(dto.email);
 
-    // Enqueue email notification job — fire-and-forget
     try {
       await this.notificationQueue.add('send-email', {
         to: dto.email,
         template: 'otp',
         vars: { otp },
       });
-      this.logger.log(`Enqueued OTP email job for ${dto.email}`);
+      this.logger.log(`Enqueued OTP email for ${dto.email}`);
     } catch (error) {
       this.logger.error(
         `Failed to enqueue OTP email: ${error instanceof Error ? error.message : 'Unknown'}`,
       );
-      // Do NOT throw — user still gets the OTP response
     }
 
     return {
       success: true,
-      message: 'OTP sent to email',
-      ...(process.env.NODE_ENV === 'development' && { otp }),
+      message: 'If an account exists with that email, an OTP has been sent.',
+      // Only expose OTP in dev so developers can test without real emails
+      ...(process.env.NODE_ENV !== 'production' && { otp }),
     };
   }
 
+  /**
+   * FIX: original implementation only verified OTP but never updated the password.
+   * Now it verifies OTP, finds the user, hashes the new password, and saves.
+   */
   @MessagePattern('user.password.reset')
   async resetPassword(@Payload() dto: ResetPasswordDto) {
     const isValid = await this.otpService.verifyOtp(dto.email, dto.otp);
     if (!isValid) {
       return { success: false, message: 'Invalid or expired OTP' };
     }
+
+    const user = await this.userRepo.findOne({ where: { email: dto.email } });
+    if (!user) {
+      // Don't reveal whether the email exists
+      return { success: true, message: 'Password reset successful' };
+    }
+
+    user.password = await bcrypt.hash(dto.newPassword, 12);
+    await this.userRepo.save(user);
+
+    this.logger.log(`Password reset for ${dto.email}`);
     return { success: true, message: 'Password reset successful' };
   }
 

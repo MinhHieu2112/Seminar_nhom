@@ -2,7 +2,7 @@ import { IsString, IsDateString, IsOptional } from 'class-validator';
 
 export class GenerateScheduleDto {
   @IsString()
-  userId: string;
+  userId!: string;
 
   @IsOptional()
   @IsDateString()
