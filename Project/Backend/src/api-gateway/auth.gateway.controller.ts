@@ -3,8 +3,11 @@ import {
   Post,
   Get,
   Patch,
+  Delete,
   Body,
   Headers,
+  Param,
+  Query,
   HttpCode,
   HttpStatus,
   UnauthorizedException,
@@ -187,5 +190,208 @@ export class AdminGatewayController {
   ) {
     this.extractUserId(authHeader); // Validate token
     return this.tcpClient.send('user-service', 'user.admin.toggle', data);
+  }
+}
+
+@Controller('api/v1/scheduler')
+export class SchedulerGatewayController {
+  constructor(
+    private readonly tcpClient: TcpClientService,
+    private readonly jwtService: JwtService,
+  ) {}
+
+  private extractUserId(authHeader: string): string {
+    if (!authHeader?.startsWith('Bearer ')) {
+      throw new UnauthorizedException('No token provided');
+    }
+    const token = authHeader.substring(7);
+    try {
+      const payload = this.jwtService.verify<JwtPayload>(token, {
+        secret: process.env.JWT_SECRET,
+      });
+      return payload.sub;
+    } catch {
+      throw new UnauthorizedException('Invalid token');
+    }
+  }
+
+  // ========== GOALS ==========
+  @Get('goals')
+  async listGoals(@Headers('authorization') authHeader: string) {
+    const userId = this.extractUserId(authHeader);
+    return this.tcpClient.send('scheduler-service', 'scheduler.goal.list', {
+      userId,
+    });
+  }
+
+  @Post('goals')
+  async createGoal(
+    @Headers('authorization') authHeader: string,
+    @Body() dto: { title: string; description?: string; deadline?: string },
+  ) {
+    const userId = this.extractUserId(authHeader);
+    return this.tcpClient.send('scheduler-service', 'scheduler.goal.create', {
+      userId,
+      dto,
+    });
+  }
+
+  @Get('goals/:id')
+  async getGoal(
+    @Headers('authorization') authHeader: string,
+    @Param('id') id: string,
+  ) {
+    const userId = this.extractUserId(authHeader);
+    return this.tcpClient.send('scheduler-service', 'scheduler.goal.get', {
+      id,
+      userId,
+    });
+  }
+
+  @Patch('goals/:id')
+  async updateGoal(
+    @Headers('authorization') authHeader: string,
+    @Param('id') id: string,
+    @Body()
+    dto: Partial<{ title: string; description: string; deadline: string }>,
+  ) {
+    const userId = this.extractUserId(authHeader);
+    return this.tcpClient.send('scheduler-service', 'scheduler.goal.update', {
+      id,
+      userId,
+      dto,
+    });
+  }
+
+  @Delete('goals/:id')
+  async deleteGoal(
+    @Headers('authorization') authHeader: string,
+    @Param('id') id: string,
+  ) {
+    const userId = this.extractUserId(authHeader);
+    return this.tcpClient.send('scheduler-service', 'scheduler.goal.delete', {
+      id,
+      userId,
+    });
+  }
+
+  // ========== TASKS ==========
+  @Get('goals/:goalId/tasks')
+  async listTasks(
+    @Headers('authorization') authHeader: string,
+    @Param('goalId') goalId: string,
+  ) {
+    const userId = this.extractUserId(authHeader);
+    return this.tcpClient.send('scheduler-service', 'scheduler.task.list', {
+      goalId,
+      userId,
+    });
+  }
+
+  @Post('goals/:goalId/tasks')
+  async createTask(
+    @Headers('authorization') authHeader: string,
+    @Param('goalId') goalId: string,
+    @Body()
+    dto: {
+      title: string;
+      durationMin: number;
+      priority?: number;
+      type?: 'theory' | 'practice' | 'review';
+    },
+  ) {
+    const userId = this.extractUserId(authHeader);
+    return this.tcpClient.send('scheduler-service', 'scheduler.task.create', {
+      goalId,
+      userId,
+      dto,
+    });
+  }
+
+  @Get('tasks/:id')
+  async getTask(
+    @Headers('authorization') authHeader: string,
+    @Param('id') id: string,
+  ) {
+    const userId = this.extractUserId(authHeader);
+    return this.tcpClient.send('scheduler-service', 'scheduler.task.get', {
+      id,
+      userId,
+    });
+  }
+
+  @Patch('tasks/:id')
+  async updateTask(
+    @Headers('authorization') authHeader: string,
+    @Param('id') id: string,
+    @Body()
+    dto: Partial<{
+      title: string;
+      durationMin: number;
+      priority: number;
+      status: 'pending' | 'scheduled' | 'done';
+    }>,
+  ) {
+    const userId = this.extractUserId(authHeader);
+    return this.tcpClient.send('scheduler-service', 'scheduler.task.update', {
+      id,
+      userId,
+      dto,
+    });
+  }
+
+  @Delete('tasks/:id')
+  async deleteTask(
+    @Headers('authorization') authHeader: string,
+    @Param('id') id: string,
+  ) {
+    const userId = this.extractUserId(authHeader);
+    return this.tcpClient.send('scheduler-service', 'scheduler.task.delete', {
+      id,
+      userId,
+    });
+  }
+
+  // ========== SCHEDULE ==========
+  @Post('schedule/generate')
+  async generateSchedule(
+    @Headers('authorization') authHeader: string,
+    @Body() dto?: { fromDate?: string; toDate?: string },
+  ) {
+    const userId = this.extractUserId(authHeader);
+    return this.tcpClient.send(
+      'scheduler-service',
+      'scheduler.schedule.generate',
+      {
+        userId,
+        fromDate: dto?.fromDate,
+        toDate: dto?.toDate,
+      },
+    );
+  }
+
+  @Get('schedule/view')
+  async viewSchedule(
+    @Headers('authorization') authHeader: string,
+    @Query() query: { from: string; to: string },
+  ) {
+    const userId = this.extractUserId(authHeader);
+    return this.tcpClient.send('scheduler-service', 'scheduler.schedule.view', {
+      userId,
+      from: query.from,
+      to: query.to,
+    });
+  }
+
+  @Post('schedule/clear')
+  async clearSchedule(
+    @Headers('authorization') authHeader: string,
+    @Body() dto?: { from?: string },
+  ) {
+    const userId = this.extractUserId(authHeader);
+    return this.tcpClient.send('scheduler-service', 'scheduler.schedule.clear', {
+      userId,
+      from: dto?.from,
+    });
   }
 }

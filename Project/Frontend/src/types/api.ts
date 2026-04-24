@@ -94,3 +94,84 @@ export interface JwtPayload {
   iat: number;
   exp: number;
 }
+
+// ============================================================
+// Scheduler Types
+// ============================================================
+
+export type TaskStatus = 'pending' | 'scheduled' | 'done' | 'skipped';
+export type TaskType = 'theory' | 'practice' | 'review';
+export type TaskSource = 'manual' | 'ai';
+export type GoalStatus = 'active' | 'archived';
+
+export interface Goal {
+  id: string;
+  userId: string;
+  title: string;
+  description: string | null;
+  deadline: string | null;
+  status: GoalStatus;
+  createdAt: string;
+  tasks?: Task[];
+}
+
+export interface Task {
+  id: string;
+  goalId: string;
+  userId: string;
+  title: string;
+  durationMin: number;
+  priority: number;
+  type: TaskType;
+  status: TaskStatus;
+  source: TaskSource;
+  createdAt: string;
+  scheduleBlocks?: ScheduleBlock[];
+}
+
+export interface ScheduleBlock {
+  id: string;
+  taskId: string;
+  userId: string;
+  plannedStart: string;
+  plannedEnd: string;
+  pomodoroIndex: number;
+  status: TaskStatus;
+  createdAt: string;
+}
+
+// --- Scheduler DTOs ---
+export interface CreateGoalRequest {
+  title: string;
+  description?: string;
+  deadline?: string;
+}
+
+export interface CreateTaskRequest {
+  title: string;
+  durationMin: number;
+  priority?: number;
+  type?: TaskType;
+}
+
+export interface GenerateScheduleRequest {
+  fromDate?: string;
+  toDate?: string;
+}
+
+export interface ScheduledBlockDto {
+  id: string;
+  taskId: string;
+  taskTitle: string;
+  plannedStart: string;
+  plannedEnd: string;
+  pomodoroIndex: number;
+  status: TaskStatus;
+}
+
+export interface ScheduleResult {
+  success: boolean;
+  scheduled: ScheduledBlockDto[];
+  overflow: string[];
+  message: string;
+}

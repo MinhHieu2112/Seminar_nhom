@@ -10,22 +10,52 @@ export const apiClient = axios.create({
 });
 
 // --- Token storage ---
-let accessToken: string | null = null;
 let isRefreshing = false;
 let refreshSubscribers: Array<(token: string) => void> = [];
 
+// Get token from localStorage (sync with auth store)
+function getStoredToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const authStorage = localStorage.getItem('auth-storage');
+    if (authStorage) {
+      const parsed = JSON.parse(authStorage);
+      return parsed.state?.accessToken || null;
+    }
+  } catch {
+    // ignore parse errors
+  }
+  return null;
+}
+
 export function getAccessToken(): string | null {
   if (typeof window === 'undefined') return null;
-  return accessToken;
+  return getStoredToken();
 }
 
 export function setAccessToken(token: string) {
-  accessToken = token;
+  // Token is managed by auth store, this is just for compatibility
+  console.log('Token set:', token);
 }
 
 export function clearAuth() {
-  accessToken = null;
   Cookies.remove('refreshToken');
+}
+
+// Update auth store with new token
+function updateAuthStore(accessToken: string, refreshToken: string) {
+  if (typeof window === 'undefined') return;
+  try {
+    const authStorage = localStorage.getItem('auth-storage');
+    if (authStorage) {
+      const parsed = JSON.parse(authStorage);
+      parsed.state.accessToken = accessToken;
+      parsed.state.refreshToken = refreshToken;
+      localStorage.setItem('auth-storage', JSON.stringify(parsed));
+    }
+  } catch {
+    // ignore errors
+  }
 }
 
 function subscribeTokenRefresh(callback: (token: string) => void) {
@@ -79,7 +109,8 @@ apiClient.interceptors.response.use(
           refreshToken,
         });
 
-        setAccessToken(data.accessToken);
+        // Update auth store and cookie
+        updateAuthStore(data.accessToken, data.refreshToken);
         Cookies.set('refreshToken', data.refreshToken, {
           httpOnly: false,
           secure: process.env.NODE_ENV === 'production',

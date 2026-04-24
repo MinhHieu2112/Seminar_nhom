@@ -33,7 +33,9 @@ export function LoginForm() {
         password: data.password,
       });
 
-      const { accessToken, refreshToken, user } = response.data;
+      // Backend returns ApiResponse wrapper
+      const result = response.data.data || response.data;
+      const { accessToken, refreshToken, user } = result;
       login(accessToken, refreshToken, user);
       router.push('/dashboard');
     } catch (err: unknown) {

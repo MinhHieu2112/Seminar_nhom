@@ -6,6 +6,8 @@ import { NotificationController } from './notification.controller';
 import { NotificationService } from './notification.service';
 import { EmailProcessor } from './processors/email.processor';
 import { PushProcessor } from './processors/push.processor';
+import { ReminderProcessor } from './processors/reminder.processor';
+import { ScheduleChangeProcessor } from './processors/schedule-change.processor';
 import { EmailService } from './email/email.service';
 import { TemplateService } from './email/template.service';
 import { DeviceTokenService } from './device-token/device-token.service';
@@ -51,6 +53,8 @@ import { NotificationLogService } from './notification-log/notification-log.serv
     NotificationService,
     EmailProcessor,
     PushProcessor,
+    ReminderProcessor,
+    ScheduleChangeProcessor,
     EmailService,
     TemplateService,
     DeviceTokenService,

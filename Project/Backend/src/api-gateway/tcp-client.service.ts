@@ -24,17 +24,17 @@ export class TcpClientService implements OnModuleInit {
 
     this.registerClient('calendar-service', {
       host: this.configService.get('CALENDAR_SERVICE_HOST', 'localhost'),
-      port: this.configService.get('CALENDAR_SERVICE_PORT', 8003),
+      port: this.configService.get('CALENDAR_SERVICE_PORT', 3004),
     });
 
     this.registerClient('scheduler-service', {
       host: this.configService.get('SCHEDULER_SERVICE_HOST', 'localhost'),
-      port: this.configService.get('SCHEDULER_SERVICE_PORT', 8004),
+      port: this.configService.get('SCHEDULER_SERVICE_PORT', 8003),
     });
 
     this.registerClient('notification-service', {
       host: this.configService.get('NOTIFICATION_SERVICE_HOST', 'localhost'),
-      port: this.configService.get('NOTIFICATION_SERVICE_PORT', 8005),
+      port: this.configService.get('NOTIFICATION_SERVICE_PORT', 8002),
     });
 
     this.registerClient('analytics-service', {

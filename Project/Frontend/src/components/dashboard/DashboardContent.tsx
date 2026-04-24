@@ -2,61 +2,91 @@
 
 import Link from 'next/link';
 import { useAuthStore } from '@/lib/auth-store';
+import { Target, Calendar, BookOpen, Clock } from 'lucide-react';
 
 export function DashboardContent() {
-  const { user, logout } = useAuthStore();
+  const { user } = useAuthStore();
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow">
-        <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between">
-            <h1 className="text-xl font-semibold text-gray-900">StudyPlan Dashboard</h1>
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-gray-600">{user?.email}</span>
-              <Link
-                href="/profile"
-                className="text-sm text-blue-600 hover:text-blue-500"
-              >
-                Profile
-              </Link>
-              {user?.role === 'admin' && (
-                <Link
-                  href="/admin/users"
-                  className="text-sm text-blue-600 hover:text-blue-500"
-                >
-                  Admin
-                </Link>
-              )}
-              <button
-                onClick={logout}
-                className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700"
-              >
-                Logout
-              </button>
+    <div className="space-y-6">
+      {/* Welcome Section */}
+      <div className="rounded-2xl bg-gradient-to-r from-blue-600 to-purple-600 p-8 text-white shadow-lg">
+        <h1 className="text-3xl font-bold">Welcome back, {user?.email.split('@')[0]}! 👋</h1>
+        <p className="mt-2 text-blue-100">
+          Ready to achieve your goals today? Let&apos;s make progress together.
+        </p>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid gap-6 md:grid-cols-3">
+        <div className="rounded-xl bg-white p-6 shadow-sm">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-100">
+              <BookOpen className="h-6 w-6 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Active Goals</p>
+              <p className="text-2xl font-bold text-gray-900">0</p>
             </div>
           </div>
         </div>
-      </header>
 
-      {/* Main content */}
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="rounded-lg bg-white p-6 shadow">
-          <h2 className="text-lg font-medium text-gray-900">Welcome back!</h2>
-          <p className="mt-2 text-gray-600">
-            This is your dashboard. More features coming soon.
-          </p>
-          <div className="mt-4 rounded-md bg-blue-50 p-4">
-            <p className="text-sm text-blue-800">
-              <strong>Role:</strong> {user?.role}
-            </p>
-            <p className="text-sm text-blue-800">
-              <strong>Timezone:</strong> {user?.timezone}
-            </p>
+        <div className="rounded-xl bg-white p-6 shadow-sm">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-purple-100">
+              <Clock className="h-6 w-6 text-purple-600" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Pending Tasks</p>
+              <p className="text-2xl font-bold text-gray-900">0</p>
+            </div>
           </div>
         </div>
-      </main>
+
+        <div className="rounded-xl bg-white p-6 shadow-sm">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-green-100">
+              <Target className="h-6 w-6 text-green-600" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Completed</p>
+              <p className="text-2xl font-bold text-gray-900">0</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="rounded-xl bg-white p-6 shadow-sm">
+        <h2 className="text-lg font-semibold text-gray-900">Quick Actions</h2>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <Link
+            href="/scheduler/goals"
+            className="flex items-center gap-4 rounded-xl border-2 border-dashed border-blue-200 p-4 transition-colors hover:border-blue-400 hover:bg-blue-50"
+          >
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-100">
+              <BookOpen className="h-6 w-6 text-blue-600" />
+            </div>
+            <div>
+              <p className="font-medium text-gray-900">Manage Goals</p>
+              <p className="text-sm text-gray-500">Create and track your goals</p>
+            </div>
+          </Link>
+
+          <Link
+            href="/scheduler/schedule"
+            className="flex items-center gap-4 rounded-xl border-2 border-dashed border-purple-200 p-4 transition-colors hover:border-purple-400 hover:bg-purple-50"
+          >
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-purple-100">
+              <Calendar className="h-6 w-6 text-purple-600" />
+            </div>
+            <div>
+              <p className="font-medium text-gray-900">View Schedule</p>
+              <p className="text-sm text-gray-500">See your study plan</p>
+            </div>
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }
