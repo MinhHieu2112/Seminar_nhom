@@ -16,6 +16,10 @@ export class GoalService {
   ) {}
 
   async create(userId: string, dto: CreateGoalDto): Promise<Goal> {
+    if (!dto || typeof dto.title !== 'string' || !dto.title.trim()) {
+      throw new BadRequestException('Goal title is required');
+    }
+
     // FIX: validate và parse deadline an toàn
     let deadlineDate: Date | null = null;
     if (dto.deadline) {
@@ -31,7 +35,7 @@ export class GoalService {
 
     const goal = this.goalRepo.create({
       userId,
-      title: dto.title,
+      title: dto.title.trim(),
       description: dto.description ?? null,
       deadline: deadlineDate,
       status: 'active',
@@ -65,6 +69,10 @@ export class GoalService {
   ): Promise<Goal> {
     const goal = await this.findOne(id, userId);
 
+    if (dto.title !== undefined && !dto.title.trim()) {
+      throw new BadRequestException('Goal title is required');
+    }
+
     // FIX: xử lý deadline an toàn khi update
     let deadlineDate: Date | null | undefined = undefined;
     if (dto.deadline !== undefined) {
@@ -83,6 +91,7 @@ export class GoalService {
 
     Object.assign(goal, {
       ...dto,
+      ...(dto.title !== undefined ? { title: dto.title.trim() } : {}),
       ...(deadlineDate !== undefined ? { deadline: deadlineDate } : {}),
     });
     return this.goalRepo.save(goal);

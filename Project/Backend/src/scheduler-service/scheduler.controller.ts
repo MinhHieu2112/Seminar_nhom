@@ -5,10 +5,61 @@ import { TaskService } from './task/task.service';
 import { ScheduleService } from './schedule/schedule.service';
 import { CreateGoalDto, CreateTaskDto, GenerateScheduleDto } from './dto';
 
-// FIX: Tất cả các @Payload() phải dùng FLAT shape (không nest { dto: {...} })
-// vì ValidationPipe(whitelist:true) sẽ strip field "dto" nếu không có
-// DTO class khai báo nó. Thay vào đó, spread các field trực tiếp vào
-// payload và tái tạo DTO object trong handler.
+type GoalPayload = {
+  userId: string;
+  title?: string;
+  description?: string;
+  deadline?: string;
+  dto?: CreateGoalDto;
+};
+
+type GoalUpdatePayload = {
+  id: string;
+  userId: string;
+  title?: string;
+  description?: string;
+  deadline?: string;
+  dto?: Partial<CreateGoalDto>;
+};
+
+type TaskPayload = {
+  goalId: string;
+  userId: string;
+  title?: string;
+  durationMin?: number;
+  priority?: number;
+  type?: 'theory' | 'practice';
+  source?: 'ai' | 'manual';
+  dto?: CreateTaskDto;
+};
+
+type TaskUpdatePayload = {
+  id: string;
+  userId: string;
+  title?: string;
+  durationMin?: number;
+  priority?: number;
+  status?: 'pending' | 'scheduled' | 'done' | 'skipped';
+  dto?: Partial<CreateTaskDto> & {
+    status?: 'pending' | 'scheduled' | 'done' | 'skipped';
+  };
+};
+
+function normalizePayload<T extends Record<string, unknown>>(
+  data: T & { dto?: Partial<T> },
+  keys: Array<keyof T>,
+): Partial<T> {
+  if (data.dto) {
+    return data.dto;
+  }
+
+  return keys.reduce<Partial<T>>((acc, key) => {
+    if (data[key] !== undefined) {
+      acc[key] = data[key];
+    }
+    return acc;
+  }, {});
+}
 
 @Controller()
 export class SchedulerController {
@@ -23,16 +74,10 @@ export class SchedulerController {
   @MessagePattern('scheduler.goal.create')
   async createGoal(
     @Payload()
-    data: {
-      userId: string;
-      // FIX: flat — không wrap trong { dto: { title, ... } }
-      title: string;
-      description?: string;
-      deadline?: string;
-    },
+    data: GoalPayload,
   ) {
-    const { userId, ...dto } = data;
-    return this.goalService.create(userId, dto as CreateGoalDto);
+    const dto = normalizePayload(data, ['title', 'description', 'deadline']);
+    return this.goalService.create(data.userId, dto as CreateGoalDto);
   }
 
   @MessagePattern('scheduler.goal.list')
@@ -48,17 +93,10 @@ export class SchedulerController {
   @MessagePattern('scheduler.goal.update')
   async updateGoal(
     @Payload()
-    data: {
-      id: string;
-      userId: string;
-      // FIX: flat
-      title?: string;
-      description?: string;
-      deadline?: string;
-    },
+    data: GoalUpdatePayload,
   ) {
-    const { id, userId, ...dto } = data;
-    return this.goalService.update(id, userId, dto);
+    const dto = normalizePayload(data, ['title', 'description', 'deadline']);
+    return this.goalService.update(data.id, data.userId, dto);
   }
 
   @MessagePattern('scheduler.goal.delete')
@@ -71,19 +109,16 @@ export class SchedulerController {
   @MessagePattern('scheduler.task.create')
   async createTask(
     @Payload()
-    data: {
-      goalId: string;
-      userId: string;
-      // FIX: flat
-      title: string;
-      durationMin: number;
-      priority?: number;
-      type?: 'theory' | 'practice';
-      source?: 'ai' | 'manual';
-    },
+    data: TaskPayload,
   ) {
-    const { goalId, userId, ...dto } = data;
-    return this.taskService.create(goalId, userId, dto as CreateTaskDto);
+    const dto = normalizePayload(data, [
+      'title',
+      'durationMin',
+      'priority',
+      'type',
+      'source',
+    ]);
+    return this.taskService.create(data.goalId, data.userId, dto as CreateTaskDto);
   }
 
   @MessagePattern('scheduler.task.list')
@@ -99,18 +134,15 @@ export class SchedulerController {
   @MessagePattern('scheduler.task.update')
   async updateTask(
     @Payload()
-    data: {
-      id: string;
-      userId: string;
-      // FIX: flat
-      title?: string;
-      durationMin?: number;
-      priority?: number;
-      status?: 'pending' | 'scheduled' | 'done' | 'skipped';
-    },
+    data: TaskUpdatePayload,
   ) {
-    const { id, userId, ...dto } = data;
-    return this.taskService.update(id, userId, dto);
+    const dto = normalizePayload(data, [
+      'title',
+      'durationMin',
+      'priority',
+      'status',
+    ]);
+    return this.taskService.update(data.id, data.userId, dto);
   }
 
   @MessagePattern('scheduler.task.delete')

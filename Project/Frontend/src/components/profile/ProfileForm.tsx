@@ -65,19 +65,6 @@ export function ProfileForm() {
         <p className="mt-1 text-xs text-gray-500">Email cannot be changed</p>
       </div>
 
-      {/* Read-only Role */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700">
-          Role
-        </label>
-        <input
-          type="text"
-          value={user?.role || ''}
-          disabled
-          className="mt-1 block w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-500 capitalize"
-        />
-      </div>
-
       {/* Timezone */}
       <div>
         <label htmlFor="timezone" className="block text-sm font-medium text-gray-700">
@@ -96,24 +83,6 @@ export function ProfileForm() {
         <p className="mt-1 text-xs text-gray-500">
           Example: Asia/Ho_Chi_Minh, America/New_York, Europe/London
         </p>
-      </div>
-
-      {/* Account Status */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700">
-          Account Status
-        </label>
-        <div className="mt-1 flex items-center gap-2">
-          <span
-            className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
-              user?.isActive
-                ? 'bg-green-100 text-green-800'
-                : 'bg-red-100 text-red-800'
-            }`}
-          >
-            {user?.isActive ? 'Active' : 'Inactive'}
-          </span>
-        </div>
       </div>
 
       {/* Member Since */}
