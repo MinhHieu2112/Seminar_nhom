@@ -19,11 +19,22 @@ export function GoalModal({ isOpen, onClose }: GoalModalProps) {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    // FIX: chuyển datetime-local value ("2026-04-24T12:30") thành ISO string
+    // để backend có thể parse bằng new Date() không bị lỗi timezone
+    let deadlineIso: string | undefined = undefined;
+    if (deadline) {
+      const d = new Date(deadline);
+      if (!isNaN(d.getTime())) {
+        deadlineIso = d.toISOString();
+      }
+    }
+
     createGoal.mutate(
       {
         title,
-        description: description || undefined,
-        deadline: deadline || undefined,
+        description: description.trim() || undefined,
+        deadline: deadlineIso,
       },
       {
         onSuccess: () => {
@@ -36,12 +47,14 @@ export function GoalModal({ isOpen, onClose }: GoalModalProps) {
     );
   }
 
-  // Close on backdrop click
   function handleBackdropClick(e: React.MouseEvent) {
     if (e.target === e.currentTarget) {
       onClose();
     }
   }
+
+  // Tính min datetime cho input (không cho chọn ngày trong quá khứ)
+  const minDateTime = new Date().toISOString().slice(0, 16);
 
   return (
     <div
@@ -98,7 +111,7 @@ export function GoalModal({ isOpen, onClose }: GoalModalProps) {
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Add details about your goal..."
                 rows={3}
-                className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm transition-all focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 resize-none"
+                className="w-full resize-none rounded-xl border border-gray-200 px-4 py-3 text-sm transition-all focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
               />
             </div>
 
@@ -106,16 +119,25 @@ export function GoalModal({ isOpen, onClose }: GoalModalProps) {
             <div>
               <label className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700">
                 <Calendar className="h-4 w-4 text-gray-400" />
-                Deadline
+                Deadline{' '}
+                <span className="text-xs text-gray-400 font-normal">(optional)</span>
               </label>
               <input
                 type="datetime-local"
                 value={deadline}
+                min={minDateTime}
                 onChange={(e) => setDeadline(e.target.value)}
                 className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm transition-all focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
               />
             </div>
           </div>
+
+          {/* Error Message */}
+          {createGoal.isError && (
+            <div className="mt-4 rounded-xl bg-red-50 p-4 text-sm text-red-600">
+              {createGoal.error?.message || 'Failed to create goal. Please try again.'}
+            </div>
+          )}
 
           {/* Actions */}
           <div className="mt-6 flex gap-3">
@@ -129,19 +151,12 @@ export function GoalModal({ isOpen, onClose }: GoalModalProps) {
             <button
               type="submit"
               disabled={createGoal.isPending || !title.trim()}
-              className="flex-1 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 px-4 py-3 text-sm font-medium text-white shadow-lg shadow-blue-200 transition-all hover:shadow-xl disabled:opacity-50"
+              className="flex-1 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 px-4 py-3 text-sm font-medium text-white shadow-lg shadow-blue-200 transition-all hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {createGoal.isPending ? 'Creating...' : 'Create Goal'}
             </button>
           </div>
         </form>
-
-        {/* Error Message */}
-        {createGoal.isError && (
-          <div className="mx-6 mb-6 rounded-xl bg-red-50 p-4 text-sm text-red-600">
-            {createGoal.error?.message || 'Failed to create goal'}
-          </div>
-        )}
       </div>
     </div>
   );

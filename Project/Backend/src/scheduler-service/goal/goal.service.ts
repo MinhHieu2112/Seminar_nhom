@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Goal } from '../entities';
@@ -12,11 +16,24 @@ export class GoalService {
   ) {}
 
   async create(userId: string, dto: CreateGoalDto): Promise<Goal> {
+    // FIX: validate và parse deadline an toàn
+    let deadlineDate: Date | null = null;
+    if (dto.deadline) {
+      const parsed = new Date(dto.deadline);
+      // Kiểm tra Invalid Date
+      if (isNaN(parsed.getTime())) {
+        throw new BadRequestException(
+          `Invalid deadline format: "${dto.deadline}". Use ISO 8601 format.`,
+        );
+      }
+      deadlineDate = parsed;
+    }
+
     const goal = this.goalRepo.create({
       userId,
       title: dto.title,
-      description: dto.description || null,
-      deadline: dto.deadline ? new Date(dto.deadline) : null,
+      description: dto.description ?? null,
+      deadline: deadlineDate,
       status: 'active',
     });
     return this.goalRepo.save(goal);
@@ -47,9 +64,26 @@ export class GoalService {
     dto: Partial<CreateGoalDto>,
   ): Promise<Goal> {
     const goal = await this.findOne(id, userId);
+
+    // FIX: xử lý deadline an toàn khi update
+    let deadlineDate: Date | null | undefined = undefined;
+    if (dto.deadline !== undefined) {
+      if (dto.deadline === null || dto.deadline === '') {
+        deadlineDate = null;
+      } else {
+        const parsed = new Date(dto.deadline);
+        if (isNaN(parsed.getTime())) {
+          throw new BadRequestException(
+            `Invalid deadline format: "${dto.deadline}".`,
+          );
+        }
+        deadlineDate = parsed;
+      }
+    }
+
     Object.assign(goal, {
       ...dto,
-      deadline: dto.deadline ? new Date(dto.deadline) : goal.deadline,
+      ...(deadlineDate !== undefined ? { deadline: deadlineDate } : {}),
     });
     return this.goalRepo.save(goal);
   }

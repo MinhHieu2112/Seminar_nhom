@@ -11,12 +11,13 @@ import {
   HttpCode,
   HttpStatus,
   UnauthorizedException,
+  InternalServerErrorException,
+  BadRequestException,
 } from '@nestjs/common';
 import { TcpClientService } from './tcp-client.service';
 import { JwtService } from '@nestjs/jwt';
 import type { JwtPayload } from '../users-service/auth/auth.service';
 
-// Shared token extractor — avoids duplicating this logic in every controller
 function extractUserId(authHeader: string, jwtService: JwtService): string {
   if (!authHeader?.startsWith('Bearer ')) {
     throw new UnauthorizedException('No token provided');
@@ -32,6 +33,26 @@ function extractUserId(authHeader: string, jwtService: JwtService): string {
   }
 }
 
+async function safeSend<T>(
+  tcpClient: TcpClientService,
+  service: string,
+  pattern: string,
+  data: unknown,
+): Promise<T> {
+  try {
+    return await tcpClient.send<T>(service, pattern, data);
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : 'Unknown error';
+    if (msg.includes('not found') || msg.includes('Not found')) {
+      throw new BadRequestException(msg);
+    }
+    if (msg.includes('Invalid') || msg.includes('invalid')) {
+      throw new BadRequestException(msg);
+    }
+    throw new InternalServerErrorException(`Service error: ${msg}`);
+  }
+}
+
 // ─── Auth ────────────────────────────────────────────────────────────────────
 
 @Controller('api/v1/auth')
@@ -44,19 +65,19 @@ export class AuthGatewayController {
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
   register(@Body() dto: { email: string; password: string }) {
-    return this.tcpClient.send('user-service', 'user.register', dto);
+    return safeSend(this.tcpClient, 'user-service', 'user.register', dto);
   }
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
   login(@Body() dto: { email: string; password: string }) {
-    return this.tcpClient.send('user-service', 'user.login', dto);
+    return safeSend(this.tcpClient, 'user-service', 'user.login', dto);
   }
 
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   refresh(@Body() dto: { refreshToken: string }) {
-    return this.tcpClient.send('user-service', 'user.refresh', dto);
+    return safeSend(this.tcpClient, 'user-service', 'user.refresh', dto);
   }
 
   @Post('logout')
@@ -65,9 +86,8 @@ export class AuthGatewayController {
     @Headers('authorization') authHeader: string,
     @Body() data: { userId?: string; jti?: string },
   ) {
-    // Allow explicit userId in body (e.g., mobile clients) or extract from token
     const userId = data.userId ?? extractUserId(authHeader, this.jwtService);
-    return this.tcpClient.send('user-service', 'user.logout', {
+    return safeSend(this.tcpClient, 'user-service', 'user.logout', {
       userId,
       jti: data.jti ?? 'logout-all',
     });
@@ -76,7 +96,12 @@ export class AuthGatewayController {
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
   forgotPassword(@Body() dto: { email: string }) {
-    return this.tcpClient.send('user-service', 'user.password.forgot', dto);
+    return safeSend(
+      this.tcpClient,
+      'user-service',
+      'user.password.forgot',
+      dto,
+    );
   }
 
   @Post('reset-password')
@@ -84,7 +109,7 @@ export class AuthGatewayController {
   resetPassword(
     @Body() dto: { email: string; otp: string; newPassword: string },
   ) {
-    return this.tcpClient.send('user-service', 'user.password.reset', dto);
+    return safeSend(this.tcpClient, 'user-service', 'user.password.reset', dto);
   }
 }
 
@@ -100,7 +125,9 @@ export class UsersGatewayController {
   @Get('me')
   getProfile(@Headers('authorization') authHeader: string) {
     const userId = extractUserId(authHeader, this.jwtService);
-    return this.tcpClient.send('user-service', 'user.profile.get', { userId });
+    return safeSend(this.tcpClient, 'user-service', 'user.profile.get', {
+      userId,
+    });
   }
 
   @Patch('me')
@@ -109,7 +136,7 @@ export class UsersGatewayController {
     @Body() dto: { timezone?: string; preferences?: Record<string, unknown> },
   ) {
     const userId = extractUserId(authHeader, this.jwtService);
-    return this.tcpClient.send('user-service', 'user.profile.update', {
+    return safeSend(this.tcpClient, 'user-service', 'user.profile.update', {
       userId,
       ...dto,
     });
@@ -122,7 +149,7 @@ export class UsersGatewayController {
     @Body() dto: { oldPassword: string; newPassword: string },
   ) {
     const userId = extractUserId(authHeader, this.jwtService);
-    return this.tcpClient.send('user-service', 'user.password.change', {
+    return safeSend(this.tcpClient, 'user-service', 'user.password.change', {
       userId,
       ...dto,
     });
@@ -131,7 +158,12 @@ export class UsersGatewayController {
   @Post('password/forgot')
   @HttpCode(HttpStatus.OK)
   forgotPassword(@Body() dto: { email: string }) {
-    return this.tcpClient.send('user-service', 'user.password.forgot', dto);
+    return safeSend(
+      this.tcpClient,
+      'user-service',
+      'user.password.forgot',
+      dto,
+    );
   }
 
   @Post('password/reset')
@@ -139,7 +171,7 @@ export class UsersGatewayController {
   resetPassword(
     @Body() dto: { email: string; otp: string; newPassword: string },
   ) {
-    return this.tcpClient.send('user-service', 'user.password.reset', dto);
+    return safeSend(this.tcpClient, 'user-service', 'user.password.reset', dto);
   }
 }
 
@@ -158,26 +190,30 @@ export class AdminGatewayController {
     @Query('page') page = 1,
     @Query('limit') limit = 20,
   ) {
-    extractUserId(authHeader, this.jwtService); // validate token
-    return this.tcpClient.send('user-service', 'user.admin.list', {
+    extractUserId(authHeader, this.jwtService);
+    return safeSend(this.tcpClient, 'user-service', 'user.admin.list', {
       page: Number(page),
       limit: Number(limit),
     });
   }
 
-  // FIX: was using @Body() for userId — must use @Param()
   @Post('users/:userId/toggle')
   @HttpCode(HttpStatus.OK)
   toggleUser(
     @Headers('authorization') authHeader: string,
     @Param('userId') userId: string,
   ) {
-    extractUserId(authHeader, this.jwtService); // validate token
-    return this.tcpClient.send('user-service', 'user.admin.toggle', { userId });
+    extractUserId(authHeader, this.jwtService);
+    return safeSend(this.tcpClient, 'user-service', 'user.admin.toggle', {
+      userId,
+    });
   }
 }
 
 // ─── Scheduler ───────────────────────────────────────────────────────────────
+// QUAN TRỌNG: Scheduler service có ValidationPipe(whitelist:true).
+// Vì vậy tất cả payload phải FLAT — không được nest trong { dto: {...} }.
+// scheduler.controller.ts sẽ destructure { userId, ...rest } để lấy dto.
 
 @Controller('api/v1/scheduler')
 export class SchedulerGatewayController {
@@ -191,21 +227,30 @@ export class SchedulerGatewayController {
   @Get('goals')
   listGoals(@Headers('authorization') authHeader: string) {
     const userId = extractUserId(authHeader, this.jwtService);
-    return this.tcpClient.send('scheduler-service', 'scheduler.goal.list', {
-      userId,
-    });
+    return safeSend(
+      this.tcpClient,
+      'scheduler-service',
+      'scheduler.goal.list',
+      { userId },
+    );
   }
 
   @Post('goals')
   createGoal(
     @Headers('authorization') authHeader: string,
-    @Body() dto: { title: string; description?: string; deadline?: string },
+    @Body() body: { title: string; description?: string; deadline?: string },
   ) {
     const userId = extractUserId(authHeader, this.jwtService);
-    return this.tcpClient.send('scheduler-service', 'scheduler.goal.create', {
-      userId,
-      dto,
-    });
+    // FIX: FLAT — spread body trực tiếp, không wrap trong { dto: body }
+    return safeSend(
+      this.tcpClient,
+      'scheduler-service',
+      'scheduler.goal.create',
+      {
+        userId,
+        ...body,
+      },
+    );
   }
 
   @Get('goals/:id')
@@ -214,7 +259,7 @@ export class SchedulerGatewayController {
     @Param('id') id: string,
   ) {
     const userId = extractUserId(authHeader, this.jwtService);
-    return this.tcpClient.send('scheduler-service', 'scheduler.goal.get', {
+    return safeSend(this.tcpClient, 'scheduler-service', 'scheduler.goal.get', {
       id,
       userId,
     });
@@ -225,14 +270,20 @@ export class SchedulerGatewayController {
     @Headers('authorization') authHeader: string,
     @Param('id') id: string,
     @Body()
-    dto: Partial<{ title: string; description: string; deadline: string }>,
+    body: Partial<{ title: string; description: string; deadline: string }>,
   ) {
     const userId = extractUserId(authHeader, this.jwtService);
-    return this.tcpClient.send('scheduler-service', 'scheduler.goal.update', {
-      id,
-      userId,
-      dto,
-    });
+    // FIX: FLAT
+    return safeSend(
+      this.tcpClient,
+      'scheduler-service',
+      'scheduler.goal.update',
+      {
+        id,
+        userId,
+        ...body,
+      },
+    );
   }
 
   @Delete('goals/:id')
@@ -241,10 +292,12 @@ export class SchedulerGatewayController {
     @Param('id') id: string,
   ) {
     const userId = extractUserId(authHeader, this.jwtService);
-    return this.tcpClient.send('scheduler-service', 'scheduler.goal.delete', {
-      id,
-      userId,
-    });
+    return safeSend(
+      this.tcpClient,
+      'scheduler-service',
+      'scheduler.goal.delete',
+      { id, userId },
+    );
   }
 
   // ── Tasks ──────────────────────────────────────────────────────────────────
@@ -255,10 +308,12 @@ export class SchedulerGatewayController {
     @Param('goalId') goalId: string,
   ) {
     const userId = extractUserId(authHeader, this.jwtService);
-    return this.tcpClient.send('scheduler-service', 'scheduler.task.list', {
-      goalId,
-      userId,
-    });
+    return safeSend(
+      this.tcpClient,
+      'scheduler-service',
+      'scheduler.task.list',
+      { goalId, userId },
+    );
   }
 
   @Post('goals/:goalId/tasks')
@@ -266,7 +321,7 @@ export class SchedulerGatewayController {
     @Headers('authorization') authHeader: string,
     @Param('goalId') goalId: string,
     @Body()
-    dto: {
+    body: {
       title: string;
       durationMin: number;
       priority?: number;
@@ -274,11 +329,17 @@ export class SchedulerGatewayController {
     },
   ) {
     const userId = extractUserId(authHeader, this.jwtService);
-    return this.tcpClient.send('scheduler-service', 'scheduler.task.create', {
-      goalId,
-      userId,
-      dto,
-    });
+    // FIX: FLAT
+    return safeSend(
+      this.tcpClient,
+      'scheduler-service',
+      'scheduler.task.create',
+      {
+        goalId,
+        userId,
+        ...body,
+      },
+    );
   }
 
   @Get('tasks/:id')
@@ -287,7 +348,7 @@ export class SchedulerGatewayController {
     @Param('id') id: string,
   ) {
     const userId = extractUserId(authHeader, this.jwtService);
-    return this.tcpClient.send('scheduler-service', 'scheduler.task.get', {
+    return safeSend(this.tcpClient, 'scheduler-service', 'scheduler.task.get', {
       id,
       userId,
     });
@@ -298,19 +359,25 @@ export class SchedulerGatewayController {
     @Headers('authorization') authHeader: string,
     @Param('id') id: string,
     @Body()
-    dto: Partial<{
+    body: Partial<{
       title: string;
       durationMin: number;
       priority: number;
-      status: 'pending' | 'scheduled' | 'done' | 'skipped';
+      status: string;
     }>,
   ) {
     const userId = extractUserId(authHeader, this.jwtService);
-    return this.tcpClient.send('scheduler-service', 'scheduler.task.update', {
-      id,
-      userId,
-      dto,
-    });
+    // FIX: FLAT
+    return safeSend(
+      this.tcpClient,
+      'scheduler-service',
+      'scheduler.task.update',
+      {
+        id,
+        userId,
+        ...body,
+      },
+    );
   }
 
   @Delete('tasks/:id')
@@ -319,10 +386,12 @@ export class SchedulerGatewayController {
     @Param('id') id: string,
   ) {
     const userId = extractUserId(authHeader, this.jwtService);
-    return this.tcpClient.send('scheduler-service', 'scheduler.task.delete', {
-      id,
-      userId,
-    });
+    return safeSend(
+      this.tcpClient,
+      'scheduler-service',
+      'scheduler.task.delete',
+      { id, userId },
+    );
   }
 
   // ── Schedule ───────────────────────────────────────────────────────────────
@@ -330,13 +399,18 @@ export class SchedulerGatewayController {
   @Post('schedule/generate')
   generateSchedule(
     @Headers('authorization') authHeader: string,
-    @Body() dto?: { fromDate?: string; toDate?: string },
+    @Body() body?: { fromDate?: string; toDate?: string },
   ) {
     const userId = extractUserId(authHeader, this.jwtService);
-    return this.tcpClient.send(
+    return safeSend(
+      this.tcpClient,
       'scheduler-service',
       'scheduler.schedule.generate',
-      { userId, fromDate: dto?.fromDate, toDate: dto?.toDate },
+      {
+        userId,
+        fromDate: body?.fromDate,
+        toDate: body?.toDate,
+      },
     );
   }
 
@@ -346,32 +420,39 @@ export class SchedulerGatewayController {
     @Query() query: { from: string; to: string },
   ) {
     const userId = extractUserId(authHeader, this.jwtService);
-    return this.tcpClient.send('scheduler-service', 'scheduler.schedule.view', {
-      userId,
-      from: query.from,
-      to: query.to,
-    });
+    return safeSend(
+      this.tcpClient,
+      'scheduler-service',
+      'scheduler.schedule.view',
+      {
+        userId,
+        from: query.from,
+        to: query.to,
+      },
+    );
   }
 
   @Post('schedule/clear')
   @HttpCode(HttpStatus.OK)
   clearSchedule(
     @Headers('authorization') authHeader: string,
-    @Body() dto?: { from?: string },
+    @Body() body?: { from?: string },
   ) {
     const userId = extractUserId(authHeader, this.jwtService);
-    return this.tcpClient.send(
+    return safeSend(
+      this.tcpClient,
       'scheduler-service',
       'scheduler.schedule.clear',
       {
         userId,
-        from: dto?.from,
+        from: body?.from,
       },
     );
   }
 }
 
 // ─── Calendar ─────────────────────────────────────────────────────────────────
+// Calendar service KHÔNG có ValidationPipe => vẫn dùng { userId, dto: body }
 
 @Controller('api/v1/calendar')
 export class CalendarGatewayController {
@@ -384,7 +465,7 @@ export class CalendarGatewayController {
   createEvent(
     @Headers('authorization') authHeader: string,
     @Body()
-    dto: {
+    body: {
       title: string;
       startTime: string;
       endTime: string;
@@ -395,10 +476,12 @@ export class CalendarGatewayController {
     },
   ) {
     const userId = extractUserId(authHeader, this.jwtService);
-    return this.tcpClient.send('calendar-service', 'calendar.event.create', {
-      userId,
-      dto,
-    });
+    return safeSend(
+      this.tcpClient,
+      'calendar-service',
+      'calendar.event.create',
+      { userId, dto: body },
+    );
   }
 
   @Get('events')
@@ -407,7 +490,7 @@ export class CalendarGatewayController {
     @Query() query: { from?: string; to?: string },
   ) {
     const userId = extractUserId(authHeader, this.jwtService);
-    return this.tcpClient.send('calendar-service', 'calendar.event.list', {
+    return safeSend(this.tcpClient, 'calendar-service', 'calendar.event.list', {
       userId,
       from: query.from,
       to: query.to,
@@ -420,7 +503,7 @@ export class CalendarGatewayController {
     @Param('id') id: string,
   ) {
     const userId = extractUserId(authHeader, this.jwtService);
-    return this.tcpClient.send('calendar-service', 'calendar.event.get', {
+    return safeSend(this.tcpClient, 'calendar-service', 'calendar.event.get', {
       id,
       userId,
     });
@@ -431,7 +514,7 @@ export class CalendarGatewayController {
     @Headers('authorization') authHeader: string,
     @Param('id') id: string,
     @Body()
-    dto: Partial<{
+    body: Partial<{
       title: string;
       startTime: string;
       endTime: string;
@@ -439,11 +522,12 @@ export class CalendarGatewayController {
     }>,
   ) {
     const userId = extractUserId(authHeader, this.jwtService);
-    return this.tcpClient.send('calendar-service', 'calendar.event.update', {
-      id,
-      userId,
-      dto,
-    });
+    return safeSend(
+      this.tcpClient,
+      'calendar-service',
+      'calendar.event.update',
+      { id, userId, dto: body },
+    );
   }
 
   @Delete('events/:id')
@@ -452,10 +536,12 @@ export class CalendarGatewayController {
     @Param('id') id: string,
   ) {
     const userId = extractUserId(authHeader, this.jwtService);
-    return this.tcpClient.send('calendar-service', 'calendar.event.delete', {
-      id,
-      userId,
-    });
+    return safeSend(
+      this.tcpClient,
+      'calendar-service',
+      'calendar.event.delete',
+      { id, userId },
+    );
   }
 
   @Get('free-slots')
@@ -464,14 +550,19 @@ export class CalendarGatewayController {
     @Query() query: { from: string; to: string; minDurationMin?: string },
   ) {
     const userId = extractUserId(authHeader, this.jwtService);
-    return this.tcpClient.send('calendar-service', 'calendar.freeslots.get', {
-      userId,
-      from: query.from,
-      to: query.to,
-      minDurationMin: query.minDurationMin
-        ? Number(query.minDurationMin)
-        : undefined,
-    });
+    return safeSend(
+      this.tcpClient,
+      'calendar-service',
+      'calendar.freeslots.get',
+      {
+        userId,
+        from: query.from,
+        to: query.to,
+        minDurationMin: query.minDurationMin
+          ? Number(query.minDurationMin)
+          : undefined,
+      },
+    );
   }
 
   @Post('conflicts/check')
@@ -479,12 +570,14 @@ export class CalendarGatewayController {
   checkConflict(
     @Headers('authorization') authHeader: string,
     @Body()
-    dto: { startTime: string; endTime: string; excludeEventId?: string },
+    body: { startTime: string; endTime: string; excludeEventId?: string },
   ) {
     const userId = extractUserId(authHeader, this.jwtService);
-    return this.tcpClient.send('calendar-service', 'calendar.conflict.check', {
-      userId,
-      ...dto,
-    });
+    return safeSend(
+      this.tcpClient,
+      'calendar-service',
+      'calendar.conflict.check',
+      { userId, ...body },
+    );
   }
 }

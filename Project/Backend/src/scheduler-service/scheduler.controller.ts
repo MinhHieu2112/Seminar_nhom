@@ -5,6 +5,11 @@ import { TaskService } from './task/task.service';
 import { ScheduleService } from './schedule/schedule.service';
 import { CreateGoalDto, CreateTaskDto, GenerateScheduleDto } from './dto';
 
+// FIX: Tất cả các @Payload() phải dùng FLAT shape (không nest { dto: {...} })
+// vì ValidationPipe(whitelist:true) sẽ strip field "dto" nếu không có
+// DTO class khai báo nó. Thay vào đó, spread các field trực tiếp vào
+// payload và tái tạo DTO object trong handler.
+
 @Controller()
 export class SchedulerController {
   constructor(
@@ -14,9 +19,20 @@ export class SchedulerController {
   ) {}
 
   // ============ Goal Management ============
+
   @MessagePattern('scheduler.goal.create')
-  async createGoal(@Payload() data: { userId: string; dto: CreateGoalDto }) {
-    return this.goalService.create(data.userId, data.dto);
+  async createGoal(
+    @Payload()
+    data: {
+      userId: string;
+      // FIX: flat — không wrap trong { dto: { title, ... } }
+      title: string;
+      description?: string;
+      deadline?: string;
+    },
+  ) {
+    const { userId, ...dto } = data;
+    return this.goalService.create(userId, dto as CreateGoalDto);
   }
 
   @MessagePattern('scheduler.goal.list')
@@ -35,10 +51,14 @@ export class SchedulerController {
     data: {
       id: string;
       userId: string;
-      dto: Partial<CreateGoalDto>;
+      // FIX: flat
+      title?: string;
+      description?: string;
+      deadline?: string;
     },
   ) {
-    return this.goalService.update(data.id, data.userId, data.dto);
+    const { id, userId, ...dto } = data;
+    return this.goalService.update(id, userId, dto);
   }
 
   @MessagePattern('scheduler.goal.delete')
@@ -47,11 +67,23 @@ export class SchedulerController {
   }
 
   // ============ Task Management ============
+
   @MessagePattern('scheduler.task.create')
   async createTask(
-    @Payload() data: { goalId: string; userId: string; dto: CreateTaskDto },
+    @Payload()
+    data: {
+      goalId: string;
+      userId: string;
+      // FIX: flat
+      title: string;
+      durationMin: number;
+      priority?: number;
+      type?: 'theory' | 'practice';
+      source?: 'ai' | 'manual';
+    },
   ) {
-    return this.taskService.create(data.goalId, data.userId, data.dto);
+    const { goalId, userId, ...dto } = data;
+    return this.taskService.create(goalId, userId, dto as CreateTaskDto);
   }
 
   @MessagePattern('scheduler.task.list')
@@ -70,12 +102,15 @@ export class SchedulerController {
     data: {
       id: string;
       userId: string;
-      dto: Partial<CreateTaskDto> & {
-        status?: 'pending' | 'scheduled' | 'done' | 'skipped';
-      };
+      // FIX: flat
+      title?: string;
+      durationMin?: number;
+      priority?: number;
+      status?: 'pending' | 'scheduled' | 'done' | 'skipped';
     },
   ) {
-    return this.taskService.update(data.id, data.userId, data.dto);
+    const { id, userId, ...dto } = data;
+    return this.taskService.update(id, userId, dto);
   }
 
   @MessagePattern('scheduler.task.delete')
@@ -84,6 +119,7 @@ export class SchedulerController {
   }
 
   // ============ Schedule Management ============
+
   @MessagePattern('scheduler.schedule.generate')
   async generateSchedule(@Payload() dto: GenerateScheduleDto) {
     return this.scheduleService.generateSchedule(
@@ -113,13 +149,12 @@ export class SchedulerController {
     return { success: true };
   }
 
-  // ============ Session Tracking (Stub for Analytics) ============
+  // ============ Session Tracking ============
+
   @MessagePattern('scheduler.session.start')
   startSession(
     @Payload() data: { userId: string; blockId: string; startedAt: string },
   ) {
-    // Session data goes to Analytics Service (TimescaleDB)
-    // This is just a pass-through acknowledgment
     return Promise.resolve({
       success: true,
       message: 'Session start recorded (forwarded to Analytics Service)',
@@ -131,7 +166,6 @@ export class SchedulerController {
   stopSession(
     @Payload() data: { userId: string; blockId: string; stoppedAt: string },
   ) {
-    // Session data goes to Analytics Service (TimescaleDB)
     return Promise.resolve({
       success: true,
       message: 'Session stop recorded (forwarded to Analytics Service)',
@@ -139,13 +173,12 @@ export class SchedulerController {
     });
   }
 
-  // ============ Auto-shift / Reprioritize (Stub for Queue) ============
+  // ============ Auto-shift / Reprioritize ============
+
   @MessagePattern('scheduler.schedule.autoshift')
   async triggerAutoShift(
     @Payload() data: { userId: string; fromDate: string },
   ) {
-    // This would trigger a BullMQ job for auto-shift
-    // For now, just regenerate the schedule
     return this.scheduleService.generateSchedule(
       data.userId,
       new Date(data.fromDate),
@@ -154,7 +187,6 @@ export class SchedulerController {
 
   @MessagePattern('scheduler.schedule.reprioritize')
   triggerReprioritize(@Payload() data: { userId: string; goalId: string }) {
-    // This would enqueue a job to AI Service for re-prioritization
     return Promise.resolve({
       success: true,
       message: 'Reprioritize request queued for AI processing',

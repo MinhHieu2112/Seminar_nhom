@@ -25,7 +25,7 @@ export class Goal {
   @Column('text', { nullable: true })
   description!: string | null;
 
-  @Column('date', { nullable: true })
+  @Column('timestamptz', { nullable: true })
   deadline!: Date | null;
 
   @Column('varchar', { length: 20, default: 'active' })

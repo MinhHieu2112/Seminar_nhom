@@ -8,18 +8,17 @@ interface MainLayoutProps {
   children: React.ReactNode;
 }
 
-// Pages that don't need the sidebar layout
-const noLayoutPages = ['/login', '/register', '/forgot-password', '/reset-password'];
+// FIX: thêm '/' để trang chủ không hiển thị sidebar/header layout
+// Trang chủ là landing page công khai, không cần navigation
+const noLayoutPages = ['/', '/login', '/register', '/forgot-password', '/reset-password'];
 
 export function MainLayout({ children }: MainLayoutProps) {
   const pathname = usePathname();
 
-  // Check if current page should not have layout (exact match or starts with)
-  const shouldHideLayout = !pathname || noLayoutPages.some(page => 
+  const shouldHideLayout = !pathname || noLayoutPages.some(page =>
     pathname === page || pathname.startsWith(page + '/')
   );
 
-  // On auth pages, render without layout
   if (shouldHideLayout) {
     return <>{children}</>;
   }
