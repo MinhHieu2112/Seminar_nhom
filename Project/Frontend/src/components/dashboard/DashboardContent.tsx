@@ -13,10 +13,10 @@ export function DashboardContent() {
     <div className="space-y-6">
       <div className="rounded-2xl bg-gradient-to-r from-blue-600 to-purple-600 p-8 text-white shadow-lg">
         <h1 className="text-3xl font-bold">
-          Welcome back, {user?.email?.split('@')[0] ?? 'there'}! 👋
+          Chào mừng trở lại, {user?.email?.split('@')[0] ?? 'bạn'}! 👋
         </h1>
         <p className="mt-2 text-blue-100">
-          Ready to achieve your goals today? Let&apos;s make progress together.
+          Sẵn sàng đạt được mục tiêu hôm nay chưa? Hãy cùng nhau tiến bộ.
         </p>
       </div>
 
@@ -26,7 +26,7 @@ export function DashboardContent() {
         <div className="rounded-xl border border-blue-100 bg-white p-6 shadow-sm">
           <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
             <Activity className="h-5 w-5 text-blue-500" />
-            AI Insights
+            Gợi ý từ AI
           </h2>
           <ul className="mt-4 space-y-2">
             {analytics.suggestions.map((suggestion: string, index: number) => (
@@ -40,7 +40,7 @@ export function DashboardContent() {
       )}
 
       <div className="rounded-xl bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-gray-900">Quick Actions</h2>
+        <h2 className="text-lg font-semibold text-gray-900">Thao tác nhanh</h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <Link
             href="/scheduler/goals"
@@ -50,9 +50,9 @@ export function DashboardContent() {
               <BookOpen className="h-6 w-6 text-blue-600" />
             </div>
             <div>
-              <p className="font-medium text-gray-900">Manage Goals</p>
+              <p className="font-medium text-gray-900">Quản lý mục tiêu</p>
               <p className="text-sm text-gray-500">
-                Create and track your goals
+                Tạo và theo dõi mục tiêu của bạn
               </p>
             </div>
           </Link>
@@ -65,8 +65,8 @@ export function DashboardContent() {
               <Calendar className="h-6 w-6 text-purple-600" />
             </div>
             <div>
-              <p className="font-medium text-gray-900">View Schedule</p>
-              <p className="text-sm text-gray-500">See your study plan</p>
+              <p className="font-medium text-gray-900">Xem lịch trình</p>
+              <p className="text-sm text-gray-500">Xem kế hoạch học tập của bạn</p>
             </div>
           </Link>
         </div>

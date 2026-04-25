@@ -183,7 +183,7 @@ export function GenerateScheduleModal({ isOpen, onClose, defaultFromDate, defaul
       setUnifiedData(unified);
       setStep('preview');
     } catch (err: unknown) {
-      setError(getErrorMessage(err, 'Failed to normalize input. Please check your data.'));
+      setError(getErrorMessage(err, 'Phân tích dữ liệu thất bại. Vui lòng kiểm tra lại dữ liệu của bạn.'));
     } finally {
       setIsLoading(false);
     }
@@ -197,14 +197,14 @@ export function GenerateScheduleModal({ isOpen, onClose, defaultFromDate, defaul
 
     try {
       const payload = {
-        goalTitle: goalTitle.trim() || 'Unified Schedule Inbox',
+        goalTitle: goalTitle.trim() || 'Lịch trình chung',
         tasks: unifiedData?.tasks ?? [],
         timezoneOffsetMinutes: new Date().getTimezoneOffset(),
         constraints: unifiedData?.constraints ?? { availableTime: [], busyTime: [] },
       };
 
       if (!payload.tasks.length) {
-        setError('No tasks found in the normalized data. Please check your input and try again.');
+        setError('Không tìm thấy nhiệm vụ nào. Vui lòng kiểm tra lại đầu vào của bạn.');
         setIsLoading(false);
         return;
       }
@@ -213,7 +213,7 @@ export function GenerateScheduleModal({ isOpen, onClose, defaultFromDate, defaul
       await queryClient.invalidateQueries({ queryKey: ['schedule'] });
       setStep('done');
     } catch (err: unknown) {
-      setError(getErrorMessage(err, 'Failed to generate schedule. Please try again.'));
+      setError(getErrorMessage(err, 'Tạo lịch trình thất bại. Vui lòng thử lại.'));
     } finally {
       setIsLoading(false);
     }
@@ -244,11 +244,11 @@ export function GenerateScheduleModal({ isOpen, onClose, defaultFromDate, defaul
               <Target className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-gray-900">Smart Schedule Generator</h2>
+              <h2 className="text-lg font-bold text-gray-900">Tạo lịch thông minh</h2>
               <p className="text-xs text-gray-500">
-                {step === 'input' ? 'Step 1: Enter your tasks & constraints' :
-                  step === 'preview' ? 'Step 2: Review normalized data' :
-                    'Schedule generated!'}
+                {step === 'input' ? 'Bước 1: Nhập môn học & ràng buộc' :
+                  step === 'preview' ? 'Bước 2: Xác nhận thông tin' :
+                    'Lịch đã được tạo!'}
               </p>
             </div>
           </div>
@@ -259,7 +259,7 @@ export function GenerateScheduleModal({ isOpen, onClose, defaultFromDate, defaul
 
         {/* Step Progress */}
         <div className="flex items-center gap-2 px-6 py-3 bg-gray-50 border-b border-gray-100 flex-shrink-0">
-          {['Input', 'Preview', 'Done'].map((label, i) => {
+          {['Nhập liệu', 'Xem trước', 'Xong'].map((label, i) => {
             const current = step === 'input' ? 0 : step === 'preview' ? 1 : 2;
             const active = i <= current;
             return (
@@ -287,25 +287,25 @@ export function GenerateScheduleModal({ isOpen, onClose, defaultFromDate, defaul
                   onClick={() => setMode('manual')}
                   className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium transition-all ${mode === 'manual' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                 >
-                  <FileText className="h-4 w-4" /> Manual Entry
+                  <FileText className="h-4 w-4" /> Nhập thủ công
                 </button>
                 <button
                   type="button"
                   onClick={() => setMode('csv')}
                   className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium transition-all ${mode === 'csv' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                 >
-                  <UploadCloud className="h-4 w-4" /> CSV Upload
+                  <UploadCloud className="h-4 w-4" /> Tải lên CSV
                 </button>
               </div>
 
               {/* Goal Title Input */}
               <div className="space-y-1">
-                <label className="text-sm font-semibold text-gray-700">Schedule / Subject Title</label>
+                <label className="text-sm font-semibold text-gray-700">Tên môn học / lịch học</label>
                 <input
                   type="text"
                   value={goalTitle}
                   onChange={e => setGoalTitle(e.target.value)}
-                  placeholder="e.g., Mathematics Midterm, IELTS Preparation"
+                  placeholder="VD: Toán cao cấp, Chuẩn bị IELTS"
                   className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
                 />
               </div>
@@ -314,9 +314,9 @@ export function GenerateScheduleModal({ isOpen, onClose, defaultFromDate, defaul
               {mode === 'manual' && (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold text-gray-700">Tasks</h3>
+                    <h3 className="text-sm font-semibold text-gray-700">Danh sách môn học</h3>
                     <button type="button" onClick={addTask} className="flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-100 transition-colors">
-                      <Plus className="h-3.5 w-3.5" /> Add Task
+                      <Plus className="h-3.5 w-3.5" /> Thêm môn học
                     </button>
                   </div>
 
@@ -329,7 +329,7 @@ export function GenerateScheduleModal({ isOpen, onClose, defaultFromDate, defaul
                             type="text"
                             value={task.title}
                             onChange={e => updateTask(task.id, 'title', e.target.value)}
-                            placeholder="Task title (e.g., Learn React Hooks)"
+                            placeholder="Tên môn học (VD: Toán, Tiếng Anh)"
                             className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
                           />
                           {tasks.length > 1 && (
@@ -340,17 +340,17 @@ export function GenerateScheduleModal({ isOpen, onClose, defaultFromDate, defaul
                         </div>
                         <div className="grid grid-cols-3 gap-2">
                           <div>
-                            <label className="mb-1 block text-xs text-gray-500">Duration (min)</label>
+                            <label className="mb-1 block text-xs text-gray-500">Thời lượng (phút/ngày)</label>
                             <input type="number" min={15} max={480} value={task.duration} onChange={e => updateTask(task.id, 'duration', Number(e.target.value))}
                               className="w-full rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm focus:border-blue-400 focus:outline-none" />
                           </div>
                           <div>
-                            <label className="mb-1 block text-xs text-gray-500">Priority (1-5)</label>
+                            <label className="mb-1 block text-xs text-gray-500">Ưu tiên (1-5)</label>
                             <input type="number" min={1} max={5} value={task.priority} onChange={e => updateTask(task.id, 'priority', Number(e.target.value))}
                               className="w-full rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm focus:border-blue-400 focus:outline-none" />
                           </div>
                           <div>
-                            <label className="mb-1 block text-xs text-gray-500">Deadline</label>
+                            <label className="mb-1 block text-xs text-gray-500">Deadline (ngày thi)</label>
                             <input type="date" min={minAllowedDate} value={task.deadline} onChange={e => updateTask(task.id, 'deadline', e.target.value)}
                               className="w-full rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm focus:border-blue-400 focus:outline-none" />
                           </div>
@@ -362,9 +362,9 @@ export function GenerateScheduleModal({ isOpen, onClose, defaultFromDate, defaul
                   {/* Busy Time */}
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-semibold text-gray-700">Busy Time <span className="text-xs font-normal text-gray-400">(optional)</span></h3>
+                      <h3 className="text-sm font-semibold text-gray-700">Thời gian bận <span className="text-xs font-normal text-gray-400">(tuỳ chọn)</span></h3>
                       <button type="button" onClick={addBusySlot} className="flex items-center gap-1.5 rounded-lg border border-orange-200 bg-orange-50 px-3 py-1.5 text-xs font-medium text-orange-600 hover:bg-orange-100 transition-colors">
-                        <Plus className="h-3.5 w-3.5" /> Add Busy Slot
+                        <Plus className="h-3.5 w-3.5" /> Thêm khoảng bận
                       </button>
                     </div>
                     {busySlots.map(b => (
@@ -380,7 +380,7 @@ export function GenerateScheduleModal({ isOpen, onClose, defaultFromDate, defaul
                       </div>
                     ))}
                     {busySlots.length === 0 && (
-                      <p className="text-xs text-gray-400 italic">No busy time set — algorithm will use default available hours (08:00-22:00)</p>
+                      <p className="text-xs text-gray-400 italic">Chưa có khoảng bận — thuật toán sẽ dùng giờ rảnh mặc định (07:00–22:00)</p>
                     )}
                   </div>
                 </div>
@@ -407,13 +407,13 @@ Làm bài tập,60,2,2026-04-28
                       <>
                         <CheckCircle2 className="h-10 w-10 text-green-500" />
                         <p className="text-sm font-semibold text-green-700">{csvFile.name}</p>
-                        <p className="text-xs text-green-500">Click to change file</p>
+                        <p className="text-xs text-green-500">Nhấp để thay đổi tệp</p>
                       </>
                     ) : (
                       <>
                         <UploadCloud className="h-10 w-10 text-gray-300" />
-                        <p className="text-sm text-gray-500">Click to upload CSV</p>
-                        <p className="text-xs text-gray-400">.csv files only</p>
+                        <p className="text-sm text-gray-500">Nhấp để tải lên CSV</p>
+                        <p className="text-xs text-gray-400">chỉ tệp .csv</p>
                       </>
                     )}
                     <input ref={fileInputRef} type="file" accept=".csv" className="hidden" onChange={handleFileChange} />
@@ -421,7 +421,7 @@ Làm bài tập,60,2,2026-04-28
 
                   {csvPreview && (
                     <div>
-                      <p className="mb-1 text-xs font-medium text-gray-500">Preview (first 6 lines):</p>
+                      <p className="mb-1 text-xs font-medium text-gray-500">Xem trước (6 dòng đầu):</p>
                       <pre className="rounded-lg bg-gray-900 p-3 text-xs text-green-400 overflow-x-auto font-mono">{csvPreview}</pre>
                     </div>
                   )}
@@ -429,9 +429,9 @@ Làm bài tập,60,2,2026-04-28
                   {/* Busy Time for CSV mode */}
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-semibold text-gray-700">Busy Time <span className="text-xs font-normal text-gray-400">(optional)</span></h3>
+                      <h3 className="text-sm font-semibold text-gray-700">Thời gian bận <span className="text-xs font-normal text-gray-400">(tuỳ chọn)</span></h3>
                       <button type="button" onClick={addBusySlot} className="flex items-center gap-1.5 rounded-lg border border-orange-200 bg-orange-50 px-3 py-1.5 text-xs font-medium text-orange-600 hover:bg-orange-100 transition-colors">
-                        <Plus className="h-3.5 w-3.5" /> Add
+                        <Plus className="h-3.5 w-3.5" /> Thêm
                       </button>
                     </div>
                     {busySlots.map(b => (
@@ -457,7 +457,7 @@ Làm bài tập,60,2,2026-04-28
               {/* Tasks */}
               <div>
                 <h3 className="mb-2 text-sm font-semibold text-gray-700">
-                  ✅ {unifiedData.tasks?.length || 0} Tasks Normalized
+                  ✅ {unifiedData.tasks?.length || 0} môn học đã chuẩn hoá
                 </h3>
                 <div className="space-y-2">
                   {unifiedData.tasks?.map((t: UnifiedTaskPreview, i: number) => (
@@ -465,7 +465,7 @@ Làm bài tập,60,2,2026-04-28
                       <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-600">{i + 1}</span>
                       <div className="flex-1">
                         <p className="text-sm font-medium text-gray-800">{t.title}</p>
-                        <p className="text-xs text-gray-400">{t.duration}min · Priority {t.priority}{t.deadline ? ` · Due ${t.deadline}` : ''}</p>
+                        <p className="text-xs text-gray-400">{t.duration}phút/ngày · Ưu tiên {t.priority}{t.deadline ? ` · Hạn ${t.deadline}` : ''}</p>
                       </div>
                     </div>
                   ))}
@@ -474,7 +474,7 @@ Làm bài tập,60,2,2026-04-28
 
               {/* Available Time */}
               <div>
-                <h3 className="mb-2 text-sm font-semibold text-gray-700">📅 Available Time ({unifiedData.constraints?.availableTime?.length || 0} days)</h3>
+                <h3 className="mb-2 text-sm font-semibold text-gray-700">📅 Thời gian rảnh ({unifiedData.constraints?.availableTime?.length || 0} ngày)</h3>
                 <div className="max-h-32 overflow-y-auto rounded-lg border border-gray-100 bg-gray-50 p-2 space-y-1">
                   {unifiedData.constraints?.availableTime?.map((a: UnifiedConstraintEntry, i: number) => (
                     <div key={i} className="flex items-center gap-2 text-xs">
@@ -489,7 +489,7 @@ Làm bài tập,60,2,2026-04-28
               {/* Busy Time */}
               {unifiedData.constraints?.busyTime?.length > 0 && (
                 <div>
-                  <h3 className="mb-2 text-sm font-semibold text-gray-700">🚫 Busy Time ({unifiedData.constraints.busyTime.length} entries)</h3>
+                  <h3 className="mb-2 text-sm font-semibold text-gray-700">🚫 Thời gian bận ({unifiedData.constraints.busyTime.length} khoảng)</h3>
                   <div className="rounded-lg border border-orange-100 bg-orange-50 p-2 space-y-1">
                     {unifiedData.constraints.busyTime.map((b: UnifiedConstraintEntry, i: number) => (
                       <div key={i} className="flex items-center gap-2 text-xs">
@@ -504,7 +504,7 @@ Làm bài tập,60,2,2026-04-28
 
               <div className="rounded-xl border border-blue-100 bg-blue-50 p-3">
                 <p className="text-xs text-blue-700">
-                  <strong>Ready to generate!</strong> The algorithm will fill morning (07:00-11:00), afternoon (13:00-17:00), then evening (18:00-22:00), while sorting tasks by deadline → priority → creation order.
+                  <strong>Sẵn sàng tạo lịch!</strong> Thuật toán sẽ xếp lịch theo thứ tự: buổi sáng (07:00–11:00), buổi chiều (13:00–17:00), buổi tối (18:00–22:00) và ưu tiên theo deadline → mức độ quan trọng.
                 </p>
               </div>
             </div>
@@ -517,8 +517,8 @@ Làm bài tập,60,2,2026-04-28
                 <CheckCircle2 className="h-9 w-9 text-green-500" />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-gray-900">Schedule Generated! 🎉</h3>
-                <p className="mt-1 text-sm text-gray-500">Your study schedule has been created. Check &quot;My Schedule&quot; to view your blocks.</p>
+                <h3 className="text-lg font-bold text-gray-900">Lịch học đã được tạo! 🎉</h3>
+                <p className="mt-1 text-sm text-gray-500">Lịch học của bạn đã sẵn sàng. Hãy vào “Lịch học của tôi” để xem các khối học.</p>
               </div>
             </div>
           )}
@@ -539,7 +539,7 @@ Làm bài tập,60,2,2026-04-28
             onClick={step === 'input' ? handleClose : () => setStep('input')}
             className="rounded-xl border border-gray-200 bg-white px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
           >
-            {step === 'input' ? 'Cancel' : '← Back'}
+            {step === 'input' ? 'Hủy' : '← Quay lại'}
           </button>
 
           {step === 'input' && (
@@ -549,7 +549,7 @@ Làm bài tập,60,2,2026-04-28
               disabled={isLoading || (mode === 'manual' && tasks.every(t => !t.title)) || (mode === 'csv' && !csvFile)}
               className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 px-6 py-2 text-sm font-medium text-white shadow-sm transition-all hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {isLoading ? <><Loader2 className="h-4 w-4 animate-spin" /> Analyzing...</> : <>Analyze & Preview <ChevronRight className="h-4 w-4" /></>}
+              {isLoading ? <><Loader2 className="h-4 w-4 animate-spin" /> Đang phân tích...</> : <>Phân tích & Xem trước <ChevronRight className="h-4 w-4" /></>}
             </button>
           )}
 
@@ -560,7 +560,7 @@ Làm bài tập,60,2,2026-04-28
               disabled={isLoading}
               className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 px-6 py-2 text-sm font-medium text-white shadow-sm transition-all hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {isLoading ? <><Loader2 className="h-4 w-4 animate-spin" /> Scheduling...</> : <>Generate Schedule ✨</>}
+              {isLoading ? <><Loader2 className="h-4 w-4 animate-spin" /> Đang xếp lịch...</> : <>Tạo lịch học ✨</>}
             </button>
           )}
 
@@ -570,7 +570,7 @@ Làm bài tập,60,2,2026-04-28
               onClick={handleClose}
               className="rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 px-6 py-2 text-sm font-medium text-white hover:opacity-90 transition-all"
             >
-              View My Schedule
+              Xem lịch học của tôi
             </button>
           )}
         </div>

@@ -40,13 +40,13 @@ export default function ResetPasswordPage() {
       };
 
       if (axiosErr.response?.status === 429) {
-        setError('Too many requests. Please wait before trying again.');
+        setError('Quá nhiều yêu cầu. Vui lòng đợi trước khi thử lại.');
       } else if (axiosErr.response?.status === 400) {
-        setError('Invalid or expired OTP code. Please request a new one.');
+        setError('Mã OTP không hợp lệ hoặc đã hết hạn. Vui lòng yêu cầu mã mới.');
       } else {
         const message =
           axiosErr.response?.data?.error?.message ||
-          'Failed to reset password. Please try again.';
+          'Khôi phục mật khẩu thất bại. Vui lòng thử lại.';
         setError(message);
       }
     }
@@ -73,10 +73,10 @@ export default function ResetPasswordPage() {
               </svg>
             </div>
             <h2 className="text-xl font-semibold text-gray-900">
-              Password reset successful!
+              Khôi phục mật khẩu thành công!
             </h2>
             <p className="mt-2 text-sm text-gray-600">
-              Your password has been reset. Redirecting to login...
+              Mật khẩu của bạn đã được khôi phục. Đang chuyển hướng đến đăng nhập...
             </p>
           </div>
         </div>
@@ -88,10 +88,10 @@ export default function ResetPasswordPage() {
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-md rounded-lg bg-white p-8 shadow">
         <h2 className="text-center text-2xl font-bold text-gray-900">
-          Reset Password
+          Khôi phục mật khẩu
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600">
-          Enter the OTP code sent to your email and your new password
+          Nhập mã OTP được gửi đến email của bạn và mật khẩu mới
         </p>
 
         {error && (
@@ -119,7 +119,7 @@ export default function ResetPasswordPage() {
 
           <div>
             <label htmlFor="otp" className="block text-sm font-medium text-gray-700">
-              OTP Code
+              Mã OTP
             </label>
             <input
               {...register('otp')}
@@ -137,7 +137,7 @@ export default function ResetPasswordPage() {
 
           <div>
             <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700">
-              New Password
+              Mật khẩu mới
             </label>
             <input
               {...register('newPassword')}
@@ -153,7 +153,7 @@ export default function ResetPasswordPage() {
 
           <div>
             <label htmlFor="confirmNewPassword" className="block text-sm font-medium text-gray-700">
-              Confirm New Password
+              Xác nhận mật khẩu mới
             </label>
             <input
               {...register('confirmNewPassword')}
@@ -172,14 +172,14 @@ export default function ResetPasswordPage() {
             disabled={isSubmitting}
             className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {isSubmitting ? 'Resetting...' : 'Reset Password'}
+            {isSubmitting ? 'Đang khôi phục...' : 'Khôi phục mật khẩu'}
           </button>
         </form>
 
         <p className="mt-4 text-center text-sm text-gray-600">
-          Didn&apos;t receive the code?{' '}
+          Chưa nhận được mã?{' '}
           <Link href="/forgot-password" className="text-blue-600 hover:text-blue-500">
-            Resend
+            Gửi lại
           </Link>
         </p>
       </div>

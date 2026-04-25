@@ -47,8 +47,8 @@ export function RegisterForm() {
       const message =
         err && typeof err === 'object' && 'response' in err
           ? (err as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message
-          : 'Registration failed. Please try again.';
-      setError(message || 'Registration failed. Please try again.');
+          : 'Đăng ký thất bại. Vui lòng thử lại.';
+      setError(message || 'Đăng ký thất bại. Vui lòng thử lại.');
     } finally {
       setIsLoading(false);
     }
@@ -64,7 +64,7 @@ export function RegisterForm() {
 
       <div>
         <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-          Email address
+          Địa chỉ Email
         </label>
         <input
           {...register('email')}
@@ -81,7 +81,7 @@ export function RegisterForm() {
 
       <div>
         <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-          Password
+          Mật khẩu
         </label>
         <input
           {...register('password')}
@@ -97,7 +97,7 @@ export function RegisterForm() {
 
       <div>
         <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
-          Confirm password
+          Xác nhận mật khẩu
         </label>
         <input
           {...register('confirmPassword')}
@@ -116,13 +116,13 @@ export function RegisterForm() {
         disabled={isLoading}
         className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {isLoading ? 'Creating account...' : 'Create account'}
+        {isLoading ? 'Đang tạo tài khoản...' : 'Tạo tài khoản'}
       </button>
 
       <p className="text-center text-sm text-gray-600">
-        Already have an account?{' '}
+        Đã có tài khoản?{' '}
         <Link href="/login" className="font-medium text-blue-600 hover:text-blue-500">
-          Sign in
+          Đăng nhập
         </Link>
       </p>
     </form>

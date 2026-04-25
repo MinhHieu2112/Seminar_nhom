@@ -12,9 +12,9 @@ export default function GoalsPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Task Checklist</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Mục tiêu</h1>
           <p className="mt-1 text-gray-500">
-            Track and manage the tasks for your generated schedules
+            Theo dõi và quản lý các mục tiêu học tập của bạn
           </p>
         </div>
         <div className="flex gap-3">

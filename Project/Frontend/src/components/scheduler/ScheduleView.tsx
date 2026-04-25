@@ -58,7 +58,7 @@ function BlockCard({ block, onToggle }: { block: ScheduleBlock, onToggle: (block
         {isDone && <CheckCircle2 className="h-4 w-4 text-white" />}
       </div>
       <p className={`line-clamp-2 text-sm font-medium leading-tight ${isDone ? 'line-through' : ''}`}>
-        {block.task?.title || 'Study Session'}
+        {block.task?.title || 'Phiên học'}
       </p>
       <p className="mt-0.5 text-[10px] opacity-75">
         Pomodoro #{block.pomodoroIndex}
@@ -68,9 +68,9 @@ function BlockCard({ block, onToggle }: { block: ScheduleBlock, onToggle: (block
 }
 
 const PERIODS = [
-  { id: 'morning', label: 'Sáng', time: '00:00 - 12:00', filter: (h: number) => h < 12 },
-  { id: 'afternoon', label: 'Trưa / Chiều', time: '12:00 - 18:00', filter: (h: number) => h >= 12 && h < 18 },
-  { id: 'evening', label: 'Tối', time: '18:00 - 24:00', filter: (h: number) => h >= 18 },
+  { id: 'morning', label: 'Sáng', time: '07:00 - 11:00', filter: (h: number) => h < 12 },
+  { id: 'afternoon', label: 'Trưa / Chiều', time: '13:00 - 17:00', filter: (h: number) => h >= 12 && h < 18 },
+  { id: 'evening', label: 'Tối', time: '18:00 - 22:00', filter: (h: number) => h >= 18 },
 ];
 
 export function ScheduleView() {
@@ -139,7 +139,7 @@ export function ScheduleView() {
             className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 px-5 py-2.5 text-sm font-medium text-white shadow-md hover:shadow-lg transition-all"
           >
             <Sparkles className="h-4 w-4" />
-            Generate Schedule
+            Tạo lịch học
           </button>
         </div>
       </div>
@@ -147,7 +147,7 @@ export function ScheduleView() {
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
-          <span className="ml-3 text-gray-600">Loading schedule...</span>
+          <span className="ml-3 text-gray-600">Đang tải lịch học...</span>
         </div>
       ) : (
         <>
@@ -245,7 +245,7 @@ export function ScheduleView() {
                     </div>
                     {today && (
                       <span className="rounded-full bg-blue-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-blue-600">
-                        Today
+                        Hôm nay
                       </span>
                     )}
                   </div>

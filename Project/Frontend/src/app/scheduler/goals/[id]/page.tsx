@@ -26,14 +26,14 @@ export default async function GoalDetailPage({ params }: GoalDetailPageProps) {
           href="/scheduler/goals"
           className="text-sm text-blue-600 hover:text-blue-800"
         >
-          ← Back to Goals
+          ← Trở lại
         </Link>
       </div>
 
       <div className="mb-6 rounded-lg border bg-white p-6 shadow-sm">
-        <h1 className="text-2xl font-bold">Goal Details</h1>
+        <h1 className="text-2xl font-bold">Chi tiết</h1>
         <p className="mt-2 text-gray-600">
-          Manage tasks for this goal. Add tasks and generate your schedule.
+          Quản lý các mục tiêu nhỏ này. Thêm mục tiêu nhỏ và tạo lịch trình của bạn.
         </p>
       </div>
 

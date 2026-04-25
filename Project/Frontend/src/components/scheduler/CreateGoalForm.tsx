@@ -47,7 +47,7 @@ export function CreateGoalForm() {
     <form action={handleSubmit} className="space-y-4">
       <div>
         <label htmlFor="title" className="block text-sm font-medium text-gray-700">
-          Title *
+          Tiêu đề *
         </label>
         <input
           type="text"
@@ -63,7 +63,7 @@ export function CreateGoalForm() {
 
       <div>
         <label htmlFor="description" className="block text-sm font-medium text-gray-700">
-          Description
+          Mô tả
         </label>
         <textarea
           name="description"
@@ -78,7 +78,7 @@ export function CreateGoalForm() {
 
       <div>
         <label htmlFor="deadline" className="block text-sm font-medium text-gray-700">
-          Deadline
+          Hạn chót
         </label>
         <input
           type="datetime-local"
@@ -97,20 +97,20 @@ export function CreateGoalForm() {
           disabled={createGoal.isPending}
           className="rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-50"
         >
-          {createGoal.isPending ? 'Creating...' : 'Create Goal'}
+          {createGoal.isPending ? 'Đang tạo...' : 'Tạo mục tiêu'}
         </button>
         <button
           type="button"
           onClick={() => router.push('/scheduler/goals')}
           className="rounded-md border border-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-50"
         >
-          Cancel
+          Hủy
         </button>
       </div>
 
       {createGoal.isError && (
         <p className="text-sm text-red-600">
-          Error: {createGoal.error?.message || 'Failed to create goal'}
+          Lỗi: {createGoal.error?.message || 'Tạo mục tiêu thất bại'}
         </p>
       )}
     </form>

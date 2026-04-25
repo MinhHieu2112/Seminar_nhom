@@ -43,7 +43,7 @@ export function ChangePasswordForm() {
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       {success && (
         <div className="rounded-md bg-green-50 p-3 text-sm text-green-600">
-          Password changed successfully!
+          Đổi mật khẩu thành công!
         </div>
       )}
 
@@ -55,7 +55,7 @@ export function ChangePasswordForm() {
 
       <div>
         <label htmlFor="oldPassword" className="block text-sm font-medium text-gray-700">
-          Current Password
+          Mật khẩu cũ
         </label>
         <input
           {...register('oldPassword')}
@@ -71,7 +71,7 @@ export function ChangePasswordForm() {
 
       <div>
         <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700">
-          New Password
+          Mật khẩu mới
         </label>
         <input
           {...register('newPassword')}
@@ -87,7 +87,7 @@ export function ChangePasswordForm() {
 
       <div>
         <label htmlFor="confirmNewPassword" className="block text-sm font-medium text-gray-700">
-          Confirm New Password
+          Xác nhận mật khẩu mới
         </label>
         <input
           {...register('confirmNewPassword')}
@@ -106,7 +106,7 @@ export function ChangePasswordForm() {
         disabled={isSubmitting}
         className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {isSubmitting ? 'Changing...' : 'Change Password'}
+        {isSubmitting ? 'Changing...' : 'Xác nhận'}
       </button>
     </form>
   );

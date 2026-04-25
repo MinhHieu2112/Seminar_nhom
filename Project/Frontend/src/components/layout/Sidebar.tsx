@@ -23,12 +23,12 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/scheduler/schedule', label: 'My Schedule', icon: Calendar },
-  { href: '/scheduler/goals', label: 'Goals & Tasks', icon: Target },
-  { href: '/scheduler/analytics', label: 'Analysis', icon: BarChart2 },
-  { href: '/profile', label: 'Profile', icon: User },
-  { href: '/admin/users', label: 'Admin', icon: Users, roles: ['admin'] },
+  { href: '/dashboard', label: 'Tổng quan', icon: LayoutDashboard },
+  { href: '/scheduler/schedule', label: 'Lịch học của tôi', icon: Calendar },
+  { href: '/scheduler/goals', label: 'Mục tiêu & Nhiệm vụ', icon: Target },
+  { href: '/scheduler/analytics', label: 'Phân tích', icon: BarChart2 },
+  { href: '/profile', label: 'Hồ sơ', icon: User },
+  { href: '/admin/users', label: 'Quản trị', icon: Users, roles: ['admin'] },
 ];
 
 export function Sidebar() {
@@ -71,20 +71,20 @@ export function Sidebar() {
         {/* Quick Stats Section */}
         <div className="rounded-xl bg-gradient-to-br from-blue-50 to-purple-50 p-4">
           <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
-            Quick Stats
+            Thống kê nhanh
           </h4>
           <div className="mt-3 space-y-3">
             <div className="flex items-center gap-3">
               <BookOpen className="h-4 w-4 text-blue-600" />
-              <span className="text-sm text-gray-600">0 Goals</span>
+              <span className="text-sm text-gray-600">0 Mục tiêu</span>
             </div>
             <div className="flex items-center gap-3">
               <Clock className="h-4 w-4 text-purple-600" />
-              <span className="text-sm text-gray-600">0 Tasks</span>
+              <span className="text-sm text-gray-600">0 Nhiệm vụ</span>
             </div>
             <div className="flex items-center gap-3">
               <Bell className="h-4 w-4 text-orange-600" />
-              <span className="text-sm text-gray-600">0 Notifications</span>
+              <span className="text-sm text-gray-600">0 Thông báo</span>
             </div>
           </div>
         </div>

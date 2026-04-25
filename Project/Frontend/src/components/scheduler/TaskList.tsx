@@ -109,18 +109,18 @@ export function TaskList({ goalId }: TaskListProps) {
   }
 
   if (isLoading) {
-    return <div className="text-gray-600">Loading tasks...</div>;
+    return <div className="text-gray-600">Đang tải nhiệm vụ...</div>;
   }
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-medium">Tasks</h3>
+        <h3 className="text-lg font-medium">Nhiệm vụ</h3>
         <button
           onClick={() => setIsAdding(!isAdding)}
           className="rounded-md bg-green-600 px-3 py-1.5 text-sm text-white hover:bg-green-700"
         >
-          {isAdding ? 'Cancel' : '+ Add Task'}
+          {isAdding ? 'Hủy' : '+ Thêm nhiệm vụ'}
         </button>
       </div>
 
@@ -128,7 +128,7 @@ export function TaskList({ goalId }: TaskListProps) {
         <form action={handleAddTask} className="rounded-md bg-gray-50 p-4">
           <div className="grid gap-4 md:grid-cols-2">
             <div>
-              <label className="block text-sm font-medium">Title</label>
+              <label className="block text-sm font-medium">Tiêu đề</label>
               <input
                 name="title"
                 required
@@ -140,7 +140,7 @@ export function TaskList({ goalId }: TaskListProps) {
             </div>
             <div>
               <label className="block text-sm font-medium">
-                Duration (minutes)
+                Thời lượng (phút)
               </label>
               <input
                 name="durationMin"
@@ -152,29 +152,29 @@ export function TaskList({ goalId }: TaskListProps) {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium">Priority</label>
+              <label className="block text-sm font-medium">Ưu tiên</label>
               <select
                 name="priority"
                 defaultValue={3}
                 className="mt-1 block w-full rounded border px-2 py-1"
               >
-                <option value={5}>5 - Highest</option>
-                <option value={4}>4 - High</option>
-                <option value={3}>3 - Medium</option>
-                <option value={2}>2 - Low</option>
-                <option value={1}>1 - Lowest</option>
+                <option value={5}>5 - Cao nhất</option>
+                <option value={4}>4 - Cao</option>
+                <option value={3}>3 - Trung bình</option>
+                <option value={2}>2 - Thấp</option>
+                <option value={1}>1 - Thấp nhất</option>
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium">Type</label>
+              <label className="block text-sm font-medium">Loại</label>
               <select
                 name="type"
                 defaultValue="theory"
                 className="mt-1 block w-full rounded border px-2 py-1"
               >
-                <option value="theory">Theory</option>
-                <option value="practice">Practice</option>
-                <option value="review">Review</option>
+                <option value="theory">Lý thuyết</option>
+                <option value="practice">Thực hành</option>
+                <option value="review">Ôn tập</option>
               </select>
             </div>
           </div>
@@ -183,13 +183,13 @@ export function TaskList({ goalId }: TaskListProps) {
             disabled={createTask.isPending}
             className="mt-4 rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
           >
-            {createTask.isPending ? 'Adding...' : 'Add Task'}
+            {createTask.isPending ? 'Đang thêm...' : 'Thêm nhiệm vụ'}
           </button>
         </form>
       )}
 
       {tasks && tasks.length === 0 ? (
-        <p className="text-gray-500">No tasks yet.</p>
+        <p className="text-gray-500">Chưa có nhiệm vụ nào.</p>
       ) : (
         <div className="space-y-2">
           {tasks?.map((task: Task) => {
@@ -224,14 +224,14 @@ export function TaskList({ goalId }: TaskListProps) {
                       </p>
                       {locked && (
                         <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
-                          Overdue
+                          Quá hạn
                         </span>
                       )}
                     </div>
                     <p className="text-sm text-gray-500">
-                      {task.durationMin}min · Priority {task.priority} ·{' '}
-                      {task.type}
-                      {deadline ? ` · Due ${formatDeadline(deadline)}` : ''}
+                      {task.durationMin} phút · Ưu tiên {task.priority} ·{' '}
+                      {task.type === 'theory' ? 'Lý thuyết' : task.type === 'practice' ? 'Thực hành' : 'Ôn tập'}
+                      {deadline ? ` · Hạn ${formatDeadline(deadline)}` : ''}
                     </p>
                     {locked && (
                       <p className="text-xs text-red-600">
@@ -245,7 +245,7 @@ export function TaskList({ goalId }: TaskListProps) {
                   disabled={locked || deleteTask.isPending}
                   className="text-sm text-red-600 hover:text-red-800 disabled:cursor-not-allowed disabled:text-red-300"
                 >
-                  Delete
+                  Xóa
                 </button>
               </div>
             );

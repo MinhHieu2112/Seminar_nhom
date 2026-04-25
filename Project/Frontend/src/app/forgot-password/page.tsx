@@ -31,11 +31,11 @@ export default function ForgotPasswordPage() {
       };
 
       if (axiosErr.response?.status === 429) {
-        setError('Too many requests. Please wait before requesting another OTP.');
+        setError('Quá nhiều yêu cầu. Vui lòng đợi trước khi yêu cầu mã OTP khác.');
       } else {
         const message =
           axiosErr.response?.data?.error?.message ||
-          'Failed to send reset email. Please try again.';
+          'Gửi email khôi phục thất bại. Vui lòng thử lại.';
         setError(message);
       }
     }
@@ -61,15 +61,15 @@ export default function ForgotPasswordPage() {
                 />
               </svg>
             </div>
-            <h2 className="text-xl font-semibold text-gray-900">Check your email</h2>
+            <h2 className="text-xl font-semibold text-gray-900">Kiểm tra email của bạn</h2>
             <p className="mt-2 text-sm text-gray-600">
-              If an account exists with that email, we&apos;ve sent a password reset code.
+              Nếu tài khoản tồn tại, chúng tôi đã gửi mã khôi phục mật khẩu.
             </p>
             <Link
               href="/reset-password"
               className="mt-4 inline-block text-sm text-blue-600 hover:text-blue-500"
             >
-              Enter reset code →
+              Nhập mã khôi phục →
             </Link>
           </div>
         </div>
@@ -81,10 +81,10 @@ export default function ForgotPasswordPage() {
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-md rounded-lg bg-white p-8 shadow">
         <h2 className="text-center text-2xl font-bold text-gray-900">
-          Forgot Password
+          Quên mật khẩu
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600">
-          Enter your email and we&apos;ll send you a reset code
+          Nhập email của bạn và chúng tôi sẽ gửi mã khôi phục
         </p>
 
         {error && (
@@ -115,14 +115,14 @@ export default function ForgotPasswordPage() {
             disabled={isSubmitting}
             className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {isSubmitting ? 'Sending...' : 'Send Reset Code'}
+            {isSubmitting ? 'Đang gửi...' : 'Gửi mã khôi phục'}
           </button>
         </form>
 
         <p className="mt-4 text-center text-sm text-gray-600">
-          Remember your password?{' '}
+          Nhớ mật khẩu của bạn?{' '}
           <Link href="/login" className="text-blue-600 hover:text-blue-500">
-            Sign in
+            Đăng nhập
           </Link>
         </p>
       </div>

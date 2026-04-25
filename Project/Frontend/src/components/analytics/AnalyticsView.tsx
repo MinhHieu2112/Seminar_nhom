@@ -26,9 +26,9 @@ export function AnalyticsView() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Study Analysis</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Phân tích học tập</h1>
           <p className="text-gray-500">
-            Track your study habits and progress over time
+            Theo dõi thói quen và tiến độ học tập của bạn
           </p>
         </div>
         <div className="flex rounded-lg bg-gray-100 p-1">
@@ -42,7 +42,7 @@ export function AnalyticsView() {
                   : 'text-gray-600 hover:text-gray-900'
               }`}
             >
-              {value[0].toUpperCase() + value.slice(1)}
+              {value === 'weekly' ? 'Tuần' : value === 'monthly' ? 'Tháng' : 'Năm'}
             </button>
           ))}
         </div>
@@ -51,17 +51,17 @@ export function AnalyticsView() {
       <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
         <h2 className="mb-6 flex items-center gap-2 text-lg font-semibold text-gray-900">
           <BarChart2 className="h-5 w-5 text-blue-500" />
-          Study Hours
+          Giờ học
         </h2>
 
         {isLoading ? (
           <div className="flex h-80 items-center justify-center text-gray-500">
-            Loading data...
+            Đang tải...
           </div>
         ) : history.length === 0 ? (
           <div className="flex h-80 flex-col items-center justify-center text-gray-500">
             <BarChart2 className="mb-2 h-12 w-12 text-gray-300" />
-            <p>No study data found for this period</p>
+            <p>Chưa có dữ liệu học tập trong kỳ này</p>
           </div>
         ) : (
           <div className="h-80 w-full">
@@ -91,13 +91,13 @@ export function AnalyticsView() {
                 />
                 <Legend iconType="circle" />
                 <Bar
-                  name="Planned Hours"
+                  name="Giờ kế hoạch"
                   dataKey="planned"
                   fill="#93c5fd"
                   radius={[4, 4, 0, 0]}
                 />
                 <Bar
-                  name="Actual Hours"
+                  name="Giờ thực tế"
                   dataKey="actual"
                   fill="#3b82f6"
                   radius={[4, 4, 0, 0]}
@@ -111,17 +111,17 @@ export function AnalyticsView() {
       <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
         <h2 className="mb-6 flex items-center gap-2 text-lg font-semibold text-gray-900">
           <CheckSquare className="h-5 w-5 text-green-500" />
-          Task Status Over Time
+          Tình trạng
         </h2>
 
         {isLoading ? (
           <div className="flex h-80 items-center justify-center text-gray-500">
-            Loading data...
+            Đang tải...
           </div>
         ) : history.length === 0 ? (
           <div className="flex h-80 flex-col items-center justify-center text-gray-500">
             <CheckSquare className="mb-2 h-12 w-12 text-gray-300" />
-            <p>No task data found for this period</p>
+            <p>Chưa có dữ liệu nhiệm vụ trong kỳ này</p>
           </div>
         ) : (
           <div className="h-80 w-full">
@@ -151,19 +151,19 @@ export function AnalyticsView() {
                 />
                 <Legend iconType="circle" />
                 <Bar
-                  name="Completed"
+                  name="Hoàn thành"
                   dataKey="tasksCompleted"
                   stackId="a"
                   fill="#10b981"
                 />
                 <Bar
-                  name="Pending"
+                  name="Đang chờ"
                   dataKey="tasksPending"
                   stackId="a"
                   fill="#fcd34d"
                 />
                 <Bar
-                  name="Overdue"
+                  name="Trễ hạn"
                   dataKey="tasksOverdue"
                   stackId="a"
                   fill="#ef4444"
@@ -181,7 +181,7 @@ export function AnalyticsView() {
             <div className="rounded-lg bg-blue-100 p-2">
               <Calendar className="h-5 w-5 text-blue-600" />
             </div>
-            <h3 className="font-medium text-gray-900">Total Planned</h3>
+            <h3 className="font-medium text-gray-900">Tổng số giờ dã lên kế hoạch</h3>
           </div>
           <p className="text-2xl font-bold text-gray-900">
             {totalPlanned.toFixed(1)}h
@@ -193,7 +193,7 @@ export function AnalyticsView() {
             <div className="rounded-lg bg-green-100 p-2">
               <Clock className="h-5 w-5 text-green-600" />
             </div>
-            <h3 className="font-medium text-gray-900">Total Actual</h3>
+            <h3 className="font-medium text-gray-900">Tổng giờ đã học tập</h3>
           </div>
           <p className="text-2xl font-bold text-gray-900">
             {totalActual.toFixed(1)}h
@@ -205,7 +205,7 @@ export function AnalyticsView() {
             <div className="rounded-lg bg-purple-100 p-2">
               <Target className="h-5 w-5 text-purple-600" />
             </div>
-            <h3 className="font-medium text-gray-900">Completion Rate</h3>
+            <h3 className="font-medium text-gray-900">Tỷ lệ hoàn thành</h3>
           </div>
           <p className="text-2xl font-bold text-gray-900">
             {analytics?.completionRate ?? 0}%
@@ -217,7 +217,7 @@ export function AnalyticsView() {
             <div className="rounded-lg bg-amber-100 p-2">
               <Clock className="h-5 w-5 text-amber-600" />
             </div>
-            <h3 className="font-medium text-gray-900">Overdue Tasks</h3>
+            <h3 className="font-medium text-gray-900">Tỷ lệ trễ hạn</h3>
           </div>
           <p className="text-2xl font-bold text-gray-900">
             {analytics?.summary?.overdueTasks ?? 0}

@@ -46,8 +46,8 @@ export function LoginForm() {
       const message =
         err && typeof err === 'object' && 'response' in err
           ? (err as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message
-          : 'Login failed. Please try again.';
-      setError(message || 'Login failed. Please try again.');
+          : 'Đăng nhập thất bại. Vui lòng thử lại.';
+      setError(message || 'Đăng nhập thất bại. Vui lòng thử lại.');
     } finally {
       setIsLoading(false);
     }
@@ -63,7 +63,7 @@ export function LoginForm() {
 
       <div>
         <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-          Email address
+          Địa chỉ Email
         </label>
         <input
           {...register('email')}
@@ -81,10 +81,10 @@ export function LoginForm() {
       <div>
         <div className="flex items-center justify-between">
           <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-            Password
+            Mật khẩu
           </label>
           <Link href="/forgot-password" className="text-xs text-blue-600 hover:text-blue-500">
-            Forgot password?
+            Quên mật khẩu?
           </Link>
         </div>
         <input
@@ -104,13 +104,13 @@ export function LoginForm() {
         disabled={isLoading}
         className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {isLoading ? 'Signing in...' : 'Sign in'}
+        {isLoading ? 'Đang đăng nhập...' : 'Đăng nhập'}
       </button>
 
       <p className="text-center text-sm text-gray-600">
-        Don&apos;t have an account?{' '}
+        Chưa có tài khoản?{' '}
         <Link href="/register" className="font-medium text-blue-600 hover:text-blue-500">
-          Register
+          Đăng ký
         </Link>
       </p>
     </form>

@@ -18,7 +18,7 @@ export function GoalList() {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
-        <span className="ml-3 text-gray-600">Loading goals...</span>
+        <span className="ml-3 text-gray-600">Đang tải mục tiêu...</span>
       </div>
     );
   }
@@ -26,7 +26,7 @@ export function GoalList() {
   if (error) {
     return (
       <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
-        <p className="text-red-600">Error loading goals: {error.message}</p>
+        <p className="text-red-600">Lỗi khi tải mục tiêu: {error.message}</p>
       </div>
     );
   }
@@ -37,9 +37,9 @@ export function GoalList() {
         <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-blue-100">
           <Target className="h-8 w-8 text-blue-600" />
         </div>
-        <h3 className="text-lg font-semibold text-gray-900">No goals yet</h3>
-        <p className="mt-1 text-gray-500">Create your first goal to start tracking your progress!</p>
-        <p className="mt-4 text-sm text-gray-400">Click &quot;New Goal&quot; button above to get started</p>
+        <h3 className="text-lg font-semibold text-gray-900">Chưa có mục tiêu nào</h3>
+        <p className="mt-1 text-gray-500">Tạo mục tiêu đầu tiên của bạn để bắt đầu theo dõi tiến độ!</p>
+        <p className="mt-4 text-sm text-gray-400">Nhấp vào nút &quot;Mục tiêu mới&quot; ở trên để bắt đầu</p>
       </div>
     );
   }
@@ -66,7 +66,7 @@ export function GoalList() {
                   </Link>
                   {goal.tasks && goal.tasks.length > 0 ? (
                     <span className="ml-2 text-sm text-gray-500">
-                      {goal.tasks.filter(t => t.status === 'done').length}/{goal.tasks.length} tasks
+                      {goal.tasks.filter(t => t.status === 'done').length}/{goal.tasks.length} nhiệm vụ
                     </span>
                   ) : (
                     <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-600">
@@ -112,7 +112,7 @@ export function GoalList() {
               </Link>
               <button
                 onClick={() => {
-                  if (confirm('Delete this goal and all its tasks?')) {
+                  if (confirm('Xóa mục tiêu này và tất cả nhiệm vụ của nó?')) {
                     deleteGoal.mutate(goal.id);
                   }
                 }}
@@ -128,7 +128,7 @@ export function GoalList() {
           {goal.tasks && goal.tasks.length > 0 && (
             <div className="mt-4">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-500">Progress</span>
+                <span className="text-gray-500">Tiến độ</span>
                 <span className="font-medium text-gray-900">
                   {Math.round((goal.tasks.filter(t => t.status === 'done').length / goal.tasks.length) * 100)}%
                 </span>

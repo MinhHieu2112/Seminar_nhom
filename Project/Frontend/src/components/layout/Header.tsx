@@ -46,7 +46,7 @@ export function Header() {
                 onClick={handleLogout}
                 className="rounded-lg bg-red-50 px-4 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-100"
               >
-                Logout
+                Đăng xuất
               </button>
             </div>
           ) : (
@@ -55,7 +55,7 @@ export function Header() {
                 href="/login"
                 className="rounded-lg bg-blue-50 px-4 py-2 text-sm font-medium text-blue-600 transition-colors hover:bg-blue-100"
               >
-                Login
+                Đăng nhập
               </Link>
             </div>
           )}

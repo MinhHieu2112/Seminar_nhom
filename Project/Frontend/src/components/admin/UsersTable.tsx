@@ -8,7 +8,7 @@ function UserRow({ user }: { user: User }) {
   const { mutate: toggleUser, isPending } = useToggleUser();
 
   const handleToggle = () => {
-    if (confirm(`Are you sure you want to ${user.isActive ? 'disable' : 'enable'} this user?`)) {
+    if (confirm(`Bạn có chắc chắn muốn ${user.isActive ? 'khóa' : 'kích hoạt'} người dùng này không?`)) {
       toggleUser(user.id);
     }
   };
@@ -35,7 +35,7 @@ function UserRow({ user }: { user: User }) {
               : 'bg-red-100 text-red-800'
           }`}
         >
-          {user.isActive ? 'Active' : 'Inactive'}
+          {user.isActive ? 'Hoạt động' : 'Đã khóa'}
         </span>
       </td>
       <td className="px-4 py-3 text-sm text-gray-500">{user.timezone}</td>
@@ -54,10 +54,10 @@ function UserRow({ user }: { user: User }) {
             } disabled:cursor-not-allowed disabled:opacity-50`}
           >
             {isPending
-              ? 'Updating...'
+              ? 'Đang cập nhật...'
               : user.isActive
-              ? 'Disable'
-              : 'Enable'}
+              ? 'Khóa'
+              : 'Kích hoạt'}
           </button>
         )}
       </td>
@@ -101,7 +101,7 @@ export function UsersTable() {
   if (error) {
     return (
       <div className="rounded-md bg-red-50 p-4 text-sm text-red-600">
-        Failed to load users. Please try again.
+        Tải danh sách người dùng thất bại. Vui lòng thử lại.
       </div>
     );
   }
@@ -116,19 +116,19 @@ export function UsersTable() {
                 Email
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                Role
+                Vai trò
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                Status
+                Trạng thái
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                Timezone
+                Múi giờ
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                Created
+                Ngày tạo
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                Actions
+                Hành động
               </th>
             </tr>
           </thead>
@@ -141,7 +141,7 @@ export function UsersTable() {
                   colSpan={6}
                   className="px-4 py-8 text-center text-sm text-gray-500"
                 >
-                  No users found
+                  Không tìm thấy người dùng
                 </td>
               </tr>
             ) : (
@@ -155,8 +155,8 @@ export function UsersTable() {
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
           <p className="text-sm text-gray-600">
-            Showing {(page - 1) * limit + 1} to{' '}
-            {Math.min(page * limit, data?.total || 0)} of {data?.total} users
+            Đang hiển thị {(page - 1) * limit + 1} đến{' '}
+            {Math.min(page * limit, data?.total || 0)} trong số {data?.total} người dùng
           </p>
           <div className="flex gap-2">
             <button
@@ -164,17 +164,17 @@ export function UsersTable() {
               disabled={page === 1 || isLoading}
               className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Previous
+              Trước
             </button>
             <span className="flex items-center px-3 text-sm text-gray-600">
-              Page {page} of {totalPages}
+              Trang {page} / {totalPages}
             </span>
             <button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page === totalPages || isLoading}
               className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Next
+              Sau
             </button>
           </div>
         </div>

@@ -62,13 +62,13 @@ export function ProfileForm() {
           disabled
           className="mt-1 block w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-500"
         />
-        <p className="mt-1 text-xs text-gray-500">Email cannot be changed</p>
+        <p className="mt-1 text-xs text-gray-500">Email không thể thay đổi</p>
       </div>
 
       {/* Timezone */}
       <div>
         <label htmlFor="timezone" className="block text-sm font-medium text-gray-700">
-          Timezone
+          Múi giờ
         </label>
         <input
           {...register('timezone')}
@@ -81,14 +81,14 @@ export function ProfileForm() {
           <p className="mt-1 text-sm text-red-600">{errors.timezone.message}</p>
         )}
         <p className="mt-1 text-xs text-gray-500">
-          Example: Asia/Ho_Chi_Minh, America/New_York, Europe/London
+          Ví dụ: Asia/Ho_Chi_Minh, America/New_York, Europe/London
         </p>
       </div>
 
       {/* Member Since */}
       <div>
         <label className="block text-sm font-medium text-gray-700">
-          Member Since
+          Thành viên từ
         </label>
         <p className="mt-1 text-sm text-gray-600">
           {user?.createdAt
@@ -104,7 +104,7 @@ export function ProfileForm() {
           disabled={!isDirty || isUpdating}
           className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {isUpdating ? 'Saving...' : 'Save Changes'}
+          {isUpdating ? 'Đang lưu...' : 'Lưu thay đổi'}
         </button>
         {isDirty && (
           <button
@@ -112,7 +112,7 @@ export function ProfileForm() {
             onClick={() => reset({ timezone: user?.timezone || '' })}
             className="text-sm text-gray-600 hover:text-gray-900"
           >
-            Cancel
+            Hủy
           </button>
         )}
       </div>
