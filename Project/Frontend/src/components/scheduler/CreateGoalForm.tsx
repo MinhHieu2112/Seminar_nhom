@@ -12,10 +12,13 @@ export function CreateGoalForm() {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   async function handleSubmit(formData: FormData) {
+    const deadlineValue = formData.get('deadline') as string;
     const rawData = {
-      title: formData.get('title') as string,
-      description: formData.get('description') as string,
-      deadline: formData.get('deadline') as string,
+      title: (formData.get('title') as string)?.trim(),
+      description: (formData.get('description') as string)?.trim() || undefined,
+      deadline: deadlineValue
+        ? new Date(deadlineValue).toISOString()
+        : undefined,
     };
 
     const result = createGoalSchema.safeParse(rawData);

@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { goalApi, taskApi, scheduleApi } from '@/lib/api';
+import { goalApi, taskApi, scheduleApi, aiApi } from '@/lib/api';
 import type {
   Goal,
   Task,
@@ -184,6 +184,61 @@ export function useGenerateSchedule() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: SCHEDULE_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: TASKS_QUERY_KEY });
+    },
+  });
+}
+
+export function useClearSchedule() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (from?: string) => {
+      const response = await scheduleApi.clear(from);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: SCHEDULE_QUERY_KEY });
+    },
+  });
+}
+
+// ============ AI ============
+
+/**
+ * Trigger AI pipeline để decompose một goal thành tasks.
+ * Sau khi thành công, tự động invalidate tasks cache → TaskList re-fetch.
+ */
+export function useDecomposeGoal() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (goalId: string) => {
+      const response = await aiApi.decomposeGoal(goalId);
+      return response.data;
+    },
+    onSuccess: () => {
+      // Invalidate tất cả task queries để TaskList re-fetch ngay
+      queryClient.invalidateQueries({ queryKey: TASKS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: GOALS_QUERY_KEY });
+    },
+  });
+}
+
+/**
+ * Trigger AI pipeline để generate schedule toàn diện (từ form data + CSV).
+ */
+export function useAIGenerateSchedule() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (formData: FormData) => {
+      const response = await aiApi.generateSchedule(formData);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: SCHEDULE_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: TASKS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: GOALS_QUERY_KEY });
     },
   });
 }

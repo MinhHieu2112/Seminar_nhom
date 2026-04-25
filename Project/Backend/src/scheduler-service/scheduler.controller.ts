@@ -161,6 +161,16 @@ export class SchedulerController {
     );
   }
 
+  @MessagePattern('scheduler.schedule.generateCustom')
+  async generateScheduleCustom(
+    @Payload() data: { userId: string; customSlots: Array<{ start: string; end: string }> },
+  ) {
+    return this.scheduleService.generateScheduleWithCustomSlots(
+      data.userId,
+      data.customSlots,
+    );
+  }
+
   @MessagePattern('scheduler.schedule.view')
   async viewSchedule(
     @Payload() data: { userId: string; from: string; to: string },

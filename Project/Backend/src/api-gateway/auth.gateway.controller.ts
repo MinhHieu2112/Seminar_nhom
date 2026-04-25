@@ -13,7 +13,11 @@ import {
   UnauthorizedException,
   InternalServerErrorException,
   BadRequestException,
+  NotFoundException,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { TcpClientService } from './tcp-client.service';
 import { JwtService } from '@nestjs/jwt';
 import type { JwtPayload } from '../users-service/auth/auth.service';
@@ -578,6 +582,251 @@ export class CalendarGatewayController {
       'calendar-service',
       'calendar.conflict.check',
       { userId, ...body },
+    );
+  }
+}
+
+// ─── AI ───────────────────────────────────────────────────────────────────────
+
+@Controller('api/v1/ai')
+export class AiGatewayController {
+  constructor(
+    private readonly tcpClient: TcpClientService,
+    private readonly jwtService: JwtService,
+  ) {}
+
+  @Post('decompose/:goalId')
+  @HttpCode(HttpStatus.CREATED)
+  async decomposeGoal(
+    @Headers('authorization') authHeader: string,
+    @Param('goalId') goalId: string,
+  ) {
+    const userId = extractUserId(authHeader, this.jwtService);
+
+    // Bước 1: Lấy thông tin goal
+    let goal: { id: string; title: string; deadline?: string } | null = null;
+    try {
+      goal = await safeSend<{ id: string; title: string; deadline?: string }>(
+        this.tcpClient,
+        'scheduler-service',
+        'scheduler.goal.get',
+        { id: goalId, userId },
+      );
+    } catch {
+      throw new NotFoundException(`Goal ${goalId} not found`);
+    }
+
+    if (!goal) throw new NotFoundException(`Goal ${goalId} not found`);
+
+    // Bước 2: AI decompose via TCP
+    const llmTasks: any[] = await safeSend(
+      this.tcpClient,
+      'ai-service',
+      'ai.decompose-goal',
+      { goalTitle: goal.title, deadline: goal.deadline }
+    );
+
+    // Bước 3: Lưu từng task vào Scheduler-Service qua TCP
+    const savedTasks: unknown[] = [];
+    for (const task of llmTasks) {
+      try {
+        const saved = await safeSend(
+          this.tcpClient,
+          'scheduler-service',
+          'scheduler.task.create',
+          {
+            goalId,
+            userId,
+            title: task.title,
+            durationMin: task.durationMin,
+            priority: task.priority,
+            type: task.type,
+            source: 'ai',
+          },
+        );
+        savedTasks.push(saved);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'unknown';
+        console.warn(`Could not save task "${task.title}": ${msg}`);
+      }
+    }
+
+    return {
+      success: true,
+      goalId,
+      totalTasks: savedTasks.length,
+      tasks: savedTasks,
+    };
+  }
+
+  @Post('generate-schedule')
+  @UseInterceptors(FileInterceptor('csvFile'))
+  @HttpCode(HttpStatus.CREATED)
+  async generateScheduleWorkflow(
+    @Headers('authorization') authHeader: string,
+    @Body() body: any,
+    @UploadedFile() file?: any, // Express.Multer.File
+  ) {
+    const userId = extractUserId(authHeader, this.jwtService);
+    
+    // Parse CSV file manually if it exists
+    const csvSlots: any[] = [];
+    if (file) {
+      const csvStr = file.buffer.toString('utf-8');
+      const lines = csvStr.split('\n');
+      for (let i = 1; i < lines.length; i++) { // Skip header
+        const line = lines[i].trim();
+        if (!line) continue;
+        // Assume format: subject,day,startTime,endTime
+        const [subject, day, startTime, endTime] = line.split(',');
+        if (subject && day && startTime && endTime) {
+          csvSlots.push({ subject, day, startTime, endTime });
+        }
+      }
+    }
+
+    // 1. Send data to AI Service
+    const aiPayload = {
+      userId,
+      subject: body.subject,
+      fromDate: body.fromDate,
+      toDate: body.toDate,
+      studyHoursPerDay: body.studyHoursPerDay ? parseInt(body.studyHoursPerDay) : 2,
+      preferredTimes: body.preferredTimes ? JSON.parse(body.preferredTimes) : ['morning'],
+      notes: body.notes,
+      csvSlots: csvSlots.length > 0 ? csvSlots : undefined,
+    };
+
+    const aiResult: any = await safeSend(
+      this.tcpClient,
+      'ai-service',
+      'ai.generate-schedule',
+      aiPayload
+    );
+
+    // 2. Create Goal
+    let goal: any = null;
+    try {
+      goal = await safeSend(
+        this.tcpClient,
+        'scheduler-service',
+        'scheduler.goal.create',
+        { userId, title: body.subject, deadline: body.toDate }
+      );
+    } catch (err) {
+      throw new InternalServerErrorException('Failed to create Goal for schedule');
+    }
+
+    if (!goal) {
+      throw new InternalServerErrorException('Failed to create Goal for schedule');
+    }
+
+    // 3. Create Tasks
+    const savedTasks: any[] = [];
+    for (const task of aiResult.tasks) {
+      try {
+        const saved = await safeSend(
+          this.tcpClient,
+          'scheduler-service',
+          'scheduler.task.create',
+          {
+            goalId: goal.id,
+            userId,
+            title: task.title,
+            durationMin: task.durationMin,
+            priority: task.priority,
+            type: task.type,
+            source: 'ai',
+          },
+        );
+        savedTasks.push(saved);
+      } catch (err) {
+        console.warn(`Could not save task "${task.title}"`);
+      }
+    }
+
+    // 4. Generate Schedule using the custom slots
+    let scheduleBlocks = null;
+    try {
+      scheduleBlocks = await safeSend(
+        this.tcpClient,
+        'scheduler-service',
+        'scheduler.schedule.generateCustom',
+        { userId, customSlots: aiResult.availableSlots }
+      );
+    } catch (err) {
+      throw new InternalServerErrorException('Failed to schedule the tasks with custom slots');
+    }
+
+    return {
+      success: true,
+      message: 'Workflow completed successfully',
+      goal,
+      tasks: savedTasks,
+      schedule: scheduleBlocks,
+      aiSummary: aiResult.summary,
+    };
+  }
+
+  @Post('generate')
+  @HttpCode(HttpStatus.OK)
+  generatePreview(@Body() body: { goal: string; availableSlots: Array<{ start: string; end: string }> }) {
+    // This endpoint is just a quick preview using TCP, we should forward to ai-service
+    // Wait, the ai-service doesn't expose generic standalone preview via TCP yet.
+    // For now, let's just do decompose goal and a mock or we skip this endpoint since generate-schedule is the real one.
+    throw new BadRequestException('Use /generate-schedule instead');
+  }
+}
+
+// ─── Analytics ───────────────────────────────────────────────────────────────
+
+@Controller('api/v1/analytics')
+export class AnalyticsGatewayController {
+  constructor(
+    private readonly tcpClient: TcpClientService,
+    private readonly jwtService: JwtService,
+  ) {}
+
+  @Get('dashboard')
+  getDashboard(@Headers('authorization') authHeader: string) {
+    const userId = extractUserId(authHeader, this.jwtService);
+    return safeSend(
+      this.tcpClient,
+      'analytics-service',
+      'analytics.dashboard.get',
+      { userId },
+    );
+  }
+
+  @Post('insights')
+  @HttpCode(HttpStatus.OK)
+  getInsights(
+    @Headers('authorization') authHeader: string,
+    @Body() body: { dateRange: { from: string; to: string } },
+  ) {
+    const userId = extractUserId(authHeader, this.jwtService);
+    return safeSend(
+      this.tcpClient,
+      'analytics-service',
+      'analytics.insights.get',
+      {
+        userId,
+        dateRange: body.dateRange,
+      },
+    );
+  }
+
+  @Get('history')
+  getHistory(
+    @Headers('authorization') authHeader: string,
+    @Query('period') period: 'weekly' | 'monthly' | 'yearly' = 'weekly',
+  ) {
+    const userId = extractUserId(authHeader, this.jwtService);
+    return safeSend(
+      this.tcpClient,
+      'analytics-service',
+      'analytics.history.get',
+      { userId, period },
     );
   }
 }

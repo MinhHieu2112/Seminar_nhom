@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { registerSchema, type RegisterFormData } from '@/lib/schemas';
 import { authApi } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth-store';
+import type { ApiResponse, AuthResponse } from '@/types/api';
 
 export function RegisterForm() {
   const router = useRouter();
@@ -33,7 +34,13 @@ export function RegisterForm() {
         password: data.password,
       });
 
-      const { accessToken, refreshToken, user } = response.data;
+      const payload = response.data as AuthResponse | ApiResponse<AuthResponse>;
+      const result = 'accessToken' in payload ? payload : payload.data;
+      if (!result) {
+        throw new Error('Missing auth payload');
+      }
+
+      const { accessToken, refreshToken, user } = result;
       login(accessToken, refreshToken, user);
       router.push('/dashboard');
     } catch (err: unknown) {

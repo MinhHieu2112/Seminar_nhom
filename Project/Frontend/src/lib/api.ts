@@ -149,3 +149,91 @@ export const calendarApi = {
       { startTime, endTime, excludeEventId },
     ),
 };
+
+// ─── AI ───────────────────────────────────────────────────────────────────────
+
+export const aiApi = {
+  /**
+   * Decompose một goal đã tồn tại thành tasks bằng AI pipeline.
+   * Backend sẽ: lấy goal info → AI decompose → lưu tasks vào DB → trả về.
+   */
+  decomposeGoal: (goalId: string) =>
+    apiClient.post<{
+      success: boolean;
+      goalId: string;
+      totalTasks: number;
+      tasks: unknown[];
+    }>(`/ai/decompose/${goalId}`),
+
+  /**
+   * Quick preview — không lưu DB, dùng để demo/test.
+   */
+  generatePreview: (goal: string, availableSlots: Array<{ start: string; end: string }>) =>
+    apiClient.post<{
+      success: boolean;
+      totalBlocks: number;
+      schedule: Array<{
+        taskName: string;
+        type: string;
+        priority: number;
+        endTime: string;
+      }>;
+    }>('/ai/generate', { goal, availableSlots }),
+
+  /**
+   * New Workflow: Generate Schedule
+   * Nhận form data (subject, date range, preferences) và upload file CSV (optional)
+   */
+  generateSchedule: (formData: FormData) =>
+    apiClient.post<{
+      success: boolean;
+      message: string;
+      goal: any;
+      tasks: any[];
+      schedule: any;
+      aiSummary: string;
+    }>('/ai/generate-schedule', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    }),
+};
+
+// ─── Analytics ───────────────────────────────────────────────────────────────
+
+export const analyticsApi = {
+  getDashboard: () =>
+    apiClient.get<{
+      success: boolean;
+      data: {
+        completionRate: number;
+        productivityScore: number;
+        timeDistribution: {
+          morning: number;
+          afternoon: number;
+          evening: number;
+        };
+        suggestions: string[];
+      };
+    }>('/analytics/dashboard'),
+
+  getInsights: (from: string, to: string) =>
+    apiClient.post<{
+      success: boolean;
+      data: {
+        isOverloaded: boolean;
+        message: string;
+        recommendations: string[];
+      };
+    }>('/analytics/insights', { dateRange: { from, to } }),
+
+  getHistory: (period: 'weekly' | 'monthly' | 'yearly') =>
+    apiClient.get<{
+      success: boolean;
+      data: Array<{
+        date: string;
+        planned: number;
+        actual: number;
+      }>;
+    }>('/analytics/history', { params: { period } }),
+};

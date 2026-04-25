@@ -90,9 +90,11 @@ api-gateway/
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('client')
 createGoal(@Body() dto: CreateGoalDto, @CurrentUser() user: User) {
-  return this.schedulerProxy.send('scheduler.goal.create', { dto, userId: user.id });
+  return this.schedulerProxy.send('scheduler.goal.create', { userId: user.id, ...dto });
 }
 ```
+
+> Lưu ý: `scheduler-service` đang bật `ValidationPipe({ whitelist: true })`, nên payload gửi sang các pattern của scheduler phải là **flat shape**. Nếu wrap trong `{ dto: {...} }` thì field `dto` có thể bị strip và service phía sau sẽ nhận dữ liệu rỗng.
 
 ---
 

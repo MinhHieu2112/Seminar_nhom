@@ -41,6 +41,11 @@ export class TcpClientService implements OnModuleInit, OnModuleDestroy {
       port: this.configService.get<number>('ANALYTICS_SERVICE_PORT', 8006),
     });
 
+    this.registerClient('ai-service', {
+      host: this.configService.get('AI_SERVICE_HOST', 'localhost'),
+      port: this.configService.get<number>('AI_SERVICE_PORT', 8005),
+    });
+
     // Connect all clients
     for (const [name, client] of this.clients.entries()) {
       try {

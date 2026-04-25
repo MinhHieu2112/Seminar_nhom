@@ -1,35 +1,31 @@
 import { Controller } from '@nestjs/common';
 import { MessagePattern, Payload } from '@nestjs/microservices';
 import { AgentAiService } from './agent-ai.service';
-import { CreateAgentAiDto } from './dto/create-agent-ai.dto';
-import { UpdateAgentAiDto } from './dto/update-agent-ai.dto';
+import type { GenerateSchedulePayload } from './agent-ai.service';
 
 @Controller()
 export class AgentAiController {
   constructor(private readonly agentAiService: AgentAiService) {}
 
-  @MessagePattern('createAgentAi')
-  create(@Payload() createAgentAiDto: CreateAgentAiDto) {
-    return this.agentAiService.create(createAgentAiDto);
+  /**
+   * ai.generate-schedule
+   * Nhận form data (+ optional CSV slots đã parse) → trả về tasks + availableSlots
+   */
+  @MessagePattern('ai.generate-schedule')
+  async handleGenerateSchedule(
+    @Payload() payload: GenerateSchedulePayload,
+  ) {
+    return this.agentAiService.generateScheduleFromForm(payload);
   }
 
-  @MessagePattern('findAllAgentAi')
-  findAll() {
-    return this.agentAiService.findAll();
-  }
-
-  @MessagePattern('findOneAgentAi')
-  findOne(@Payload() id: number) {
-    return this.agentAiService.findOne(id);
-  }
-
-  @MessagePattern('updateAgentAi')
-  update(@Payload() updateAgentAiDto: UpdateAgentAiDto) {
-    return this.agentAiService.update(updateAgentAiDto.id, updateAgentAiDto);
-  }
-
-  @MessagePattern('removeAgentAi')
-  remove(@Payload() id: number) {
-    return this.agentAiService.remove(id);
+  /**
+   * ai.decompose-goal
+   * Nhận goal title → trả về mảng tasks (dùng cho flow tạo goal)
+   */
+  @MessagePattern('ai.decompose-goal')
+  async handleDecomposeGoal(
+    @Payload() payload: { goalTitle: string; deadline?: string },
+  ) {
+    return this.agentAiService.decomposeGoal(payload.goalTitle, payload.deadline);
   }
 }

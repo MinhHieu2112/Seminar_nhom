@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useCreateGoal } from '@/lib/hooks/useScheduler';
+import { useCreateGoal, useDecomposeGoal } from '@/lib/hooks/useScheduler';
 import { X, Target, Calendar, FileText } from 'lucide-react';
 
 interface GoalModalProps {
@@ -13,7 +13,9 @@ export function GoalModal({ isOpen, onClose }: GoalModalProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [deadline, setDeadline] = useState('');
+  const [aiStatus, setAiStatus] = useState<'idle' | 'analyzing' | 'done' | 'error'>('idle');
   const createGoal = useCreateGoal();
+  const decomposeGoal = useDecomposeGoal();
 
   if (!isOpen) return null;
 
@@ -37,11 +39,19 @@ export function GoalModal({ isOpen, onClose }: GoalModalProps) {
         deadline: deadlineIso,
       },
       {
-        onSuccess: () => {
+        onSuccess: (createdGoal) => {
           setTitle('');
           setDescription('');
           setDeadline('');
           onClose();
+          // Tự động trigger AI decompose ngay sau khi tạo goal
+          if (createdGoal?.id) {
+            setAiStatus('analyzing');
+            decomposeGoal.mutate(createdGoal.id, {
+              onSuccess: () => setAiStatus('done'),
+              onError: () => setAiStatus('error'),
+            });
+          }
         },
       }
     );
@@ -136,6 +146,19 @@ export function GoalModal({ isOpen, onClose }: GoalModalProps) {
           {createGoal.isError && (
             <div className="mt-4 rounded-xl bg-red-50 p-4 text-sm text-red-600">
               {createGoal.error?.message || 'Failed to create goal. Please try again.'}
+            </div>
+          )}
+
+          {aiStatus === 'analyzing' && (
+            <div className="mt-4 flex items-center gap-2 rounded-xl bg-blue-50 p-4 text-sm text-blue-700">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+              ✨ AI đang phân tích và tạo tasks cho bạn...
+            </div>
+          )}
+
+          {aiStatus === 'error' && (
+            <div className="mt-4 rounded-xl bg-orange-50 p-4 text-sm text-orange-700">
+              ⚠️ Tạo goal OK, nhưng AI chưa thể phân tích ngay. Bạn có thể thêm tasks thủ công.
             </div>
           )}
 

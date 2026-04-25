@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { loginSchema, type LoginFormData } from '@/lib/schemas';
 import { authApi } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth-store';
+import type { ApiResponse, AuthResponse } from '@/types/api';
 
 export function LoginForm() {
   const router = useRouter();
@@ -33,8 +34,11 @@ export function LoginForm() {
         password: data.password,
       });
 
-      // Backend returns ApiResponse wrapper
-      const result = response.data.data || response.data;
+      const payload = response.data as AuthResponse | ApiResponse<AuthResponse>;
+      const result = 'accessToken' in payload ? payload : payload.data;
+      if (!result) {
+        throw new Error('Missing auth payload');
+      }
       const { accessToken, refreshToken, user } = result;
       login(accessToken, refreshToken, user);
       router.push('/dashboard');

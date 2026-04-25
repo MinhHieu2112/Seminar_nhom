@@ -1,10 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { useSchedule, useGenerateSchedule } from '@/lib/hooks/useScheduler';
+import { useSchedule, useClearSchedule } from '@/lib/hooks/useScheduler';
 import { format, startOfWeek, endOfWeek, addDays, isSameMonth, isToday } from 'date-fns';
 import type { ScheduleBlock } from '@/types/api';
-import { ChevronLeft, ChevronRight, Calendar, Sparkles, Clock, CheckCircle2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, Sparkles, Clock, Trash2 } from 'lucide-react';
+import { GenerateScheduleModal } from './GenerateScheduleModal';
 
 export function ScheduleView() {
   const [weekStart, setWeekStart] = useState(startOfWeek(new Date()));
@@ -14,7 +15,8 @@ export function ScheduleView() {
   const to = format(weekEnd, "yyyy-MM-dd'T'23:59:59");
 
   const { data: blocks, isLoading } = useSchedule(from, to);
-  const generateSchedule = useGenerateSchedule();
+  const clearSchedule = useClearSchedule();
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
@@ -27,10 +29,7 @@ export function ScheduleView() {
   }
 
   function handleGenerate() {
-    generateSchedule.mutate({
-      fromDate: from,
-      toDate: to,
-    });
+    setIsModalOpen(true);
   }
 
   const blocksByDay = days.map((day) => ({
@@ -70,14 +69,32 @@ export function ScheduleView() {
           </button>
         </div>
 
-        <button
-          onClick={handleGenerate}
-          disabled={generateSchedule.isPending}
-          className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-blue-200 transition-all hover:shadow-xl disabled:opacity-50"
-        >
-          <Sparkles className="h-4 w-4" />
-          {generateSchedule.isPending ? 'Generating...' : 'Generate Schedule'}
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => {
+              if (window.confirm('Are you sure you want to clear your current schedule?')) {
+                clearSchedule.mutate();
+              }
+            }}
+            disabled={clearSchedule.isPending}
+            className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-medium text-red-600 shadow-sm transition-all hover:bg-red-50 hover:border-red-300 disabled:opacity-50"
+          >
+            {clearSchedule.isPending ? (
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-red-600 border-t-transparent" />
+            ) : (
+              <Trash2 className="h-4 w-4" />
+            )}
+            Clear
+          </button>
+          
+          <button
+            onClick={handleGenerate}
+            className="inline-flex items-center gap-2 rounded-xl bg-linear-to-r from-blue-600 to-purple-600 px-5 py-2.5 text-sm font-medium text-white"
+          >
+            <Sparkles className="h-4 w-4" />
+            Generate Schedule
+          </button>
+        </div>
       </div>
 
       {/* Week View */}
@@ -123,15 +140,18 @@ export function ScheduleView() {
                     blocks.map((block: ScheduleBlock) => (
                       <div
                         key={block.id}
-                        className="group relative rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 p-2 text-xs text-white shadow-sm transition-all hover:shadow-md"
+                        className="group relative flex flex-col gap-1 rounded-lg bg-linear-to-r from-blue-500 to-blue-600 p-2 text-white shadow-sm transition-all hover:shadow-md"
                       >
-                        <div className="flex items-center justify-between">
-                          <span className="font-semibold">
-                            {format(new Date(block.plannedStart), 'HH:mm')}
+                        <div className="flex items-center justify-between text-xs font-bold opacity-90">
+                          <span>
+                            {format(new Date(block.plannedStart), 'HH:mm')} - {format(new Date(block.plannedEnd), 'HH:mm')}
                           </span>
                         </div>
-                        <p className="mt-0.5 text-blue-100">
-                          #{block.pomodoroIndex}
+                        <p className="line-clamp-2 text-sm font-medium leading-tight">
+                          {block.task?.title || block.task?.title || 'Study Session'}
+                        </p>
+                        <p className="mt-0.5 text-[10px] opacity-75">
+                          Pomodoro #{block.pomodoroIndex}
                         </p>
                       </div>
                     ))
@@ -143,23 +163,13 @@ export function ScheduleView() {
         </div>
       )}
 
-      {/* Status Messages */}
-      {generateSchedule.isSuccess && (
-        <div className="flex items-center gap-3 rounded-xl bg-green-50 p-4 text-green-800">
-          <CheckCircle2 className="h-5 w-5" />
-          <p className="font-medium">
-            {generateSchedule.data?.message || 'Schedule generated successfully!'}
-          </p>
-        </div>
-      )}
-
-      {generateSchedule.isError && (
-        <div className="rounded-xl bg-red-50 p-4 text-red-800">
-          <p className="font-medium">
-            Error: {generateSchedule.error?.message || 'Failed to generate schedule'}
-          </p>
-        </div>
-      )}
+      {/* Generate Schedule Modal */}
+      <GenerateScheduleModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        defaultFromDate={format(new Date(), "yyyy-MM-dd'T'00:00:00")}
+        defaultToDate={to}
+      />
     </div>
   );
 }

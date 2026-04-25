@@ -86,6 +86,62 @@ export class ScheduleService {
     }
   }
 
+  async generateScheduleWithCustomSlots(
+    userId: string,
+    customSlots: Array<{ start: string; end: string }>,
+  ): Promise<ScheduleResultDto> {
+    this.logger.log(`Generating schedule for user ${userId} using ${customSlots.length} custom slots`);
+
+    try {
+      const pendingTasks = await this.taskService.findByUser(userId, 'pending');
+
+      if (pendingTasks.length === 0) {
+        return {
+          success: true,
+          scheduled: [],
+          overflow: [],
+          message: 'No pending tasks to schedule',
+        };
+      }
+
+      if (customSlots.length === 0) {
+        return {
+          success: false,
+          scheduled: [],
+          overflow: pendingTasks.map((t) => t.id),
+          message: 'No custom slots provided',
+        };
+      }
+
+      const freeSlots: FreeSlotDto[] = customSlots.map(s => ({
+        start: new Date(s.start),
+        end: new Date(s.end),
+        durationMin: dayjs(s.end).diff(dayjs(s.start), 'minute')
+      }));
+
+      const sortedTasks = this.sortTasksByPriorityAndDeadline(pendingTasks);
+      const result = await this.scheduleTasks(userId, sortedTasks, freeSlots);
+
+      if (result.scheduled.length > 0) {
+        await this.taskService.markAsScheduled(
+          [...new Set(result.scheduled.map((b) => b.taskId))],
+        );
+      }
+
+      return {
+        success: true,
+        scheduled: result.scheduled,
+        overflow: result.overflow,
+        message: `Scheduled ${result.scheduled.length} block(s), ${result.overflow.length} task(s) overflowed using custom slots`,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Custom Schedule generation failed: ${error instanceof Error ? error.message : 'Unknown'}`,
+      );
+      throw error;
+    }
+  }
+
   // ─── Calendar integration ──────────────────────────────────────────────────
 
   private async getFreeSlots(

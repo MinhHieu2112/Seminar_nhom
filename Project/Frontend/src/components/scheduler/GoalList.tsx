@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useGoals, useDeleteGoal } from '@/lib/hooks/useScheduler';
 import type { Goal } from '@/types/api';
-import { Target, Calendar, Trash2, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { Target, Calendar, Trash2, ArrowRight, CheckCircle2, Sparkles } from 'lucide-react';
 
 export function GoalList() {
   const { data: goals, isLoading, error } = useGoals();
@@ -59,9 +59,14 @@ export function GoalList() {
                   >
                     {goal.title}
                   </Link>
-                  {goal.tasks && (
+                  {goal.tasks && goal.tasks.length > 0 ? (
                     <span className="ml-2 text-sm text-gray-500">
                       {goal.tasks.filter(t => t.status === 'done').length}/{goal.tasks.length} tasks
+                    </span>
+                  ) : (
+                    <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-600">
+                      <Sparkles className="h-3 w-3 animate-pulse" />
+                      AI đang phân tích...
                     </span>
                   )}
                 </div>
@@ -82,7 +87,7 @@ export function GoalList() {
                   className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${
                     goal.status === 'active'
                       ? 'bg-green-100 text-green-700'
-                      : goal.status === 'archived'
+                      : goal.status === 'completed'
                       ? 'bg-blue-100 text-blue-700'
                       : 'bg-gray-100 text-gray-700'
                   }`}

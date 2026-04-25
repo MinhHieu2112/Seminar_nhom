@@ -2,10 +2,27 @@
 
 import Link from 'next/link';
 import { useAuthStore } from '@/lib/auth-store';
-import { Target, Calendar, BookOpen, Clock } from 'lucide-react';
+import { Target, Calendar, BookOpen, Clock, Activity, Zap } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { analyticsApi } from '@/lib/api';
 
 export function DashboardContent() {
   const { user } = useAuthStore();
+  const [analytics, setAnalytics] = useState<any>(null);
+
+  useEffect(() => {
+    const fetchAnalytics = async () => {
+      try {
+        const res = await analyticsApi.getDashboard();
+        if (res.data.success) {
+          setAnalytics(res.data.data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch analytics', error);
+      }
+    };
+    fetchAnalytics();
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -18,7 +35,7 @@ export function DashboardContent() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-6 md:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-4">
         <div className="rounded-xl bg-white p-6 shadow-sm">
           <div className="flex items-center gap-4">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-100">
@@ -49,12 +66,46 @@ export function DashboardContent() {
               <Target className="h-6 w-6 text-green-600" />
             </div>
             <div>
-              <p className="text-sm text-gray-500">Completed</p>
-              <p className="text-2xl font-bold text-gray-900">0</p>
+              <p className="text-sm text-gray-500">Completion Rate</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {analytics?.completionRate ?? 0}%
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-xl bg-white p-6 shadow-sm">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-yellow-100">
+              <Zap className="h-6 w-6 text-yellow-600" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Productivity Score</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {analytics?.productivityScore ?? 0}
+              </p>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Analytics Insights */}
+      {analytics?.suggestions && analytics.suggestions.length > 0 && (
+        <div className="rounded-xl bg-white p-6 shadow-sm border border-blue-100">
+          <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+            <Activity className="h-5 w-5 text-blue-500" />
+            AI Insights
+          </h2>
+          <ul className="mt-4 space-y-2">
+            {analytics.suggestions.map((sug: string, idx: number) => (
+              <li key={idx} className="flex gap-2 text-gray-700">
+                <span className="text-blue-500">•</span>
+                {sug}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* Quick Actions */}
       <div className="rounded-xl bg-white p-6 shadow-sm">
