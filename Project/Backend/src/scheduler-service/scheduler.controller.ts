@@ -196,6 +196,17 @@ export class SchedulerController {
     return { success: true };
   }
 
+  @MessagePattern('scheduler.block.updateStatus')
+  async updateBlockStatus(
+    @Payload() data: { userId: string; blockId: string; status: string },
+  ) {
+    return this.scheduleService.updateBlockStatus(
+      data.userId,
+      data.blockId,
+      data.status as any,
+    );
+  }
+
   // ============ Session Tracking ============
 
   @MessagePattern('scheduler.session.start')

@@ -460,6 +460,38 @@ export class ScheduleService {
     });
   }
 
+  // ─── Round-Robin Urgency Scheduling Helpers ────────────────────────────────
+
+  private urgencyScore(
+    task: { priority: number; deadline: Date | null },
+    remainingBlocks: number,
+    totalBlocks: number,
+    now: Date,
+  ): number {
+    let deadlineScore = 0;
+    if (task.deadline) {
+      const daysLeft = (task.deadline.getTime() - now.getTime()) / 86_400_000;
+      if (daysLeft < 0)       deadlineScore = 12;
+      else if (daysLeft < 3)  deadlineScore = 10;
+      else if (daysLeft < 7)  deadlineScore = 7;
+      else if (daysLeft < 14) deadlineScore = 4;
+      else                    deadlineScore = 1;
+    }
+
+    const remainingRatio = totalBlocks > 0 ? remainingBlocks / totalBlocks : 0;
+    return task.priority * 2 + deadlineScore + remainingRatio * 3;
+  }
+
+  private recentlyScheduled(
+    subject: string,
+    placedBlocks: ScheduledBlockDto[],
+    lookback: number,
+  ): boolean {
+    if (placedBlocks.length === 0) return false;
+    const recent = placedBlocks.slice(-Math.min(lookback, placedBlocks.length));
+    return recent.some((b) => (b as any)._subject === subject);
+  }
+
   // ─── Core scheduling algorithm ─────────────────────────────────────────────
 
   private async scheduleTasks(
@@ -469,74 +501,201 @@ export class ScheduleService {
   ): Promise<{ scheduled: ScheduledBlockDto[]; overflow: string[] }> {
     const normalizedUserId = this.assertUuid(userId, 'userId');
     const scheduled: ScheduledBlockDto[] = [];
-    const overflow: string[] = [];
     const config = getEffectiveConfig();
     let queueOrder = 1;
 
-    // Each task gets its OWN slot (no stacking multiple tasks in one time block)
-    // This ensures even distribution across days.
-    const usedSlotIndices = new Set<number>();
+    // config defaults
+    const pomodoroMin = config.workMin || 25;
+    const minBlockGapMin = config.shortBreakMin || 5; // standard short break gap
+    const maxBlocksPerDay = 8; // standard daily limit
 
+    if (freeSlots.length === 0 || tasks.length === 0) {
+      return { scheduled: [], overflow: tasks.map((t) => t.id) };
+    }
+
+    interface WorkUnit {
+      taskId: string;
+      goalId: string | null;
+      subject: string;
+      title: string;
+      priority: number;
+      deadline: Date | null;
+      pomodoroIndex: number;
+      totalPomodoros: number;
+      placed: boolean;
+    }
+
+    const workUnits: WorkUnit[] = [];
     for (const task of tasks) {
-      const normalizedTaskId = this.assertUuid(task.id, `task "${task.title}" id`);
-      const totalDurationWithBreaks = calculateTotalDurationWithBreaks(
-        task.durationMin,
-        config,
+      const count = Math.max(1, Math.ceil(task.durationMin / pomodoroMin));
+      for (let i = 0; i < count; i++) {
+        workUnits.push({
+          taskId: this.assertUuid(task.id, `task "${task.title}" id`),
+          goalId: task.goalId || null,
+          subject: task.goalId || task.id, // Group by goal if available, else task itself
+          title: task.title,
+          priority: task.priority,
+          deadline: task.deadline,
+          pomodoroIndex: i + 1,
+          totalPomodoros: count,
+          placed: false,
+        });
+      }
+    }
+
+    // Clone freeSlots because we will mutate them as we consume time
+    const availableSlots = freeSlots.map(s => ({
+      start: new Date(s.start),
+      end: new Date(s.end),
+      durationMin: s.durationMin,
+      sessionType: s.sessionType,
+    }));
+
+    const now = availableSlots[0].start; // Use first free slot start as "now"
+    const startDate = dayjs(now).startOf('day');
+    const endDate = dayjs(availableSlots[availableSlots.length - 1].start).endOf('day');
+
+    let currentDay = startDate;
+
+    while (currentDay.isBefore(endDate) || currentDay.isSame(endDate, 'day')) {
+      const dayStr = currentDay.format('YYYY-MM-DD');
+      let blocksThisDay = 0;
+
+      const pending = workUnits.filter((u) => !u.placed);
+      if (pending.length === 0) break;
+
+      // Calculate dynamic target blocks for today to ensure even distribution
+      let targetBlocksThisDay = 0;
+      const pendingByTask = new Map<string, { count: number; deadline: Date | null }>();
+      for (const u of pending) {
+        const existing = pendingByTask.get(u.taskId);
+        if (existing) {
+          existing.count++;
+        } else {
+          pendingByTask.set(u.taskId, { count: 1, deadline: u.deadline });
+        }
+      }
+
+      for (const data of pendingByTask.values()) {
+        const taskDeadlineMs = data.deadline ? data.deadline.getTime() : endDate.valueOf();
+        // Convert ms diff to days (using currentDay at start of day)
+        const diffMs = taskDeadlineMs - currentDay.valueOf();
+        const daysRemaining = Math.max(1, Math.ceil(diffMs / 86_400_000));
+        targetBlocksThisDay += Math.ceil(data.count / daysRemaining);
+      }
+
+      // Enforce the hard cap
+      targetBlocksThisDay = Math.min(maxBlocksPerDay, targetBlocksThisDay);
+      // Ensure we always try to place at least 1 block if there are pending tasks
+      targetBlocksThisDay = Math.max(1, targetBlocksThisDay);
+
+      // Extract remaining slots for this specific day
+      const daySlots = availableSlots.filter(
+        (s) => dayjs(s.start).format('YYYY-MM-DD') === dayStr && s.durationMin >= pomodoroMin
       );
 
-      let placed = false;
+      let iterationGuard = 0;
+      while (daySlots.length > 0 && blocksThisDay < targetBlocksThisDay) {
+        iterationGuard++;
+        if (iterationGuard > 200) break; // Infinite loop safety
 
-      for (let i = 0; i < freeSlots.length; i++) {
-        // Skip slots already taken by a previous task
-        if (usedSlotIndices.has(i)) continue;
+        // Recalculate pending inside loop just in case
+        const currentPending = workUnits.filter((u) => !u.placed);
+        if (currentPending.length === 0) break;
 
-        const slot = freeSlots[i];
-        if (slot.durationMin < totalDurationWithBreaks) continue;
+        // Group by subject to find next available unit per subject
+        const subjectQueue = new Map<string, WorkUnit>();
+        for (const unit of currentPending) {
+          if (!subjectQueue.has(unit.subject)) {
+            subjectQueue.set(unit.subject, unit);
+          }
+        }
 
-        const blockStart = dayjs(slot.start);
-        const pomodoroBlocks = splitTaskToPomodoro(
-          task.durationMin,
-          blockStart.toDate(),
-          config,
-        );
+        // Sort subjects by urgency score
+        const subjects = Array.from(subjectQueue.entries()).sort(([, a], [, b]) => {
+          const totalA = workUnits.filter((u) => u.subject === a.subject).length;
+          const totalB = workUnits.filter((u) => u.subject === b.subject).length;
+          const remA = workUnits.filter((u) => u.subject === a.subject && !u.placed).length;
+          const remB = workUnits.filter((u) => u.subject === b.subject && !u.placed).length;
+          return (
+            this.urgencyScore(b, remB, totalB, now) -
+            this.urgencyScore(a, remA, totalA, now)
+          );
+        });
 
-        const savedBlocks: ScheduledBlockDto[] = [];
-        for (const pomodoro of pomodoroBlocks) {
+        // Interleave check: find first subject not scheduled in last 2 blocks
+        let chosen: WorkUnit | null = null;
+        for (const [, unit] of subjects) {
+          if (!this.recentlyScheduled(unit.subject, scheduled, 2)) {
+            chosen = unit;
+            break;
+          }
+        }
+
+        // Fallback: if all pending subjects were recently scheduled, pick the most urgent one
+        if (!chosen && subjects.length > 0) {
+          chosen = subjects[0][1];
+        }
+
+        if (!chosen) break;
+
+        // Find first slot that can fit a pomodoro
+        let slotFound = false;
+        for (const slot of daySlots) {
+          if (slot.durationMin < pomodoroMin) continue;
+
+          // Place block
+          const blockStart = new Date(slot.start);
+          const blockEnd = new Date(slot.start.getTime() + pomodoroMin * 60_000);
+
           const scheduleBlock = this.blockRepo.create({
             userId: normalizedUserId,
-            taskId: normalizedTaskId,
-            plannedStart: pomodoro.workStart,
-            plannedEnd: pomodoro.workEnd,
-            pomodoroIndex: pomodoro.index,
+            taskId: chosen.taskId,
+            plannedStart: blockStart,
+            plannedEnd: blockEnd,
+            pomodoroIndex: chosen.pomodoroIndex,
             status: 'planned',
           });
           await this.blockRepo.save(scheduleBlock);
 
-          savedBlocks.push({
+          scheduled.push({
             id: scheduleBlock.id,
-            taskId: normalizedTaskId,
-            taskTitle: task.title,
-            plannedStart: pomodoro.workStart,
-            plannedEnd: pomodoro.workEnd,
-            pomodoroIndex: pomodoro.index,
+            taskId: chosen.taskId,
+            taskTitle: chosen.title,
+            plannedStart: blockStart,
+            plannedEnd: blockEnd,
+            pomodoroIndex: chosen.pomodoroIndex,
             sessionType: slot.sessionType,
             queueOrder: queueOrder++,
             status: 'planned',
+            ...{ _subject: chosen.subject } // Internal tracking for interleaving
           });
+
+          chosen.placed = true;
+          blocksThisDay++;
+          slotFound = true;
+
+          // Shrink slot to account for pomodoro + gap
+          const timeConsumedMin = pomodoroMin + minBlockGapMin;
+          slot.start = new Date(slot.start.getTime() + timeConsumedMin * 60_000);
+          slot.durationMin -= timeConsumedMin;
+          break; // Move to next round-robin iteration
         }
 
-        scheduled.push(...savedBlocks);
-        usedSlotIndices.add(i); // mark this slot as taken
-        placed = true;
-        break;
+        if (!slotFound) {
+          // No slots left that can fit a pomodoro
+          break;
+        }
       }
 
-      if (!placed) {
-        overflow.push(task.id);
-      }
+      currentDay = currentDay.add(1, 'day');
     }
 
-    return { scheduled, overflow };
+    const overflowUnitIds = new Set(
+      workUnits.filter((u) => !u.placed).map((u) => u.taskId),
+    );
+
+    return { scheduled, overflow: Array.from(overflowUnitIds) };
   }
 
   // ─── View & clear ─────────────────────────────────────────────────────────
@@ -588,6 +747,46 @@ export class ScheduleService {
       [...new Set(affectedBlocks.map((block) => block.taskId))],
     );
     await this.clearQueue(userId, from);
+  }
+
+  async updateBlockStatus(
+    userId: string,
+    blockId: string,
+    status: 'planned' | 'done' | 'missed' | 'shifted',
+  ): Promise<ScheduleBlock> {
+    const normalizedUserId = this.assertUuid(userId, 'userId');
+    const normalizedBlockId = this.assertUuid(blockId, 'blockId');
+
+    const block = await this.blockRepo.findOne({
+      where: { id: normalizedBlockId, userId: normalizedUserId },
+      relations: ['task'],
+    });
+
+    if (!block) {
+      throw new Error('Schedule block not found');
+    }
+
+    block.status = status;
+    await this.blockRepo.save(block);
+
+    // Bidirectional sync: check all blocks for this task
+    if (block.taskId) {
+      const allTaskBlocks = await this.blockRepo.find({
+        where: { taskId: block.taskId },
+      });
+
+      const allDone = allTaskBlocks.length > 0 && allTaskBlocks.every((b) => b.status === 'done');
+      
+      if (allDone && block.task?.status !== 'done') {
+        // Mark task as done
+        await this.taskService.markAsDone([block.taskId]);
+      } else if (!allDone && block.task?.status === 'done') {
+        // Revert task to scheduled
+        await this.taskService.markAsScheduled([block.taskId]);
+      }
+    }
+
+    return block;
   }
 
   private async persistNewTasks(

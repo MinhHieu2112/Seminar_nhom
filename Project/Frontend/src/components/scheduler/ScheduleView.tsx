@@ -13,9 +13,9 @@ import {
   startOfDay,
   startOfWeek,
 } from 'date-fns';
-import { Calendar, ChevronLeft, ChevronRight, Clock, Sparkles, Trash2 } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Clock, Sparkles, Trash2, CheckCircle2 } from 'lucide-react';
 import type { ScheduleBlock } from '@/types/api';
-import { useClearSchedule, useSchedule } from '@/lib/hooks/useScheduler';
+import { useClearSchedule, useSchedule, useUpdateBlock } from '@/lib/hooks/useScheduler';
 import { GenerateScheduleModal } from './GenerateScheduleModal';
 
 const TASK_GRADIENTS = [
@@ -36,22 +36,28 @@ function getTaskPalette(block: ScheduleBlock) {
   return TASK_GRADIENTS[hash % TASK_GRADIENTS.length];
 }
 
-function BlockCard({ block }: { block: ScheduleBlock }) {
+function BlockCard({ block, onToggle }: { block: ScheduleBlock, onToggle: (block: ScheduleBlock) => void }) {
   const palette = getTaskPalette(block);
+  const isDone = block.status === 'done';
+
   return (
     <div
-      className="group relative flex flex-col gap-1 rounded-lg p-2 text-white shadow-sm transition-all hover:shadow-md"
+      className={`group relative flex flex-col gap-1 rounded-lg p-2 text-white shadow-sm transition-all hover:shadow-md cursor-pointer ${
+        isDone ? 'opacity-60 saturate-50' : ''
+      }`}
       style={{
         backgroundImage: `linear-gradient(135deg, ${palette.from}, ${palette.to})`,
       }}
+      onClick={() => onToggle(block)}
     >
       <div className="flex items-center justify-between text-xs font-bold opacity-90">
-        <span>
+        <span className={isDone ? 'line-through' : ''}>
           {format(parseISO(block.plannedStart), 'HH:mm')} -{' '}
           {format(parseISO(block.plannedEnd), 'HH:mm')}
         </span>
+        {isDone && <CheckCircle2 className="h-4 w-4 text-white" />}
       </div>
-      <p className="line-clamp-2 text-sm font-medium leading-tight">
+      <p className={`line-clamp-2 text-sm font-medium leading-tight ${isDone ? 'line-through' : ''}`}>
         {block.task?.title || 'Study Session'}
       </p>
       <p className="mt-0.5 text-[10px] opacity-75">
@@ -78,7 +84,14 @@ export function ScheduleView() {
 
   const { data: blocks, isLoading } = useSchedule(from, to);
   const clearSchedule = useClearSchedule();
+  const updateBlock = useUpdateBlock();
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const handleToggleBlock = (block: ScheduleBlock) => {
+    if (!block.id || block.id.startsWith('temp')) return; // Just in case AI gen blocks don't have id yet, though they should
+    const newStatus = block.status === 'done' ? 'planned' : 'done';
+    updateBlock.mutate({ blockId: block.id, status: newStatus });
+  };
 
   const days = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
 
@@ -216,7 +229,7 @@ export function ScheduleView() {
                               </div>
                             ) : (
                               periodBlocks.map((block) => (
-                                <BlockCard key={block.id} block={block} />
+                                <BlockCard key={block.id} block={block} onToggle={handleToggleBlock} />
                               ))
                             )}
                           </div>
@@ -279,7 +292,7 @@ export function ScheduleView() {
                             </p>
                             <div className="space-y-2">
                               {periodBlocks.map((block) => (
-                                <BlockCard key={block.id} block={block} />
+                                <BlockCard key={block.id} block={block} onToggle={handleToggleBlock} />
                               ))}
                             </div>
                           </div>

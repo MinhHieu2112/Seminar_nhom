@@ -24,8 +24,8 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/scheduler/goals', label: 'Goals & Tasks', icon: Target },
   { href: '/scheduler/schedule', label: 'My Schedule', icon: Calendar },
+  { href: '/scheduler/goals', label: 'Goals & Tasks', icon: Target },
   { href: '/scheduler/analytics', label: 'Analysis', icon: BarChart2 },
   { href: '/profile', label: 'Profile', icon: User },
   { href: '/admin/users', label: 'Admin', icon: Users, roles: ['admin'] },

@@ -138,6 +138,13 @@ export class TaskService {
       .execute();
   }
 
+  async markAsDone(ids: string[]): Promise<void> {
+    if (ids.length === 0) {
+      return;
+    }
+    await this.taskRepo.update(ids, { status: 'done' });
+  }
+
   private async syncScheduleBlockStatus(task: Task): Promise<void> {
     if (!task.scheduleBlocks?.length) {
       return;

@@ -121,6 +121,8 @@ export const scheduleApi = {
     }),
   clear: (from?: string) =>
     apiClient.post('/scheduler/schedule/clear', { from }),
+  updateBlockStatus: (blockId: string, status: BlockStatus) =>
+    apiClient.patch<ScheduleBlock>(`/scheduler/schedule/blocks/${blockId}`, { status }),
 };
 
 // ─── Calendar ─────────────────────────────────────────────────────────────────

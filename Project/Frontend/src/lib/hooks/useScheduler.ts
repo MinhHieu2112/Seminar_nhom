@@ -173,6 +173,30 @@ export function useDeleteTask() {
   });
 }
 
+export function useUpdateBlock() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      blockId,
+      status,
+    }: {
+      blockId: string;
+      status: 'planned' | 'done' | 'missed' | 'shifted';
+    }) => {
+      const response = await scheduleApi.updateBlockStatus(blockId, status);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: SCHEDULE_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: TASKS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: GOALS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: GOAL_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: ANALYTICS_QUERY_KEY });
+    },
+  });
+}
+
 // ============ Schedule ============
 const SCHEDULE_QUERY_KEY = ['schedule'];
 

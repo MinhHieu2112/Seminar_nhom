@@ -545,6 +545,21 @@ export class SchedulerGatewayController {
     }));
   }
 
+  @Patch('schedule/blocks/:id')
+  async updateBlockStatus(
+    @Headers('authorization') authHeader: string,
+    @Param('id') blockId: string,
+    @Body() body: { status: string },
+  ) {
+    const userId = extractUserId(authHeader, this.jwtService);
+    return safeSend(
+      this.tcpClient,
+      'scheduler-service',
+      'scheduler.block.updateStatus',
+      { userId, blockId, status: body.status },
+    );
+  }
+
   @Post('schedule/clear')
   @HttpCode(HttpStatus.OK)
   async clearSchedule(

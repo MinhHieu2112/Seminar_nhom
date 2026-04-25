@@ -1,14 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
 import { ArrowLeft, Calendar, Clock, Target } from 'lucide-react';
-import { GoalModal } from '@/components/scheduler/GoalModal';
 import { ScheduleView } from '@/components/scheduler/ScheduleView';
 import { useAnalyticsDashboard } from '@/lib/hooks/useAnalytics';
 
 export default function SchedulePage() {
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const { data: analytics } = useAnalyticsDashboard();
 
   return (
@@ -34,8 +31,6 @@ export default function SchedulePage() {
       <div className="rounded-xl bg-white p-6 shadow-sm">
         <ScheduleView />
       </div>
-
-      <GoalModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
     </div>
   );
 }
