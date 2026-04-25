@@ -233,4 +233,7 @@ export interface AnalyticsHistoryPoint {
   date: string;
   planned: number;
   actual: number;
+  tasksCompleted?: number;
+  tasksPending?: number;
+  tasksOverdue?: number;
 }

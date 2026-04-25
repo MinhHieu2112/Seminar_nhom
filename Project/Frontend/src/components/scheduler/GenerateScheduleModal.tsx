@@ -89,6 +89,7 @@ export function GenerateScheduleModal({ isOpen, onClose, defaultFromDate, defaul
   const [mode, setMode] = useState<InputMode>('manual');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [goalTitle, setGoalTitle] = useState('');
 
   // Manual mode state
   const [tasks, setTasks] = useState<ManualTask[]>([
@@ -195,8 +196,8 @@ export function GenerateScheduleModal({ isOpen, onClose, defaultFromDate, defaul
     setError(null);
 
     try {
-      // Ensure we send only tasks + constraints (not the full response wrapper)
       const payload = {
+        goalTitle: goalTitle.trim() || 'Unified Schedule Inbox',
         tasks: unifiedData?.tasks ?? [],
         timezoneOffsetMinutes: new Date().getTimezoneOffset(),
         constraints: unifiedData?.constraints ?? { availableTime: [], busyTime: [] },
@@ -224,6 +225,7 @@ export function GenerateScheduleModal({ isOpen, onClose, defaultFromDate, defaul
     setUnifiedData(null);
     setCsvFile(null);
     setCsvPreview('');
+    setGoalTitle('');
     setTasks([{ id: '1', title: '', duration: 60, priority: 3, deadline: defaultToDate.split('T')[0] }]);
     setBusySlots([]);
     onClose();
@@ -294,6 +296,18 @@ export function GenerateScheduleModal({ isOpen, onClose, defaultFromDate, defaul
                 >
                   <UploadCloud className="h-4 w-4" /> CSV Upload
                 </button>
+              </div>
+
+              {/* Goal Title Input */}
+              <div className="space-y-1">
+                <label className="text-sm font-semibold text-gray-700">Schedule / Subject Title</label>
+                <input
+                  type="text"
+                  value={goalTitle}
+                  onChange={e => setGoalTitle(e.target.value)}
+                  placeholder="e.g., Mathematics Midterm, IELTS Preparation"
+                  className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                />
               </div>
 
               {/* Manual Mode */}

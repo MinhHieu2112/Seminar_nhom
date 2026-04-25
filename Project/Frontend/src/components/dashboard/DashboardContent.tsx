@@ -20,63 +20,7 @@ export function DashboardContent() {
         </p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-4">
-        <div className="rounded-xl bg-white p-6 shadow-sm">
-          <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-100">
-              <BookOpen className="h-6 w-6 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Active Goals</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {analytics?.summary?.activeGoals ?? 0}
-              </p>
-            </div>
-          </div>
-        </div>
 
-        <div className="rounded-xl bg-white p-6 shadow-sm">
-          <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-purple-100">
-              <Clock className="h-6 w-6 text-purple-600" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Pending Tasks</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {analytics?.summary?.pendingTasks ?? 0}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-xl bg-white p-6 shadow-sm">
-          <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-green-100">
-              <Target className="h-6 w-6 text-green-600" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Completion Rate</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {analytics?.completionRate ?? 0}%
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-xl bg-white p-6 shadow-sm">
-          <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-yellow-100">
-              <Zap className="h-6 w-6 text-yellow-600" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Productivity Score</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {analytics?.productivityScore ?? 0}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
 
       {analytics?.suggestions && analytics.suggestions.length > 0 && (
         <div className="rounded-xl border border-blue-100 bg-white p-6 shadow-sm">

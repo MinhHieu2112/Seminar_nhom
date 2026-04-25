@@ -148,10 +148,29 @@ export class ScheduleService {
         inputOrder: index,
       }));
 
-      // 1. Calculate Free Slots
+      // 1. Merge existing schedule blocks into busy time to avoid overlap
+      const now = new Date();
+      const existingBlocks = await this.getScheduleForRange(
+        normalizedUserId,
+        now,
+        dayjs(now).add(60, 'day').toDate(),
+      );
+
+      const existingBusySlots = existingBlocks.map((block) => {
+        const start = dayjs(block.plannedStart);
+        const end = dayjs(block.plannedEnd);
+        return {
+          day: start.format('YYYY-MM-DD'),
+          slots: [`${start.format('HH:mm')}-${end.format('HH:mm')}`],
+        };
+      });
+
+      const mergedBusyTime = [...(constraints.busyTime ?? []), ...existingBusySlots];
+
+      // 2. Calculate Free Slots
       const freeSlots = this.calculateFreeSlots(
         constraints.availableTime ?? [],
-        constraints.busyTime ?? [],
+        mergedBusyTime,
         payload.timezoneOffsetMinutes ?? 0,
       );
 
@@ -164,14 +183,14 @@ export class ScheduleService {
         };
       }
 
-      // 2. Persist unified tasks so schedule_blocks always point to real task rows.
-      await this.clearSchedule(normalizedUserId);
-      const tasksToSchedule = await this.replaceUnifiedTasks(
+      // 3. Persist new tasks
+      const tasksToSchedule = await this.persistNewTasks(
         normalizedUserId,
+        payload.goalTitle,
         normalizedTasks,
       );
 
-      // 3. Sort and Schedule
+      // 4. Sort and Schedule
       const sortedTasks = this.sortTasksByPriorityAndDeadline(tasksToSchedule);
       const result = await this.scheduleTasks(
         normalizedUserId,
@@ -185,7 +204,28 @@ export class ScheduleService {
         );
       }
 
-      await this.publishQueue(normalizedUserId, result.scheduled);
+      // Publish queue but only for the newly scheduled blocks
+      // Instead of replacing the whole queue, we need an append method, or we fetch all blocks and replace queue.
+      // Wait, 'queue.schedule.replace' replaces the whole queue. So we should fetch all future blocks and publish them.
+      const allFutureBlocks = await this.getScheduleForRange(
+        normalizedUserId,
+        now,
+        dayjs(now).add(60, 'day').toDate(),
+      );
+      
+      const allScheduledBlocks: ScheduledBlockDto[] = allFutureBlocks.map((b, idx) => ({
+        id: b.id,
+        taskId: b.taskId,
+        taskTitle: b.task?.title ?? 'Unknown Task',
+        plannedStart: b.plannedStart,
+        plannedEnd: b.plannedEnd,
+        pomodoroIndex: b.pomodoroIndex,
+        sessionType: this.inferSessionType(b.plannedStart),
+        queueOrder: idx + 1,
+        status: b.status,
+      }));
+
+      await this.publishQueue(normalizedUserId, allScheduledBlocks);
 
       return {
         success: true,
@@ -516,8 +556,9 @@ export class ScheduleService {
     await this.clearQueue(userId, from);
   }
 
-  private async replaceUnifiedTasks(
+  private async persistNewTasks(
     userId: string,
+    goalTitle: string | undefined,
     normalizedTasks: Array<{
       id: string;
       title: string;
@@ -527,18 +568,34 @@ export class ScheduleService {
       inputOrder: number;
     }>,
   ): Promise<Task[]> {
-    const unifiedGoal = await this.ensureUnifiedGoal(userId);
+    const finalTitle = goalTitle || ScheduleService.UNIFIED_GOAL_TITLE;
 
-    await this.taskRepo.delete({
-      userId,
-      goalId: unifiedGoal.id,
+    let goal = await this.goalRepo.findOne({
+      where: {
+        userId,
+        title: finalTitle,
+      },
     });
+
+    if (!goal) {
+      goal = await this.goalRepo.save(
+        this.goalRepo.create({
+          userId,
+          title: finalTitle,
+          description: finalTitle === ScheduleService.UNIFIED_GOAL_TITLE
+            ? ScheduleService.UNIFIED_GOAL_DESCRIPTION
+            : 'Generated from AI Scheduler',
+          deadline: null,
+          status: 'active',
+        }),
+      );
+    }
 
     const tasks = normalizedTasks.map((task) =>
       this.taskRepo.create({
         id: task.id,
         userId,
-        goalId: unifiedGoal.id,
+        goalId: goal.id,
         title: task.title,
         durationMin: task.duration,
         priority: task.priority,
@@ -557,30 +614,6 @@ export class ScheduleService {
         normalizedTasks.find((task) => task.id === b.id)?.inputOrder ?? 0;
       return aIndex - bIndex;
     });
-  }
-
-  private async ensureUnifiedGoal(userId: string): Promise<Goal> {
-    const existingGoal = await this.goalRepo.findOne({
-      where: {
-        userId,
-        title: ScheduleService.UNIFIED_GOAL_TITLE,
-        description: ScheduleService.UNIFIED_GOAL_DESCRIPTION,
-      },
-    });
-
-    if (existingGoal) {
-      return existingGoal;
-    }
-
-    return this.goalRepo.save(
-      this.goalRepo.create({
-        userId,
-        title: ScheduleService.UNIFIED_GOAL_TITLE,
-        description: ScheduleService.UNIFIED_GOAL_DESCRIPTION,
-        deadline: null,
-        status: 'active',
-      }),
-    );
   }
 
   private normalizeTaskId(taskId: string | undefined, index: number): string {

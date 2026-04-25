@@ -63,6 +63,10 @@ export class GenerateUnifiedDto {
   @Max(840)
   timezoneOffsetMinutes?: number;
 
+  @IsOptional()
+  @IsString()
+  goalTitle?: string;
+
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => UnifiedTaskDto)

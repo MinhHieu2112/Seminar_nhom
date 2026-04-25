@@ -190,7 +190,7 @@ export class AnalyticsService {
   async getHistory(
     userId: string,
     period: 'weekly' | 'monthly' | 'yearly',
-  ): Promise<Array<{ date: string; planned: number; actual: number }>> {
+  ): Promise<Array<{ date: string; planned: number; actual: number; tasksCompleted: number; tasksPending: number; tasksOverdue: number }>> {
     const now = new Date();
     const from = new Date(now);
 
@@ -202,15 +202,24 @@ export class AnalyticsService {
       from.setFullYear(now.getFullYear() - 1);
     }
 
-    const blocks = await this.blockRepo.find({
-      where: {
-        userId,
-        plannedStart: Between(from, now),
-      },
-      order: { plannedStart: 'ASC' },
-    });
+    const [blocks, tasks] = await Promise.all([
+      this.blockRepo.find({
+        where: {
+          userId,
+          plannedStart: Between(from, now),
+        },
+        order: { plannedStart: 'ASC' },
+      }),
+      this.taskRepo.find({
+        where: {
+          userId,
+          createdAt: Between(from, now),
+        },
+        relations: ['goal'],
+      }),
+    ]);
 
-    const grouped = new Map<string, { planned: number; actual: number }>();
+    const grouped = new Map<string, { planned: number; actual: number; tasksCompleted: number; tasksPending: number; tasksOverdue: number }>();
 
     blocks.forEach((block) => {
       const day = this.formatDateKey(block.plannedStart);
@@ -218,7 +227,7 @@ export class AnalyticsService {
         (block.plannedEnd.getTime() - block.plannedStart.getTime()) / 3600000;
 
       if (!grouped.has(day)) {
-        grouped.set(day, { planned: 0, actual: 0 });
+        grouped.set(day, { planned: 0, actual: 0, tasksCompleted: 0, tasksPending: 0, tasksOverdue: 0 });
       }
 
       const stats = grouped.get(day)!;
@@ -228,11 +237,35 @@ export class AnalyticsService {
       }
     });
 
-    return Array.from(grouped.entries()).map(([date, stats]) => ({
-      date,
-      planned: Math.round(stats.planned * 10) / 10,
-      actual: Math.round(stats.actual * 10) / 10,
-    }));
+    tasks.forEach((task) => {
+      const day = this.formatDateKey(task.createdAt);
+      if (!grouped.has(day)) {
+        grouped.set(day, { planned: 0, actual: 0, tasksCompleted: 0, tasksPending: 0, tasksOverdue: 0 });
+      }
+
+      const stats = grouped.get(day)!;
+      if (task.status === 'done') {
+        stats.tasksCompleted++;
+      } else if (this.isTaskOverdue(task, now)) {
+        stats.tasksOverdue++;
+      } else {
+        stats.tasksPending++;
+      }
+    });
+
+    const sortedDates = Array.from(grouped.keys()).sort();
+
+    return sortedDates.map((date) => {
+      const stats = grouped.get(date)!;
+      return {
+        date,
+        planned: Math.round(stats.planned * 10) / 10,
+        actual: Math.round(stats.actual * 10) / 10,
+        tasksCompleted: stats.tasksCompleted,
+        tasksPending: stats.tasksPending,
+        tasksOverdue: stats.tasksOverdue,
+      };
+    });
   }
 
   private isTaskOverdue(task: Task, now: Date): boolean {

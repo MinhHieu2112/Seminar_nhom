@@ -11,7 +11,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { BarChart2, Calendar, Clock, Target } from 'lucide-react';
+import { BarChart2, Calendar, Clock, Target, CheckSquare } from 'lucide-react';
 import { useAnalyticsDashboard, useAnalyticsHistory } from '@/lib/hooks/useAnalytics';
 
 export function AnalyticsView() {
@@ -100,6 +100,73 @@ export function AnalyticsView() {
                   name="Actual Hours"
                   dataKey="actual"
                   fill="#3b82f6"
+                  radius={[4, 4, 0, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </div>
+
+      <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+        <h2 className="mb-6 flex items-center gap-2 text-lg font-semibold text-gray-900">
+          <CheckSquare className="h-5 w-5 text-green-500" />
+          Task Status Over Time
+        </h2>
+
+        {isLoading ? (
+          <div className="flex h-80 items-center justify-center text-gray-500">
+            Loading data...
+          </div>
+        ) : history.length === 0 ? (
+          <div className="flex h-80 flex-col items-center justify-center text-gray-500">
+            <CheckSquare className="mb-2 h-12 w-12 text-gray-300" />
+            <p>No task data found for this period</p>
+          </div>
+        ) : (
+          <div className="h-80 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={history}
+                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis
+                  dataKey="date"
+                  tickFormatter={(value) => {
+                    const date = new Date(value);
+                    return period === 'yearly'
+                      ? date.toLocaleString('default', { month: 'short' })
+                      : date.getDate().toString();
+                  }}
+                />
+                <YAxis allowDecimals={false} />
+                <Tooltip
+                  cursor={{ fill: 'rgba(0,0,0,0.05)' }}
+                  contentStyle={{
+                    borderRadius: '8px',
+                    border: 'none',
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                  }}
+                />
+                <Legend iconType="circle" />
+                <Bar
+                  name="Completed"
+                  dataKey="tasksCompleted"
+                  stackId="a"
+                  fill="#10b981"
+                />
+                <Bar
+                  name="Pending"
+                  dataKey="tasksPending"
+                  stackId="a"
+                  fill="#fcd34d"
+                />
+                <Bar
+                  name="Overdue"
+                  dataKey="tasksOverdue"
+                  stackId="a"
+                  fill="#ef4444"
                   radius={[4, 4, 0, 0]}
                 />
               </BarChart>

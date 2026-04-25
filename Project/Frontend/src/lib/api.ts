@@ -226,6 +226,7 @@ export const aiApi = {
    * Phase 2: Generate Schedule from Unified JSON
    */
   generateFromUnified: (unifiedData: {
+    goalTitle?: string;
     tasks: Array<{ id: string; title: string; duration: number; priority: number; deadline?: string }>;
     timezoneOffsetMinutes?: number;
     constraints: {
