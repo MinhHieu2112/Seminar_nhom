@@ -504,19 +504,45 @@ export class SchedulerGatewayController {
     @Query() query: { from: string; to: string },
   ) {
     const userId = extractUserId(authHeader, this.jwtService);
-    await syncSystemScheduleFromQueue(this.tcpClient, userId);
-    const events = await safeSend<any[]>(
+    // Read directly from schedule_blocks (accurate after cascade deletes)
+    const blocks = await safeSend<any[]>(
       this.tcpClient,
-      'calendar-service',
-      'calendar.event.list',
+      'scheduler-service',
+      'scheduler.schedule.view',
       {
         userId,
         from: query.from,
         to: query.to,
-        source: 'system',
       },
     );
-    return mapCalendarEventsToScheduleBlocks(events);
+    // Map schedule_blocks to the same ScheduleBlock shape the frontend expects
+    return (blocks ?? []).map((b: any) => ({
+      id: b.id,
+      taskId: b.taskId,
+      userId: b.userId,
+      plannedStart: b.plannedStart instanceof Date
+        ? b.plannedStart.toISOString()
+        : b.plannedStart,
+      plannedEnd: b.plannedEnd instanceof Date
+        ? b.plannedEnd.toISOString()
+        : b.plannedEnd,
+      pomodoroIndex: b.pomodoroIndex ?? 1,
+      sessionType: b.sessionType ?? null,
+      queueOrder: b.queueOrder ?? null,
+      status: b.status,
+      createdAt: b.createdAt instanceof Date
+        ? b.createdAt.toISOString()
+        : b.createdAt,
+      task: b.task
+        ? {
+            id: b.task.id,
+            title: b.task.title,
+            durationMin: b.task.durationMin,
+            priority: b.task.priority,
+            type: b.task.type,
+          }
+        : null,
+    }));
   }
 
   @Post('schedule/clear')

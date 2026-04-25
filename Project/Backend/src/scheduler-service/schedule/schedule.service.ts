@@ -121,22 +121,16 @@ export class ScheduleService {
     payload: GenerateUnifiedDto,
   ): Promise<ScheduleResultDto> {
     const normalizedUserId = this.assertUuid(payload.userId, 'userId');
+    const tzOffset = payload.timezoneOffsetMinutes ?? 0; // e.g. -420 for UTC+7
 
     this.logger.log(`Generating unified schedule for user ${normalizedUserId}`);
-    this.logger.debug(`Payload received: tasks=${JSON.stringify(payload.tasks)?.substring(0, 200)}`);
 
     try {
-      // Guard: ensure tasks is an array
       const rawTasks = Array.isArray(payload.tasks) ? payload.tasks : [];
       const constraints = payload.constraints ?? { availableTime: [], busyTime: [] };
 
       if (rawTasks.length === 0) {
-        return {
-          success: false,
-          scheduled: [],
-          overflow: [],
-          message: 'No tasks provided in payload',
-        };
+        return { success: false, scheduled: [], overflow: [], message: 'No tasks provided in payload' };
       }
 
       const normalizedTasks = rawTasks.map((rawTask, index) => ({
@@ -148,55 +142,77 @@ export class ScheduleService {
         inputOrder: index,
       }));
 
-      // 1. Merge existing schedule blocks into busy time to avoid overlap
+      // ── Step 1: Clear old tasks/blocks for this goal BEFORE computing busy time.
+      // This prevents duplicates when re-generating the same subject.
+      await this.clearGoalTasks(normalizedUserId, payload.goalTitle);
+
+      // ── Step 2: Build full day range (today → max deadline, at least 30 days)
       const now = new Date();
+      const maxDeadlineMs = normalizedTasks.reduce((max, t) => {
+        if (!t.deadline) return max;
+        return t.deadline.getTime() > max ? t.deadline.getTime() : max;
+      }, dayjs(now).add(30, 'day').toDate().getTime());
+      const scheduleEndDate = new Date(maxDeadlineMs);
+
+      const allScheduleDays: string[] = [];
+      let cur = dayjs(now);
+      while (cur.isBefore(dayjs(scheduleEndDate).add(1, 'day'))) {
+        allScheduleDays.push(cur.format('YYYY-MM-DD'));
+        cur = cur.add(1, 'day');
+      }
+
+      // ── Step 3: Convert existing blocks (from OTHER goals) to busy time
+      // IMPORTANT: stored timestamps are UTC; convert to user's LOCAL time for slot matching.
       const existingBlocks = await this.getScheduleForRange(
         normalizedUserId,
         now,
         dayjs(now).add(60, 'day').toDate(),
       );
 
+      // tzOffset from JS: negative for east-of-UTC zones.
+      // To get local time from UTC: localMs = utcMs - tzOffset * 60_000
+      // e.g. UTC+7 → tzOffset=-420 → localMs = utcMs + 420*60000 (+7h)
       const existingBusySlots = existingBlocks.map((block) => {
-        const start = dayjs(block.plannedStart);
-        const end = dayjs(block.plannedEnd);
+        const localStart = new Date(block.plannedStart.getTime() - tzOffset * 60_000);
+        const localEnd   = new Date(block.plannedEnd.getTime()   - tzOffset * 60_000);
         return {
-          day: start.format('YYYY-MM-DD'),
-          slots: [`${start.format('HH:mm')}-${end.format('HH:mm')}`],
+          day:   dayjs(localStart).format('YYYY-MM-DD'),
+          slots: [`${dayjs(localStart).format('HH:mm')}-${dayjs(localEnd).format('HH:mm')}`],
         };
       });
 
       const mergedBusyTime = [...(constraints.busyTime ?? []), ...existingBusySlots];
 
-      // 2. Calculate Free Slots
-      const freeSlots = this.calculateFreeSlots(
+      // ── Step 4: Compute free slots across the full date range
+      let freeSlots = this.calculateFreeSlots(
         constraints.availableTime ?? [],
         mergedBusyTime,
-        payload.timezoneOffsetMinutes ?? 0,
+        tzOffset,
+        allScheduleDays,
       );
+
+      // Filter out slots that are already in the past
+      freeSlots = freeSlots.filter((slot) => slot.start.getTime() > now.getTime());
 
       if (freeSlots.length === 0) {
         return {
           success: false,
           scheduled: [],
-          overflow: normalizedTasks.map((task) => task.id),
+          overflow: normalizedTasks.map((t) => t.id),
           message: 'No free slots available after subtracting busy time',
         };
       }
 
-      // 3. Persist new tasks
+      // ── Step 5: Persist new tasks
       const tasksToSchedule = await this.persistNewTasks(
         normalizedUserId,
         payload.goalTitle,
         normalizedTasks,
       );
 
-      // 4. Sort and Schedule
+      // ── Step 6: Sort and schedule
       const sortedTasks = this.sortTasksByPriorityAndDeadline(tasksToSchedule);
-      const result = await this.scheduleTasks(
-        normalizedUserId,
-        sortedTasks,
-        freeSlots,
-      );
+      const result = await this.scheduleTasks(normalizedUserId, sortedTasks, freeSlots);
 
       if (result.scheduled.length > 0) {
         await this.taskService.markAsScheduled(
@@ -204,15 +220,12 @@ export class ScheduleService {
         );
       }
 
-      // Publish queue but only for the newly scheduled blocks
-      // Instead of replacing the whole queue, we need an append method, or we fetch all blocks and replace queue.
-      // Wait, 'queue.schedule.replace' replaces the whole queue. So we should fetch all future blocks and publish them.
+      // ── Step 7: Publish full future queue
       const allFutureBlocks = await this.getScheduleForRange(
         normalizedUserId,
         now,
         dayjs(now).add(60, 'day').toDate(),
       );
-      
       const allScheduledBlocks: ScheduledBlockDto[] = allFutureBlocks.map((b, idx) => ({
         id: b.id,
         taskId: b.taskId,
@@ -224,7 +237,6 @@ export class ScheduleService {
         queueOrder: idx + 1,
         status: b.status,
       }));
-
       await this.publishQueue(normalizedUserId, allScheduledBlocks);
 
       return {
@@ -239,15 +251,36 @@ export class ScheduleService {
     }
   }
 
+  /**
+   * Delete existing tasks (and their cascade-deleted schedule_blocks) for a goal
+   * identified by goalTitle. Called before re-generating to prevent duplicates.
+   */
+  private async clearGoalTasks(
+    userId: string,
+    goalTitle: string | undefined,
+  ): Promise<void> {
+    const finalTitle = goalTitle || ScheduleService.UNIFIED_GOAL_TITLE;
+    const goal = await this.goalRepo.findOne({ where: { userId, title: finalTitle } });
+    if (!goal) return;
+    // Delete tasks → schedule_blocks cascade-deleted automatically
+    await this.taskRepo.delete({ userId, goalId: goal.id });
+  }
+
   private calculateFreeSlots(
     availableTime: Array<{ day: string; slots: string[] }>,
     busyTime: Array<{ day: string; slots: string[] }>,
     timezoneOffsetMinutes: number,
+    allDays?: string[],
   ): FreeSlotDto[] {
     const freeSlots: FreeSlotDto[] = [];
     const availableMap = this.buildDaySlotMap(availableTime);
     const busyMap = this.buildDaySlotMap(busyTime);
-    const orderedDays = [...new Set([...availableMap.keys(), ...busyMap.keys()])].sort();
+
+    // If allDays provided (full range), use those as base; otherwise fall back to union of constraint days
+    const baseDays = allDays && allDays.length > 0
+      ? allDays
+      : [...availableMap.keys()];
+    const orderedDays = [...new Set([...baseDays, ...busyMap.keys()])].sort();
 
     for (const day of orderedDays) {
       const dayAvailable = availableMap.get(day) ?? [];
@@ -440,8 +473,9 @@ export class ScheduleService {
     const config = getEffectiveConfig();
     let queueOrder = 1;
 
-    // Track how many minutes we have already consumed inside each slot
-    const slotUsage = new Map<number, number>(); // slot index → used minutes
+    // Each task gets its OWN slot (no stacking multiple tasks in one time block)
+    // This ensures even distribution across days.
+    const usedSlotIndices = new Set<number>();
 
     for (const task of tasks) {
       const normalizedTaskId = this.assertUuid(task.id, `task "${task.title}" id`);
@@ -453,13 +487,13 @@ export class ScheduleService {
       let placed = false;
 
       for (let i = 0; i < freeSlots.length; i++) {
+        // Skip slots already taken by a previous task
+        if (usedSlotIndices.has(i)) continue;
+
         const slot = freeSlots[i];
-        const usedMin = slotUsage.get(i) ?? 0;
-        const remainingMin = slot.durationMin - usedMin;
+        if (slot.durationMin < totalDurationWithBreaks) continue;
 
-        if (remainingMin < totalDurationWithBreaks) continue;
-
-        const blockStart = dayjs(slot.start).add(usedMin, 'minute');
+        const blockStart = dayjs(slot.start);
         const pomodoroBlocks = splitTaskToPomodoro(
           task.durationMin,
           blockStart.toDate(),
@@ -492,7 +526,7 @@ export class ScheduleService {
         }
 
         scheduled.push(...savedBlocks);
-        slotUsage.set(i, usedMin + totalDurationWithBreaks);
+        usedSlotIndices.add(i); // mark this slot as taken
         placed = true;
         break;
       }
