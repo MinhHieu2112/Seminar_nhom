@@ -1,14 +1,20 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Task, TaskStatus } from '../entities';
 import { CreateTaskDto } from '../dto';
+import { ScheduleBlock, Task, TaskStatus } from '../entities';
 
 @Injectable()
 export class TaskService {
   constructor(
     @InjectRepository(Task)
     private readonly taskRepo: Repository<Task>,
+    @InjectRepository(ScheduleBlock)
+    private readonly blockRepo: Repository<ScheduleBlock>,
   ) {}
 
   async create(
@@ -30,10 +36,11 @@ export class TaskService {
   }
 
   async findByGoal(goalId: string, userId: string): Promise<Task[]> {
-    return this.taskRepo.find({
+    const tasks = await this.taskRepo.find({
       where: { goalId, userId },
-      order: { priority: 'DESC', createdAt: 'ASC' },
+      relations: ['goal'],
     });
+    return this.sortTasks(tasks);
   }
 
   async findByUser(userId: string, status?: TaskStatus): Promise<Task[]> {
@@ -41,10 +48,12 @@ export class TaskService {
     if (status) {
       where.status = status;
     }
-    return this.taskRepo.find({
+
+    const tasks = await this.taskRepo.find({
       where,
-      order: { priority: 'DESC', createdAt: 'ASC' },
+      relations: ['goal'],
     });
+    return this.sortTasks(tasks);
   }
 
   async findPendingWithDeadline(
@@ -65,11 +74,13 @@ export class TaskService {
   async findOne(id: string, userId: string): Promise<Task> {
     const task = await this.taskRepo.findOne({
       where: { id, userId },
-      relations: ['scheduleBlocks'],
+      relations: ['scheduleBlocks', 'goal'],
     });
+
     if (!task) {
       throw new NotFoundException('Task not found');
     }
+
     return task;
   }
 
@@ -79,17 +90,112 @@ export class TaskService {
     dto: Partial<CreateTaskDto> & { status?: TaskStatus },
   ): Promise<Task> {
     const task = await this.findOne(id, userId);
+
+    if (this.isTaskOverdue(task)) {
+      throw new BadRequestException(
+        'Overdue tasks are locked and cannot be modified',
+      );
+    }
+
     Object.assign(task, dto);
-    return this.taskRepo.save(task);
+    const savedTask = await this.taskRepo.save(task);
+    await this.syncScheduleBlockStatus(savedTask);
+    return this.findOne(savedTask.id, userId);
   }
 
   async delete(id: string, userId: string): Promise<{ success: boolean }> {
     const task = await this.findOne(id, userId);
+
+    if (this.isTaskOverdue(task)) {
+      throw new BadRequestException(
+        'Overdue tasks are locked and cannot be deleted',
+      );
+    }
+
     await this.taskRepo.remove(task);
     return { success: true };
   }
 
   async markAsScheduled(ids: string[]): Promise<void> {
+    if (ids.length === 0) {
+      return;
+    }
+
     await this.taskRepo.update(ids, { status: 'scheduled' });
+  }
+
+  async markAsPending(ids: string[]): Promise<void> {
+    if (ids.length === 0) {
+      return;
+    }
+
+    await this.taskRepo
+      .createQueryBuilder()
+      .update(Task)
+      .set({ status: 'pending' })
+      .where('id IN (:...ids)', { ids })
+      .andWhere('status IN (:...statuses)', { statuses: ['scheduled'] })
+      .execute();
+  }
+
+  private async syncScheduleBlockStatus(task: Task): Promise<void> {
+    if (!task.scheduleBlocks?.length) {
+      return;
+    }
+
+    const blockStatus =
+      task.status === 'done'
+        ? 'done'
+        : task.status === 'skipped'
+          ? 'missed'
+          : 'planned';
+
+    await this.blockRepo.update(
+      task.scheduleBlocks.map((block) => block.id),
+      { status: blockStatus },
+    );
+  }
+
+  private sortTasks(tasks: Task[]): Task[] {
+    return [...tasks].sort((a, b) => {
+      const aDeadline =
+        this.getEffectiveDeadline(a)?.getTime() ?? Number.POSITIVE_INFINITY;
+      const bDeadline =
+        this.getEffectiveDeadline(b)?.getTime() ?? Number.POSITIVE_INFINITY;
+
+      if (aDeadline !== bDeadline) {
+        return aDeadline - bDeadline;
+      }
+
+      if (a.priority !== b.priority) {
+        return b.priority - a.priority;
+      }
+
+      return a.createdAt.getTime() - b.createdAt.getTime();
+    });
+  }
+
+  private isTaskOverdue(task: Task): boolean {
+    const effectiveDeadline = this.getEffectiveDeadline(task);
+    return !!effectiveDeadline && effectiveDeadline.getTime() < Date.now();
+  }
+
+  private getEffectiveDeadline(task: Task): Date | null {
+    const deadline = task.deadline ?? task.goal?.deadline ?? null;
+    if (!deadline) {
+      return null;
+    }
+
+    return new Date(
+      Date.UTC(
+        deadline.getUTCFullYear(),
+        deadline.getUTCMonth(),
+        deadline.getUTCDate(),
+        23,
+        59,
+        59,
+        999,
+      ),
+    );
   }
 }

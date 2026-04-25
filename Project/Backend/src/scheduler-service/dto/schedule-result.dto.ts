@@ -5,6 +5,8 @@ export interface ScheduledBlockDto {
   plannedStart: Date;
   plannedEnd: Date;
   pomodoroIndex: number;
+  sessionType: 'morning' | 'afternoon' | 'evening';
+  queueOrder: number;
   status: string;
 }
 

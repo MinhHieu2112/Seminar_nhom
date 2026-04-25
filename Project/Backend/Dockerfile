@@ -16,6 +16,9 @@ FROM node:20-alpine
 
 WORKDIR /app
 
+RUN apk add --no-cache tzdata
+ENV TZ=Asia/Ho_Chi_Minh
+
 # Copy package files and install production deps
 COPY package*.json ./
 RUN npm ci --only=production && npm cache clean --force

@@ -24,11 +24,20 @@ export class CalendarController {
   }
 
   @MessagePattern('calendar.event.list')
-  listEvents(@Payload() data: { userId: string; from?: string; to?: string }) {
+  listEvents(
+    @Payload()
+    data: {
+      userId: string;
+      from?: string;
+      to?: string;
+      source?: 'manual' | 'google' | 'system';
+    },
+  ) {
     return this.eventService.findByUser(
       data.userId,
       data.from ? new Date(data.from) : undefined,
       data.to ? new Date(data.to) : undefined,
+      data.source,
     );
   }
 
@@ -47,6 +56,17 @@ export class CalendarController {
   @MessagePattern('calendar.event.delete')
   deleteEvent(@Payload() data: { id: string; userId: string }) {
     return this.eventService.delete(data.id, data.userId);
+  }
+
+  @MessagePattern('calendar.schedule.replace')
+  replaceSystemSchedule(
+    @Payload()
+    data: {
+      userId: string;
+      items: CreateEventDto[];
+    },
+  ) {
+    return this.eventService.replaceSystemSchedule(data.userId, data.items);
   }
 
   // ── Free slots (called by Scheduler Service) ───────────────────────────────

@@ -20,6 +20,8 @@ import type {
   CalendarEvent,
   CreateEventRequest,
   FreeSlot,
+  AnalyticsDashboard,
+  AnalyticsHistoryPoint,
 } from '@/types/api';
 
 // ─── Auth ────────────────────────────────────────────────────────────────────
@@ -188,16 +190,57 @@ export const aiApi = {
     apiClient.post<{
       success: boolean;
       message: string;
-      goal: any;
-      tasks: any[];
-      schedule: any;
+      goal: Record<string, unknown>;
+      tasks: Array<Record<string, unknown>>;
+      schedule: Record<string, unknown>;
       aiSummary: string;
     }>('/ai/generate-schedule', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
     }),
+
+  /**
+   * Phase 1: Normalize input (CSV or manual text) → Unified JSON
+   */
+  normalizeInput: (type: 'csv' | 'manual', data: string, file?: File) => {
+    const formData = new FormData();
+    formData.append('type', type);
+    formData.append('data', data);
+    if (file) formData.append('file', file);
+    return apiClient.post<{
+      success: boolean;
+      data: {
+        tasks: Array<{ id: string; title: string; duration: number; priority: number; deadline?: string }>;
+        constraints: {
+          availableTime: Array<{ day: string; slots: string[] }>;
+          busyTime: Array<{ day: string; slots: string[] }>;
+        };
+      };
+    }>('/ai/normalize', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+
+  /**
+   * Phase 2: Generate Schedule from Unified JSON
+   */
+  generateFromUnified: (unifiedData: {
+    tasks: Array<{ id: string; title: string; duration: number; priority: number; deadline?: string }>;
+    timezoneOffsetMinutes?: number;
+    constraints: {
+      availableTime: Array<{ day: string; slots: string[] }>;
+      busyTime: Array<{ day: string; slots: string[] }>;
+    };
+  }) =>
+    apiClient.post<{
+      success: boolean;
+      scheduled: Array<Record<string, unknown>>;
+      overflow: string[];
+      message: string;
+    }>('/scheduler/schedule/generate-unified', unifiedData),
 };
+
 
 // ─── Analytics ───────────────────────────────────────────────────────────────
 
@@ -205,16 +248,7 @@ export const analyticsApi = {
   getDashboard: () =>
     apiClient.get<{
       success: boolean;
-      data: {
-        completionRate: number;
-        productivityScore: number;
-        timeDistribution: {
-          morning: number;
-          afternoon: number;
-          evening: number;
-        };
-        suggestions: string[];
-      };
+      data: AnalyticsDashboard;
     }>('/analytics/dashboard'),
 
   getInsights: (from: string, to: string) =>
@@ -230,10 +264,6 @@ export const analyticsApi = {
   getHistory: (period: 'weekly' | 'monthly' | 'yearly') =>
     apiClient.get<{
       success: boolean;
-      data: Array<{
-        date: string;
-        planned: number;
-        actual: number;
-      }>;
+      data: AnalyticsHistoryPoint[];
     }>('/analytics/history', { params: { period } }),
 };

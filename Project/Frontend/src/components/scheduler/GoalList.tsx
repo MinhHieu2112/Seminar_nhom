@@ -5,6 +5,11 @@ import { useGoals, useDeleteGoal } from '@/lib/hooks/useScheduler';
 import type { Goal } from '@/types/api';
 import { Target, Calendar, Trash2, ArrowRight, CheckCircle2, Sparkles } from 'lucide-react';
 
+function formatDeadline(deadline: string) {
+  const [year, month, day] = deadline.slice(0, 10).split('-');
+  return `${day}/${month}/${year}`;
+}
+
 export function GoalList() {
   const { data: goals, isLoading, error } = useGoals();
   const deleteGoal = useDeleteGoal();
@@ -80,7 +85,7 @@ export function GoalList() {
                 {goal.deadline && (
                   <span className="inline-flex items-center gap-1.5 text-sm text-gray-500">
                     <Calendar className="h-4 w-4" />
-                    {new Date(goal.deadline).toLocaleDateString()}
+                    {formatDeadline(goal.deadline)}
                   </span>
                 )}
                 <span

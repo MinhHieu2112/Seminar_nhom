@@ -2,16 +2,15 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { goalApi, taskApi, scheduleApi, aiApi } from '@/lib/api';
+import { ANALYTICS_QUERY_KEY } from '@/lib/hooks/useAnalytics';
 import type {
-  Goal,
-  Task,
-  ScheduleResult,
   CreateGoalRequest,
   CreateTaskRequest,
 } from '@/types/api';
 
 // ============ Goals ============
 const GOALS_QUERY_KEY = ['goals'];
+const GOAL_QUERY_KEY = ['goal'];
 
 export function useGoals() {
   return useQuery({
@@ -44,6 +43,7 @@ export function useCreateGoal() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: GOALS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: ANALYTICS_QUERY_KEY });
     },
   });
 }
@@ -64,7 +64,8 @@ export function useUpdateGoal() {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: GOALS_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: ['goal', variables.id] });
+      queryClient.invalidateQueries({ queryKey: [...GOAL_QUERY_KEY, variables.id] });
+      queryClient.invalidateQueries({ queryKey: ANALYTICS_QUERY_KEY });
     },
   });
 }
@@ -79,6 +80,9 @@ export function useDeleteGoal() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: GOALS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: TASKS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: SCHEDULE_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: ANALYTICS_QUERY_KEY });
     },
   });
 }
@@ -115,6 +119,9 @@ export function useCreateTask() {
       queryClient.invalidateQueries({
         queryKey: [...TASKS_QUERY_KEY, variables.goalId],
       });
+      queryClient.invalidateQueries({ queryKey: GOALS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: [...GOAL_QUERY_KEY, variables.goalId] });
+      queryClient.invalidateQueries({ queryKey: ANALYTICS_QUERY_KEY });
     },
   });
 }
@@ -125,7 +132,6 @@ export function useUpdateTask() {
   return useMutation({
     mutationFn: async ({
       id,
-      goalId,
       data,
     }: {
       id: string;
@@ -139,6 +145,10 @@ export function useUpdateTask() {
       queryClient.invalidateQueries({
         queryKey: [...TASKS_QUERY_KEY, variables.goalId],
       });
+      queryClient.invalidateQueries({ queryKey: GOALS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: [...GOAL_QUERY_KEY, variables.goalId] });
+      queryClient.invalidateQueries({ queryKey: SCHEDULE_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: ANALYTICS_QUERY_KEY });
     },
   });
 }
@@ -147,7 +157,7 @@ export function useDeleteTask() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, goalId }: { id: string; goalId: string }) => {
+    mutationFn: async ({ id }: { id: string; goalId: string }) => {
       const response = await taskApi.delete(id);
       return response.data;
     },
@@ -155,6 +165,10 @@ export function useDeleteTask() {
       queryClient.invalidateQueries({
         queryKey: [...TASKS_QUERY_KEY, variables.goalId],
       });
+      queryClient.invalidateQueries({ queryKey: GOALS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: [...GOAL_QUERY_KEY, variables.goalId] });
+      queryClient.invalidateQueries({ queryKey: SCHEDULE_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: ANALYTICS_QUERY_KEY });
     },
   });
 }
@@ -184,6 +198,8 @@ export function useGenerateSchedule() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: SCHEDULE_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: TASKS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: GOALS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: ANALYTICS_QUERY_KEY });
     },
   });
 }
@@ -198,6 +214,9 @@ export function useClearSchedule() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: SCHEDULE_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: TASKS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: GOALS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: ANALYTICS_QUERY_KEY });
     },
   });
 }
@@ -220,6 +239,7 @@ export function useDecomposeGoal() {
       // Invalidate tất cả task queries để TaskList re-fetch ngay
       queryClient.invalidateQueries({ queryKey: TASKS_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: GOALS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: ANALYTICS_QUERY_KEY });
     },
   });
 }
@@ -239,6 +259,7 @@ export function useAIGenerateSchedule() {
       queryClient.invalidateQueries({ queryKey: SCHEDULE_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: TASKS_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: GOALS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: ANALYTICS_QUERY_KEY });
     },
   });
 }

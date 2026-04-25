@@ -1,40 +1,25 @@
 'use client';
 
 import Link from 'next/link';
+import { Activity, BookOpen, Calendar, Clock, Target, Zap } from 'lucide-react';
 import { useAuthStore } from '@/lib/auth-store';
-import { Target, Calendar, BookOpen, Clock, Activity, Zap } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { analyticsApi } from '@/lib/api';
+import { useAnalyticsDashboard } from '@/lib/hooks/useAnalytics';
 
 export function DashboardContent() {
   const { user } = useAuthStore();
-  const [analytics, setAnalytics] = useState<any>(null);
-
-  useEffect(() => {
-    const fetchAnalytics = async () => {
-      try {
-        const res = await analyticsApi.getDashboard();
-        if (res.data.success) {
-          setAnalytics(res.data.data);
-        }
-      } catch (error) {
-        console.error('Failed to fetch analytics', error);
-      }
-    };
-    fetchAnalytics();
-  }, []);
+  const { data: analytics } = useAnalyticsDashboard();
 
   return (
     <div className="space-y-6">
-      {/* Welcome Section */}
       <div className="rounded-2xl bg-gradient-to-r from-blue-600 to-purple-600 p-8 text-white shadow-lg">
-        <h1 className="text-3xl font-bold">Welcome back, {user?.email.split('@')[0]}! 👋</h1>
+        <h1 className="text-3xl font-bold">
+          Welcome back, {user?.email?.split('@')[0] ?? 'there'}! 👋
+        </h1>
         <p className="mt-2 text-blue-100">
           Ready to achieve your goals today? Let&apos;s make progress together.
         </p>
       </div>
 
-      {/* Stats Cards */}
       <div className="grid gap-6 md:grid-cols-4">
         <div className="rounded-xl bg-white p-6 shadow-sm">
           <div className="flex items-center gap-4">
@@ -43,7 +28,9 @@ export function DashboardContent() {
             </div>
             <div>
               <p className="text-sm text-gray-500">Active Goals</p>
-              <p className="text-2xl font-bold text-gray-900">0</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {analytics?.summary?.activeGoals ?? 0}
+              </p>
             </div>
           </div>
         </div>
@@ -55,7 +42,9 @@ export function DashboardContent() {
             </div>
             <div>
               <p className="text-sm text-gray-500">Pending Tasks</p>
-              <p className="text-2xl font-bold text-gray-900">0</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {analytics?.summary?.pendingTasks ?? 0}
+              </p>
             </div>
           </div>
         </div>
@@ -89,25 +78,23 @@ export function DashboardContent() {
         </div>
       </div>
 
-      {/* Analytics Insights */}
       {analytics?.suggestions && analytics.suggestions.length > 0 && (
-        <div className="rounded-xl bg-white p-6 shadow-sm border border-blue-100">
-          <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+        <div className="rounded-xl border border-blue-100 bg-white p-6 shadow-sm">
+          <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
             <Activity className="h-5 w-5 text-blue-500" />
             AI Insights
           </h2>
           <ul className="mt-4 space-y-2">
-            {analytics.suggestions.map((sug: string, idx: number) => (
-              <li key={idx} className="flex gap-2 text-gray-700">
+            {analytics.suggestions.map((suggestion: string, index: number) => (
+              <li key={index} className="flex gap-2 text-gray-700">
                 <span className="text-blue-500">•</span>
-                {sug}
+                {suggestion}
               </li>
             ))}
           </ul>
         </div>
       )}
 
-      {/* Quick Actions */}
       <div className="rounded-xl bg-white p-6 shadow-sm">
         <h2 className="text-lg font-semibold text-gray-900">Quick Actions</h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
@@ -120,7 +107,9 @@ export function DashboardContent() {
             </div>
             <div>
               <p className="font-medium text-gray-900">Manage Goals</p>
-              <p className="text-sm text-gray-500">Create and track your goals</p>
+              <p className="text-sm text-gray-500">
+                Create and track your goals
+              </p>
             </div>
           </Link>
 

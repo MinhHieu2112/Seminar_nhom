@@ -1,35 +1,40 @@
 import { Controller } from '@nestjs/common';
 import { MessagePattern, Payload } from '@nestjs/microservices';
-import { QueueServiceService } from './queue-service.service';
-import { CreateQueueServiceDto } from './dto/create-queue-service.dto';
-import { UpdateQueueServiceDto } from './dto/update-queue-service.dto';
+import {
+  QueueServiceService,
+  ReplaceScheduleQueueItemInput,
+} from './queue-service.service';
 
 @Controller()
 export class QueueServiceController {
   constructor(private readonly queueServiceService: QueueServiceService) {}
 
-  @MessagePattern('createQueueService')
-  create(@Payload() createQueueServiceDto: CreateQueueServiceDto) {
-    return this.queueServiceService.create(createQueueServiceDto);
+  @MessagePattern('queue.schedule.replace')
+  replaceSchedule(
+    @Payload()
+    data: { userId: string; items: ReplaceScheduleQueueItemInput[] },
+  ) {
+    return this.queueServiceService.replaceUserSchedule(data.userId, data.items);
   }
 
-  @MessagePattern('findAllQueueService')
-  findAll() {
-    return this.queueServiceService.findAll();
+  @MessagePattern('queue.schedule.list')
+  listSchedule(
+    @Payload()
+    data: { userId: string; from?: string; to?: string },
+  ) {
+    return this.queueServiceService.listUserSchedule(
+      data.userId,
+      data.from ? new Date(data.from) : undefined,
+      data.to ? new Date(data.to) : undefined,
+    );
   }
 
-  @MessagePattern('findOneQueueService')
-  findOne(@Payload() id: number) {
-    return this.queueServiceService.findOne(id);
-  }
-
-  @MessagePattern('updateQueueService')
-  update(@Payload() updateQueueServiceDto: UpdateQueueServiceDto) {
-    return this.queueServiceService.update(updateQueueServiceDto.id, updateQueueServiceDto);
-  }
-
-  @MessagePattern('removeQueueService')
-  remove(@Payload() id: number) {
-    return this.queueServiceService.remove(id);
+  @MessagePattern('queue.schedule.clear')
+  async clearSchedule(@Payload() data: { userId: string; from?: string }) {
+    await this.queueServiceService.clearUserSchedule(
+      data.userId,
+      data.from ? new Date(data.from) : undefined,
+    );
+    return { success: true };
   }
 }

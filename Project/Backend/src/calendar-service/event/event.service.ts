@@ -25,6 +25,10 @@ export class EventService {
       isAllDay: dto.isAllDay ?? false,
       description: dto.description || null,
       externalId: dto.externalId || null,
+      taskId: dto.taskId || null,
+      pomodoroIndex: dto.pomodoroIndex ?? null,
+      sessionType: dto.sessionType ?? null,
+      queueOrder: dto.queueOrder ?? null,
     });
 
     return this.eventRepo.save(event);
@@ -34,8 +38,13 @@ export class EventService {
     userId: string,
     from?: Date,
     to?: Date,
+    source?: CalendarEvent['source'],
   ): Promise<CalendarEvent[]> {
     const where: FindOptionsWhere<CalendarEvent> = { userId };
+
+    if (source) {
+      where.source = source;
+    }
 
     if (from && to) {
       where.startTime = LessThan(to);
@@ -71,6 +80,10 @@ export class EventService {
       ...dto,
       startTime: dto.startTime ? new Date(dto.startTime) : event.startTime,
       endTime: dto.endTime ? new Date(dto.endTime) : event.endTime,
+      taskId: dto.taskId ?? event.taskId,
+      pomodoroIndex: dto.pomodoroIndex ?? event.pomodoroIndex,
+      sessionType: dto.sessionType ?? event.sessionType,
+      queueOrder: dto.queueOrder ?? event.queueOrder,
     });
 
     return this.eventRepo.save(event);
@@ -99,5 +112,40 @@ export class EventService {
     }
 
     return query.getMany();
+  }
+
+  async replaceSystemSchedule(
+    userId: string,
+    items: CreateEventDto[],
+  ): Promise<CalendarEvent[]> {
+    await this.eventRepo.delete({
+      userId,
+      source: 'system',
+    });
+
+    if (items.length === 0) {
+      return [];
+    }
+
+    const events = items.map((item) =>
+      this.eventRepo.create({
+        userId,
+        title: item.title,
+        startTime: new Date(item.startTime),
+        endTime: new Date(item.endTime),
+        recurrenceRule: item.recurrenceRule || null,
+        priority: item.priority ?? 3,
+        source: 'system',
+        isAllDay: item.isAllDay ?? false,
+        description: item.description || null,
+        externalId: item.externalId || null,
+        taskId: item.taskId || null,
+        pomodoroIndex: item.pomodoroIndex ?? null,
+        sessionType: item.sessionType ?? null,
+        queueOrder: item.queueOrder ?? null,
+      }),
+    );
+
+    return this.eventRepo.save(events);
   }
 }

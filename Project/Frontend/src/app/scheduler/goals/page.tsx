@@ -2,20 +2,23 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { Calendar, Plus, Target } from 'lucide-react';
 import { GoalList } from '@/components/scheduler/GoalList';
 import { GoalModal } from '@/components/scheduler/GoalModal';
-import { Target, Calendar, Plus } from 'lucide-react';
+import { useAnalyticsDashboard } from '@/lib/hooks/useAnalytics';
 
 export default function GoalsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const { data: analytics } = useAnalyticsDashboard();
 
   return (
     <div className="space-y-6">
-      {/* Header Section */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">My Goals</h1>
-          <p className="mt-1 text-gray-500">Manage your study goals and track progress</p>
+          <p className="mt-1 text-gray-500">
+            Manage your study goals and track progress
+          </p>
         </div>
         <div className="flex gap-3">
           <Link
@@ -35,7 +38,6 @@ export default function GoalsPage() {
         </div>
       </div>
 
-      {/* Stats Overview */}
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="rounded-xl bg-white p-4 shadow-sm">
           <div className="flex items-center gap-3">
@@ -44,7 +46,9 @@ export default function GoalsPage() {
             </div>
             <div>
               <p className="text-sm text-gray-500">Total Goals</p>
-              <p className="text-xl font-semibold text-gray-900">0</p>
+              <p className="text-xl font-semibold text-gray-900">
+                {analytics?.summary?.totalGoals ?? 0}
+              </p>
             </div>
           </div>
         </div>
@@ -55,7 +59,9 @@ export default function GoalsPage() {
             </div>
             <div>
               <p className="text-sm text-gray-500">Completed</p>
-              <p className="text-xl font-semibold text-gray-900">0</p>
+              <p className="text-xl font-semibold text-gray-900">
+                {analytics?.summary?.completedGoals ?? 0}
+              </p>
             </div>
           </div>
         </div>
@@ -66,16 +72,16 @@ export default function GoalsPage() {
             </div>
             <div>
               <p className="text-sm text-gray-500">In Progress</p>
-              <p className="text-xl font-semibold text-gray-900">0</p>
+              <p className="text-xl font-semibold text-gray-900">
+                {analytics?.summary?.activeGoals ?? 0}
+              </p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Goal List */}
       <GoalList />
 
-      {/* Goal Modal */}
       <GoalModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
     </div>
   );

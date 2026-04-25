@@ -65,6 +65,7 @@ export interface JwtPayload {
 // ─── Scheduler ────────────────────────────────────────────────────────────────
 
 export type TaskStatus = 'pending' | 'scheduled' | 'done' | 'skipped';
+export type BlockStatus = 'planned' | 'done' | 'missed' | 'shifted';
 export type TaskType = 'theory' | 'practice' | 'review';
 export type TaskSource = 'manual' | 'ai';
 export type GoalStatus = 'active' | 'completed' | 'paused';
@@ -87,10 +88,12 @@ export interface Task {
   title: string;
   durationMin: number;
   priority: number;
+  deadline?: string | null;
   type: TaskType;
   status: TaskStatus;
   source: TaskSource;
   createdAt: string;
+  goal?: Pick<Goal, 'id' | 'title' | 'deadline' | 'status'>;
   scheduleBlocks?: ScheduleBlock[];
 }
 
@@ -101,7 +104,9 @@ export interface ScheduleBlock {
   plannedStart: string;
   plannedEnd: string;
   pomodoroIndex: number;
-  status: TaskStatus;
+  sessionType?: 'morning' | 'afternoon' | 'evening' | null;
+  queueOrder?: number | null;
+  status: BlockStatus;
   createdAt: string;
   task?: Pick<Task, 'id' | 'title' | 'durationMin' | 'priority' | 'type'>;
 }
@@ -122,7 +127,7 @@ export interface ScheduledBlockDto {
   plannedStart: string;
   plannedEnd: string;
   pomodoroIndex: number;
-  status: TaskStatus;
+  status: BlockStatus;
 }
 
 export interface ScheduleResult {
@@ -148,6 +153,10 @@ export interface CalendarEvent {
   isAllDay: boolean;
   description: string | null;
   externalId: string | null;
+  taskId: string | null;
+  pomodoroIndex: number | null;
+  sessionType: 'morning' | 'afternoon' | 'evening' | null;
+  queueOrder: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -161,6 +170,11 @@ export interface CreateEventRequest {
   priority?: number;
   isAllDay?: boolean;
   source?: EventSource;
+  externalId?: string;
+  taskId?: string;
+  pomodoroIndex?: number;
+  sessionType?: 'morning' | 'afternoon' | 'evening';
+  queueOrder?: number;
 }
 
 export interface FreeSlot {
@@ -178,4 +192,45 @@ export interface WorkingHoursConfig {
   isWorkingDay: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+// ─── Analytics ───────────────────────────────────────────────────────────────
+
+export interface TimeDistribution {
+  morning: number;
+  afternoon: number;
+  evening: number;
+}
+
+export interface AnalyticsSummary {
+  totalGoals: number;
+  activeGoals: number;
+  completedGoals: number;
+  totalTasks: number;
+  pendingTasks: number;
+  completedTasks: number;
+  overdueTasks: number;
+  plannedBlocks: number;
+  completedBlocks: number;
+}
+
+export interface WeeklyOverview {
+  scheduledBlocks: number;
+  studyHours: number;
+  completedTasks: number;
+}
+
+export interface AnalyticsDashboard {
+  completionRate: number;
+  productivityScore: number;
+  timeDistribution: TimeDistribution;
+  suggestions: string[];
+  summary: AnalyticsSummary;
+  weeklyOverview: WeeklyOverview;
+}
+
+export interface AnalyticsHistoryPoint {
+  date: string;
+  planned: number;
+  actual: number;
 }

@@ -2,16 +2,56 @@
 
 import { useState } from 'react';
 import {
-  useTasks,
   useCreateTask,
-  useUpdateTask,
   useDeleteTask,
+  useTasks,
+  useUpdateTask,
 } from '@/lib/hooks/useScheduler';
 import { createTaskSchema } from '@/lib/schemas';
 import type { Task } from '@/types/api';
 
 interface TaskListProps {
   goalId: string;
+}
+
+function getTaskDeadline(task: Task): string | null {
+  return task.deadline ?? task.goal?.deadline ?? null;
+}
+
+function getDeadlineDateKey(deadline: string | null): string | null {
+  if (!deadline) {
+    return null;
+  }
+
+  return deadline.slice(0, 10);
+}
+
+function getTodayDateKey() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = `${now.getMonth() + 1}`.padStart(2, '0');
+  const day = `${now.getDate()}`.padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function isTaskLocked(task: Task): boolean {
+  const deadlineKey = getDeadlineDateKey(getTaskDeadline(task));
+  if (!deadlineKey) {
+    return false;
+  }
+
+  const todayKey = getTodayDateKey();
+  return deadlineKey < todayKey;
+}
+
+function formatDeadline(deadline: string | null): string | null {
+  const dateKey = getDeadlineDateKey(deadline);
+  if (!dateKey) {
+    return null;
+  }
+
+  const [year, month, day] = dateKey.split('-');
+  return `${day}/${month}/${year}`;
 }
 
 export function TaskList({ goalId }: TaskListProps) {
@@ -56,6 +96,10 @@ export function TaskList({ goalId }: TaskListProps) {
   }
 
   function handleToggleStatus(task: Task) {
+    if (isTaskLocked(task)) {
+      return;
+    }
+
     const newStatus = task.status === 'done' ? 'pending' : 'done';
     updateTask.mutate({
       id: task.id,
@@ -148,48 +192,64 @@ export function TaskList({ goalId }: TaskListProps) {
         <p className="text-gray-500">No tasks yet.</p>
       ) : (
         <div className="space-y-2">
-          {tasks?.map((task: Task) => (
-            <div
-              key={task.id}
-              className={`flex items-center justify-between rounded-md border p-3 ${
-                task.status === 'done'
-                  ? 'bg-gray-100'
-                  : 'bg-white'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  checked={task.status === 'done'}
-                  onChange={() => handleToggleStatus(task)}
-                  className="h-4 w-4"
-                />
-                <div>
-                  <p
-                    className={`font-medium ${
-                      task.status === 'done'
-                        ? 'line-through text-gray-500'
-                        : ''
-                    }`}
-                  >
-                    {task.title}
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    {task.durationMin}min · Priority {task.priority} ·{' '}
-                    {task.type}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() =>
-                  deleteTask.mutate({ id: task.id, goalId })
-                }
-                className="text-sm text-red-600 hover:text-red-800"
+          {tasks?.map((task: Task) => {
+            const deadline = getTaskDeadline(task);
+            const locked = isTaskLocked(task);
+
+            return (
+              <div
+                key={task.id}
+                className={`flex items-center justify-between rounded-md border p-3 ${
+                  task.status === 'done' ? 'bg-gray-100' : 'bg-white'
+                } ${locked ? 'border-red-200 bg-red-50/60' : ''}`}
               >
-                Delete
-              </button>
-            </div>
-          ))}
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={task.status === 'done'}
+                    onChange={() => handleToggleStatus(task)}
+                    disabled={locked || updateTask.isPending}
+                    className="h-4 w-4"
+                  />
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p
+                        className={`font-medium ${
+                          task.status === 'done'
+                            ? 'line-through text-gray-500'
+                            : ''
+                        }`}
+                      >
+                        {task.title}
+                      </p>
+                      {locked && (
+                        <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
+                          Overdue
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm text-gray-500">
+                      {task.durationMin}min · Priority {task.priority} ·{' '}
+                      {task.type}
+                      {deadline ? ` · Due ${formatDeadline(deadline)}` : ''}
+                    </p>
+                    {locked && (
+                      <p className="text-xs text-red-600">
+                        Task quá hạn đang bị khóa, không thể đổi trạng thái hoặc xóa.
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <button
+                  onClick={() => deleteTask.mutate({ id: task.id, goalId })}
+                  disabled={locked || deleteTask.isPending}
+                  className="text-sm text-red-600 hover:text-red-800 disabled:cursor-not-allowed disabled:text-red-300"
+                >
+                  Delete
+                </button>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

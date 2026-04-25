@@ -9,14 +9,14 @@ async function bootstrap() {
       transport: Transport.TCP,
       options: {
         host: '0.0.0.0',
-        port: parseInt(process.env.ANALYTICS_TCP_PORT || '3004', 10),
+        port: parseInt(process.env.ANALYTICS_SERVICE_PORT || process.env.ANALYTICS_TCP_PORT || '8006', 10),
       },
     },
   );
 
   await app.listen();
   console.log(
-    `Analytics Service (TCP) listening on 0.0.0.0:${process.env.ANALYTICS_TCP_PORT || '3004'}`,
+    `Analytics Service (TCP) listening on 0.0.0.0:${process.env.ANALYTICS_SERVICE_PORT || process.env.ANALYTICS_TCP_PORT || '8006'}`,
   );
 }
 bootstrap();

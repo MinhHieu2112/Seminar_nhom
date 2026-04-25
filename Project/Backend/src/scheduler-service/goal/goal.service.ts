@@ -23,7 +23,7 @@ export class GoalService {
     // FIX: validate và parse deadline an toàn
     let deadlineDate: Date | null = null;
     if (dto.deadline) {
-      const parsed = new Date(dto.deadline);
+      const parsed = this.parseDeadline(dto.deadline);
       // Kiểm tra Invalid Date
       if (isNaN(parsed.getTime())) {
         throw new BadRequestException(
@@ -79,7 +79,7 @@ export class GoalService {
       if (dto.deadline === null || dto.deadline === '') {
         deadlineDate = null;
       } else {
-        const parsed = new Date(dto.deadline);
+        const parsed = this.parseDeadline(dto.deadline);
         if (isNaN(parsed.getTime())) {
           throw new BadRequestException(
             `Invalid deadline format: "${dto.deadline}".`,
@@ -101,5 +101,13 @@ export class GoalService {
     const goal = await this.findOne(id, userId);
     await this.goalRepo.remove(goal);
     return { success: true };
+  }
+
+  private parseDeadline(value: string): Date {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      return new Date(`${value}T23:59:59.999Z`);
+    }
+
+    return new Date(value);
   }
 }

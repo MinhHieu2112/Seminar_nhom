@@ -12,7 +12,7 @@ import { Goal } from './goal.entity';
 import { ScheduleBlock } from './schedule-block.entity';
 
 export type TaskStatus = 'pending' | 'scheduled' | 'done' | 'skipped';
-export type TaskType = 'theory' | 'practice';
+export type TaskType = 'theory' | 'practice' | 'review';
 export type TaskSource = 'ai' | 'manual';
 
 @Entity('tasks')
@@ -40,6 +40,9 @@ export class Task {
 
   @Column('smallint', { default: 3 })
   priority!: number;
+
+  @Column('timestamptz', { nullable: true })
+  deadline!: Date | null;
 
   @Column('varchar', { length: 20, default: 'theory' })
   type!: TaskType;

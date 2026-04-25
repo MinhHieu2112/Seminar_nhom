@@ -57,6 +57,65 @@ async function safeSend<T>(
   }
 }
 
+async function syncSystemScheduleFromQueue(
+  tcpClient: TcpClientService,
+  userId: string,
+) {
+  const queueItems = await safeSend<any[]>(
+    tcpClient,
+    'queue-service',
+    'queue.schedule.list',
+    { userId },
+  );
+
+  await safeSend(
+    tcpClient,
+    'calendar-service',
+    'calendar.schedule.replace',
+    {
+      userId,
+      items: queueItems.map((item) => ({
+        title: item.taskTitle,
+        startTime:
+          item.plannedStart instanceof Date
+            ? item.plannedStart.toISOString()
+            : item.plannedStart,
+        endTime:
+          item.plannedEnd instanceof Date
+            ? item.plannedEnd.toISOString()
+            : item.plannedEnd,
+        priority: 3,
+        source: 'system',
+        description: `${item.sessionType} session`,
+        externalId: item.id,
+        taskId: item.taskId,
+        pomodoroIndex: item.pomodoroIndex,
+        sessionType: item.sessionType,
+        queueOrder: item.queueOrder,
+      })),
+    },
+  );
+}
+
+function mapCalendarEventsToScheduleBlocks(events: any[]) {
+  return events.map((event) => ({
+    id: event.id,
+    taskId: event.taskId ?? event.externalId ?? event.id,
+    userId: event.userId,
+    plannedStart: event.startTime,
+    plannedEnd: event.endTime,
+    pomodoroIndex: event.pomodoroIndex ?? 1,
+    sessionType: event.sessionType ?? null,
+    queueOrder: event.queueOrder ?? null,
+    status: 'scheduled',
+    createdAt: event.createdAt,
+    task: {
+      id: event.taskId ?? event.externalId ?? event.id,
+      title: event.title,
+    },
+  }));
+}
+
 // ─── Auth ────────────────────────────────────────────────────────────────────
 
 @Controller('api/v1/auth')
@@ -401,12 +460,12 @@ export class SchedulerGatewayController {
   // ── Schedule ───────────────────────────────────────────────────────────────
 
   @Post('schedule/generate')
-  generateSchedule(
+  async generateSchedule(
     @Headers('authorization') authHeader: string,
     @Body() body?: { fromDate?: string; toDate?: string },
   ) {
     const userId = extractUserId(authHeader, this.jwtService);
-    return safeSend(
+    const result = await safeSend(
       this.tcpClient,
       'scheduler-service',
       'scheduler.schedule.generate',
@@ -416,34 +475,58 @@ export class SchedulerGatewayController {
         toDate: body?.toDate,
       },
     );
+    await syncSystemScheduleFromQueue(this.tcpClient, userId);
+    return result;
+  }
+
+  @Post('schedule/generate-unified')
+  async generateScheduleUnified(
+    @Headers('authorization') authHeader: string,
+    @Body() body: any, // GenerateUnifiedDto
+  ) {
+    const userId = extractUserId(authHeader, this.jwtService);
+    const result = await safeSend(
+      this.tcpClient,
+      'scheduler-service',
+      'scheduler.schedule.generateUnified',
+      {
+        ...body,
+        userId,
+      },
+    );
+    await syncSystemScheduleFromQueue(this.tcpClient, userId);
+    return result;
   }
 
   @Get('schedule/view')
-  viewSchedule(
+  async viewSchedule(
     @Headers('authorization') authHeader: string,
     @Query() query: { from: string; to: string },
   ) {
     const userId = extractUserId(authHeader, this.jwtService);
-    return safeSend(
+    await syncSystemScheduleFromQueue(this.tcpClient, userId);
+    const events = await safeSend<any[]>(
       this.tcpClient,
-      'scheduler-service',
-      'scheduler.schedule.view',
+      'calendar-service',
+      'calendar.event.list',
       {
         userId,
         from: query.from,
         to: query.to,
+        source: 'system',
       },
     );
+    return mapCalendarEventsToScheduleBlocks(events);
   }
 
   @Post('schedule/clear')
   @HttpCode(HttpStatus.OK)
-  clearSchedule(
+  async clearSchedule(
     @Headers('authorization') authHeader: string,
     @Body() body?: { from?: string },
   ) {
     const userId = extractUserId(authHeader, this.jwtService);
-    return safeSend(
+    const result = await safeSend(
       this.tcpClient,
       'scheduler-service',
       'scheduler.schedule.clear',
@@ -452,6 +535,8 @@ export class SchedulerGatewayController {
         from: body?.from,
       },
     );
+    await syncSystemScheduleFromQueue(this.tcpClient, userId);
+    return result;
   }
 }
 
@@ -594,6 +679,29 @@ export class AiGatewayController {
     private readonly tcpClient: TcpClientService,
     private readonly jwtService: JwtService,
   ) {}
+
+  @Post('normalize')
+  @UseInterceptors(FileInterceptor('file'))
+  @HttpCode(HttpStatus.OK)
+  async normalizeInput(
+    @Headers('authorization') authHeader: string,
+    @Body() body: { type: 'manual' | 'csv'; data?: string },
+    @UploadedFile() file?: any, // Express.Multer.File
+  ) {
+    const userId = extractUserId(authHeader, this.jwtService);
+    
+    let dataToNormalize = body.data || '';
+    if (body.type === 'csv' && file) {
+      dataToNormalize = file.buffer.toString('utf-8');
+    }
+
+    return safeSend(
+      this.tcpClient,
+      'ai-service',
+      'ai.normalize',
+      { userId, type: body.type, data: dataToNormalize },
+    );
+  }
 
   @Post('decompose/:goalId')
   @HttpCode(HttpStatus.CREATED)
@@ -754,6 +862,7 @@ export class AiGatewayController {
         'scheduler.schedule.generateCustom',
         { userId, customSlots: aiResult.availableSlots }
       );
+      await syncSystemScheduleFromQueue(this.tcpClient, userId);
     } catch (err) {
       throw new InternalServerErrorException('Failed to schedule the tasks with custom slots');
     }

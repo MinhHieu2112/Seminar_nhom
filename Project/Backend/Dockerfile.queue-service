@@ -12,6 +12,6 @@ COPY src/ ./src/
 
 RUN npm ci && npm run build
 
-EXPOSE 8003
+EXPOSE 8007
 
-CMD ["node", "dist/main.scheduler.js"]
+CMD ["node", "dist/main.queue.js"]

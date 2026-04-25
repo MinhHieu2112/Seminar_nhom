@@ -47,4 +47,22 @@ export class CreateEventDto {
   @IsString()
   @IsOptional()
   externalId?: string;
+
+  @IsString()
+  @IsOptional()
+  taskId?: string;
+
+  @IsInt()
+  @Min(1)
+  @IsOptional()
+  pomodoroIndex?: number;
+
+  @IsString()
+  @IsOptional()
+  sessionType?: 'morning' | 'afternoon' | 'evening';
+
+  @IsInt()
+  @Min(1)
+  @IsOptional()
+  queueOrder?: number;
 }

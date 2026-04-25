@@ -24,6 +24,7 @@ export class AvailabilityService {
     const busyEvents = await this.eventRepo
       .createQueryBuilder('event')
       .where('event.userId = :userId', { userId })
+      .andWhere('event.source != :systemSource', { systemSource: 'system' })
       .andWhere('event.startTime < :to', { to })
       .andWhere('event.endTime > :from', { from })
       .orderBy('event.startTime', 'ASC')

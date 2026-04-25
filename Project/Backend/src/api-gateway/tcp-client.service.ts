@@ -31,6 +31,11 @@ export class TcpClientService implements OnModuleInit, OnModuleDestroy {
       port: this.configService.get<number>('SCHEDULER_SERVICE_PORT', 8003),
     });
 
+    this.registerClient('queue-service', {
+      host: this.configService.get('QUEUE_SERVICE_HOST', 'localhost'),
+      port: this.configService.get<number>('QUEUE_SERVICE_PORT', 8007),
+    });
+
     this.registerClient('notification-service', {
       host: this.configService.get('NOTIFICATION_SERVICE_HOST', 'localhost'),
       port: this.configService.get<number>('NOTIFICATION_SERVICE_PORT', 8002),

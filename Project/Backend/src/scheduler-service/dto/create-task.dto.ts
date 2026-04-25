@@ -18,8 +18,8 @@ export class CreateTaskDto {
   priority?: number;
 
   @IsOptional()
-  @IsEnum(['theory', 'practice'] as const)
-  type?: 'theory' | 'practice';
+  @IsEnum(['theory', 'practice', 'review'] as const)
+  type?: 'theory' | 'practice' | 'review';
 
   @IsOptional()
   @IsEnum(['ai', 'manual'] as const)

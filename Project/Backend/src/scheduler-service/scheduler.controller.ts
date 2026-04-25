@@ -3,7 +3,7 @@ import { MessagePattern, Payload } from '@nestjs/microservices';
 import { GoalService } from './goal/goal.service';
 import { TaskService } from './task/task.service';
 import { ScheduleService } from './schedule/schedule.service';
-import { CreateGoalDto, CreateTaskDto, GenerateScheduleDto } from './dto';
+import { CreateGoalDto, CreateTaskDto, GenerateScheduleDto, GenerateUnifiedDto } from './dto';
 
 type GoalPayload = {
   userId: string;
@@ -28,7 +28,7 @@ type TaskPayload = {
   title?: string;
   durationMin?: number;
   priority?: number;
-  type?: 'theory' | 'practice';
+  type?: 'theory' | 'practice' | 'review';
   source?: 'ai' | 'manual';
   dto?: CreateTaskDto;
 };
@@ -169,6 +169,11 @@ export class SchedulerController {
       data.userId,
       data.customSlots,
     );
+  }
+
+  @MessagePattern('scheduler.schedule.generateUnified')
+  async generateScheduleUnified(@Payload() dto: GenerateUnifiedDto) {
+    return this.scheduleService.generateScheduleFromUnified(dto);
   }
 
   @MessagePattern('scheduler.schedule.view')

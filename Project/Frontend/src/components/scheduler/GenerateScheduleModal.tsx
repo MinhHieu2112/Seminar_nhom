@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
-import { X, Calendar, UploadCloud, Target, AlignLeft, Clock } from 'lucide-react';
-import { useAIGenerateSchedule } from '@/lib/hooks/useScheduler';
+import { useState, useRef } from 'react';
+import { X, Target, UploadCloud, FileText, Calendar, Clock, Plus, Trash2, AlertCircle, CheckCircle2, ChevronRight, Loader2 } from 'lucide-react';
+import { aiApi } from '@/lib/api';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface GenerateScheduleModalProps {
   isOpen: boolean;
@@ -11,223 +12,554 @@ interface GenerateScheduleModalProps {
   defaultToDate: string;
 }
 
-export function GenerateScheduleModal({ isOpen, onClose, defaultFromDate, defaultToDate }: GenerateScheduleModalProps) {
-  const [subject, setSubject] = useState('');
-  const [fromDate, setFromDate] = useState(defaultFromDate.split('T')[0]);
-  const [toDate, setToDate] = useState(defaultToDate.split('T')[0]);
-  const [studyHours, setStudyHours] = useState(2);
-  const [preferredTimes, setPreferredTimes] = useState<string[]>(['morning']);
-  const [notes, setNotes] = useState('');
-  const [file, setFile] = useState<File | null>(null);
+interface ManualTask {
+  id: string;
+  title: string;
+  duration: number;
+  priority: number;
+  deadline: string;
+}
 
-  const generateSchedule = useAIGenerateSchedule();
+interface BusySlot {
+  id: string;
+  day: string;
+  slots: string;
+}
+
+interface UnifiedTaskPreview {
+  id: string;
+  title: string;
+  duration: number;
+  priority: number;
+  deadline?: string;
+}
+
+interface UnifiedConstraintEntry {
+  day: string;
+  slots: string[];
+}
+
+interface UnifiedPreviewData {
+  tasks: UnifiedTaskPreview[];
+  constraints: {
+    availableTime: UnifiedConstraintEntry[];
+    busyTime: UnifiedConstraintEntry[];
+  };
+}
+
+type Step = 'input' | 'preview' | 'done';
+type InputMode = 'manual' | 'csv';
+
+function formatLocalDateInput(date: Date) {
+  const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return offsetDate.toISOString().split('T')[0];
+}
+
+function getMinAllowedDate(defaultFromDate: string) {
+  const today = formatLocalDateInput(new Date());
+  const fallback = defaultFromDate.split('T')[0];
+  return fallback > today ? fallback : today;
+}
+
+function getErrorMessage(error: unknown, fallback: string) {
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'response' in error &&
+    typeof error.response === 'object' &&
+    error.response !== null &&
+    'data' in error.response &&
+    typeof error.response.data === 'object' &&
+    error.response.data !== null &&
+    'message' in error.response.data &&
+    typeof error.response.data.message === 'string'
+  ) {
+    return error.response.data.message;
+  }
+
+  return fallback;
+}
+
+export function GenerateScheduleModal({ isOpen, onClose, defaultFromDate, defaultToDate }: GenerateScheduleModalProps) {
+  const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const minAllowedDate = getMinAllowedDate(defaultFromDate);
+
+  const [step, setStep] = useState<Step>('input');
+  const [mode, setMode] = useState<InputMode>('manual');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Manual mode state
+  const [tasks, setTasks] = useState<ManualTask[]>([
+    { id: '1', title: '', duration: 60, priority: 3, deadline: defaultToDate.split('T')[0] }
+  ]);
+  const [busySlots, setBusySlots] = useState<BusySlot[]>([]);
+
+  // CSV mode state
+  const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [csvPreview, setCsvPreview] = useState<string>('');
+
+  // Unified JSON preview (after Phase 1)
+  const [unifiedData, setUnifiedData] = useState<UnifiedPreviewData | null>(null);
 
   if (!isOpen) return null;
 
-  const handleTimeToggle = (time: string) => {
-    setPreferredTimes((prev) =>
-      prev.includes(time) ? prev.filter((t) => t !== time) : [...prev, time]
-    );
+  // ── Manual task helpers ───────────────────────────────────────────────────
+
+  const addTask = () => {
+    setTasks(prev => [...prev, { id: Date.now().toString(), title: '', duration: 60, priority: 3, deadline: defaultToDate.split('T')[0] }]);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-
-    const formData = new FormData();
-    formData.append('subject', subject);
-    formData.append('fromDate', new Date(fromDate).toISOString());
-    formData.append('toDate', new Date(toDate).toISOString());
-    formData.append('studyHoursPerDay', studyHours.toString());
-    formData.append('preferredTimes', JSON.stringify(preferredTimes));
-    if (notes) formData.append('notes', notes);
-    if (file) formData.append('csvFile', file);
-
-    generateSchedule.mutate(formData, {
-      onSuccess: () => {
-        setSubject('');
-        setFile(null);
-        onClose();
-      },
-    });
+  const removeTask = (id: string) => {
+    setTasks(prev => prev.filter(t => t.id !== id));
   };
+
+  const updateTask = (id: string, field: keyof ManualTask, value: string | number) => {
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, [field]: value } : t));
+  };
+
+  const addBusySlot = () => {
+    setBusySlots(prev => [...prev, { id: Date.now().toString(), day: minAllowedDate, slots: '09:00-10:00' }]);
+  };
+
+  const removeBusySlot = (id: string) => {
+    setBusySlots(prev => prev.filter(b => b.id !== id));
+  };
+
+  const updateBusySlot = (id: string, field: keyof BusySlot, value: string) => {
+    setBusySlots(prev => prev.map(b => b.id === id ? { ...b, [field]: value } : b));
+  };
+
+  // ── CSV helpers ───────────────────────────────────────────────────────────
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setCsvFile(file);
+    const text = await file.text();
+    setCsvPreview(text.split('\n').slice(0, 6).join('\n'));
+  };
+
+  // ── Phase 1: Normalize ────────────────────────────────────────────────────
+
+  const handleNormalize = async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      let unified: UnifiedPreviewData;
+
+      if (mode === 'csv' && csvFile) {
+        const result = await aiApi.normalizeInput('csv', '', csvFile);
+        unified = result.data?.data || result.data;
+      } else {
+        // Convert manual tasks to CSV string for normalization
+        const csvString = [
+          'title,duration,priority,deadline',
+          ...tasks.filter(t => t.title).map(t => `${t.title},${t.duration},${t.priority},${t.deadline}`)
+        ].join('\n');
+        const result = await aiApi.normalizeInput('csv', csvString);
+        unified = result.data?.data || result.data;
+      }
+
+      if (busySlots.some((slot) => slot.day < minAllowedDate)) {
+        setError('Busy Time chỉ được phép chọn từ hiện tại trở đi.');
+        setIsLoading(false);
+        return;
+      }
+
+      // Inject busyTime from manual input
+      if (busySlots.length > 0) {
+        const busyByDay: Record<string, string[]> = {};
+        for (const b of busySlots) {
+          if (!busyByDay[b.day]) busyByDay[b.day] = [];
+          busyByDay[b.day].push(b.slots);
+        }
+        unified.constraints.busyTime = Object.entries(busyByDay).map(([day, slots]) => ({ day, slots }));
+      }
+
+      setUnifiedData(unified);
+      setStep('preview');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to normalize input. Please check your data.'));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // ── Phase 2: Generate Schedule ────────────────────────────────────────────
+
+  const handleGenerate = async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // Ensure we send only tasks + constraints (not the full response wrapper)
+      const payload = {
+        tasks: unifiedData?.tasks ?? [],
+        timezoneOffsetMinutes: new Date().getTimezoneOffset(),
+        constraints: unifiedData?.constraints ?? { availableTime: [], busyTime: [] },
+      };
+
+      if (!payload.tasks.length) {
+        setError('No tasks found in the normalized data. Please check your input and try again.');
+        setIsLoading(false);
+        return;
+      }
+
+      await aiApi.generateFromUnified(payload);
+      await queryClient.invalidateQueries({ queryKey: ['schedule'] });
+      setStep('done');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to generate schedule. Please try again.'));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleClose = () => {
+    setStep('input');
+    setError(null);
+    setUnifiedData(null);
+    setCsvFile(null);
+    setCsvPreview('');
+    setTasks([{ id: '1', title: '', duration: 60, priority: 3, deadline: defaultToDate.split('T')[0] }]);
+    setBusySlots([]);
+    onClose();
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto">
-        <div className="flex items-start justify-between border-b border-gray-100 pb-4 mb-6">
-          <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-              <Target className="h-6 w-6" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl max-h-[90vh] flex flex-col">
+
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 flex-shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 text-white">
+              <Target className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-gray-900">Generate AI Schedule</h2>
-              <p className="text-sm text-gray-500">Set up your study schedule</p>
+              <h2 className="text-lg font-bold text-gray-900">Smart Schedule Generator</h2>
+              <p className="text-xs text-gray-500">
+                {step === 'input' ? 'Step 1: Enter your tasks & constraints' :
+                  step === 'preview' ? 'Step 2: Review normalized data' :
+                    'Schedule generated!'}
+              </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-          >
+          <button onClick={handleClose} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors">
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Title/Subject */}
-          <div>
-            <label className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700">
-              <Target className="h-4 w-4 text-gray-400" />
-              Title <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              required
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              placeholder="e.g., Learn React Basics"
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-900 placeholder-gray-400 shadow-none focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
-          </div>
-
-          {/* Dates */}
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700">
-                <Calendar className="h-4 w-4 text-gray-400" />
-                From Date <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="date"
-                required
-                value={fromDate}
-                onChange={(e) => setFromDate(e.target.value)}
-                className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-900 shadow-none focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700">
-                <Calendar className="h-4 w-4 text-gray-400" />
-                To Date <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="date"
-                required
-                value={toDate}
-                onChange={(e) => setToDate(e.target.value)}
-                className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-900 shadow-none focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              />
-            </div>
-          </div>
-
-          {/* Study Hours & Preferred Time */}
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700">
-                <Clock className="h-4 w-4 text-gray-400" />
-                Hours per day <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                min="1"
-                max="12"
-                required
-                value={studyHours}
-                onChange={(e) => setStudyHours(Number(e.target.value))}
-                className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-900 shadow-none focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700">
-                Preferred Time <span className="text-red-500">*</span>
-              </label>
-              <div className="flex h-11.5 items-center gap-4 rounded-xl border border-gray-200 px-4 shadow-none">
-                {['morning', 'afternoon', 'evening'].map((time) => (
-                  <label key={time} className="flex items-center gap-2 cursor-pointer text-sm text-gray-700">
-                    <input
-                      type="checkbox"
-                      checked={preferredTimes.includes(time)}
-                      onChange={() => handleTimeToggle(time)}
-                      className="rounded border-gray-300 text-purple-500 focus:ring-purple-500"
-                    />
-                    <span className="capitalize">{time}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Description/Notes */}
-          <div>
-            <label className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700">
-              <AlignLeft className="h-4 w-4 text-gray-400" />
-              Description <span className="text-gray-400 font-normal">(optional)</span>
-            </label>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Add details about your goal or AI preferences..."
-              rows={3}
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-900 placeholder-gray-400 shadow-none focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
-          </div>
-
-          {/* CSV Upload */}
-          <div>
-            <label className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700">
-              <UploadCloud className="h-4 w-4 text-gray-400" />
-              Timetable (CSV) <span className="text-gray-400 font-normal">(optional)</span>
-            </label>
-            <div className="mt-1 flex justify-center rounded-xl border border-dashed border-gray-300 px-6 py-6 hover:bg-gray-50 transition-colors">
-              <div className="space-y-2 text-center">
-                <div className="flex text-sm text-gray-600 justify-center">
-                  <label className="relative cursor-pointer rounded-md bg-transparent font-medium text-blue-600 focus-within:outline-none hover:text-blue-500">
-                    <span>Upload a file</span>
-                    <input type="file" accept=".csv" className="sr-only" onChange={(e) => setFile(e.target.files?.[0] || null)} />
-                  </label>
-                  <p className="pl-1">or drag and drop</p>
+        {/* Step Progress */}
+        <div className="flex items-center gap-2 px-6 py-3 bg-gray-50 border-b border-gray-100 flex-shrink-0">
+          {['Input', 'Preview', 'Done'].map((label, i) => {
+            const current = step === 'input' ? 0 : step === 'preview' ? 1 : 2;
+            const active = i <= current;
+            return (
+              <div key={label} className="flex items-center gap-2">
+                <div className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold transition-colors ${active ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-400'}`}>
+                  {i < current ? <CheckCircle2 className="h-4 w-4" /> : i + 1}
                 </div>
-                <p className="text-xs text-gray-500">Only .csv files</p>
-                {file && (
-                  <p className="text-sm font-medium text-green-600 mt-2">
-                    ✓ {file.name}
-                  </p>
-                )}
+                <span className={`text-xs font-medium ${active ? 'text-blue-600' : 'text-gray-400'}`}>{label}</span>
+                {i < 2 && <ChevronRight className="h-3 w-3 text-gray-300" />}
               </div>
-            </div>
-          </div>
+            );
+          })}
+        </div>
 
-          {generateSchedule.isError && (
-            <div className="rounded-xl bg-red-50 p-4 text-sm text-red-600">
-              {generateSchedule.error?.message || 'Có lỗi xảy ra khi tạo lịch. Vui lòng thử lại.'}
+        {/* Body */}
+        <div className="overflow-y-auto flex-1 px-6 py-5">
+
+          {/* ── Step 1: Input ── */}
+          {step === 'input' && (
+            <div className="space-y-5">
+              {/* Mode Toggle */}
+              <div className="flex rounded-xl border border-gray-200 bg-gray-50 p-1 gap-1">
+                <button
+                  type="button"
+                  onClick={() => setMode('manual')}
+                  className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium transition-all ${mode === 'manual' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                >
+                  <FileText className="h-4 w-4" /> Manual Entry
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMode('csv')}
+                  className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium transition-all ${mode === 'csv' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                >
+                  <UploadCloud className="h-4 w-4" /> CSV Upload
+                </button>
+              </div>
+
+              {/* Manual Mode */}
+              {mode === 'manual' && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-gray-700">Tasks</h3>
+                    <button type="button" onClick={addTask} className="flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-100 transition-colors">
+                      <Plus className="h-3.5 w-3.5" /> Add Task
+                    </button>
+                  </div>
+
+                  <div className="space-y-3">
+                    {tasks.map((task, idx) => (
+                      <div key={task.id} className="rounded-xl border border-gray-200 bg-gray-50 p-3 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-600">{idx + 1}</span>
+                          <input
+                            type="text"
+                            value={task.title}
+                            onChange={e => updateTask(task.id, 'title', e.target.value)}
+                            placeholder="Task title (e.g., Learn React Hooks)"
+                            className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                          />
+                          {tasks.length > 1 && (
+                            <button type="button" onClick={() => removeTask(task.id)} className="text-gray-400 hover:text-red-500 transition-colors">
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                          <div>
+                            <label className="mb-1 block text-xs text-gray-500">Duration (min)</label>
+                            <input type="number" min={15} max={480} value={task.duration} onChange={e => updateTask(task.id, 'duration', Number(e.target.value))}
+                              className="w-full rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm focus:border-blue-400 focus:outline-none" />
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-xs text-gray-500">Priority (1-5)</label>
+                            <input type="number" min={1} max={5} value={task.priority} onChange={e => updateTask(task.id, 'priority', Number(e.target.value))}
+                              className="w-full rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm focus:border-blue-400 focus:outline-none" />
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-xs text-gray-500">Deadline</label>
+                            <input type="date" min={minAllowedDate} value={task.deadline} onChange={e => updateTask(task.id, 'deadline', e.target.value)}
+                              className="w-full rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm focus:border-blue-400 focus:outline-none" />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Busy Time */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-semibold text-gray-700">Busy Time <span className="text-xs font-normal text-gray-400">(optional)</span></h3>
+                      <button type="button" onClick={addBusySlot} className="flex items-center gap-1.5 rounded-lg border border-orange-200 bg-orange-50 px-3 py-1.5 text-xs font-medium text-orange-600 hover:bg-orange-100 transition-colors">
+                        <Plus className="h-3.5 w-3.5" /> Add Busy Slot
+                      </button>
+                    </div>
+                    {busySlots.map(b => (
+                      <div key={b.id} className="flex items-center gap-2 rounded-xl border border-orange-100 bg-orange-50 p-2">
+                        <Clock className="h-4 w-4 flex-shrink-0 text-orange-400" />
+                        <input type="date" min={minAllowedDate} value={b.day} onChange={e => updateBusySlot(b.id, 'day', e.target.value)}
+                          className="rounded-lg border border-orange-200 bg-white px-2 py-1 text-sm focus:outline-none" />
+                        <input type="text" value={b.slots} onChange={e => updateBusySlot(b.id, 'slots', e.target.value)}
+                          placeholder="09:00-10:00" className="flex-1 rounded-lg border border-orange-200 bg-white px-2 py-1 text-sm focus:outline-none" />
+                        <button type="button" onClick={() => removeBusySlot(b.id)} className="text-orange-400 hover:text-red-500 transition-colors">
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                    {busySlots.length === 0 && (
+                      <p className="text-xs text-gray-400 italic">No busy time set — algorithm will use default available hours (08:00-22:00)</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* CSV Mode */}
+              {mode === 'csv' && (
+                <div className="space-y-4">
+                  <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
+                    <p className="text-xs font-semibold text-blue-700 mb-1">📋 Required CSV format:</p>
+                    <pre className="text-xs text-blue-600 font-mono bg-white rounded-lg p-2 border border-blue-100">
+{`title,duration,priority,deadline
+Học Toán,120,3,2026-04-30
+Làm bài tập,60,2,2026-04-28
+Ôn lại bài,45,4,2026-05-01`}
+                    </pre>
+                  </div>
+
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed px-6 py-8 cursor-pointer transition-colors ${csvFile ? 'border-green-300 bg-green-50' : 'border-gray-200 bg-gray-50 hover:border-blue-300 hover:bg-blue-50'}`}
+                  >
+                    {csvFile ? (
+                      <>
+                        <CheckCircle2 className="h-10 w-10 text-green-500" />
+                        <p className="text-sm font-semibold text-green-700">{csvFile.name}</p>
+                        <p className="text-xs text-green-500">Click to change file</p>
+                      </>
+                    ) : (
+                      <>
+                        <UploadCloud className="h-10 w-10 text-gray-300" />
+                        <p className="text-sm text-gray-500">Click to upload CSV</p>
+                        <p className="text-xs text-gray-400">.csv files only</p>
+                      </>
+                    )}
+                    <input ref={fileInputRef} type="file" accept=".csv" className="hidden" onChange={handleFileChange} />
+                  </div>
+
+                  {csvPreview && (
+                    <div>
+                      <p className="mb-1 text-xs font-medium text-gray-500">Preview (first 6 lines):</p>
+                      <pre className="rounded-lg bg-gray-900 p-3 text-xs text-green-400 overflow-x-auto font-mono">{csvPreview}</pre>
+                    </div>
+                  )}
+
+                  {/* Busy Time for CSV mode */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-semibold text-gray-700">Busy Time <span className="text-xs font-normal text-gray-400">(optional)</span></h3>
+                      <button type="button" onClick={addBusySlot} className="flex items-center gap-1.5 rounded-lg border border-orange-200 bg-orange-50 px-3 py-1.5 text-xs font-medium text-orange-600 hover:bg-orange-100 transition-colors">
+                        <Plus className="h-3.5 w-3.5" /> Add
+                      </button>
+                    </div>
+                    {busySlots.map(b => (
+                      <div key={b.id} className="flex items-center gap-2 rounded-xl border border-orange-100 bg-orange-50 p-2">
+                        <input type="date" min={minAllowedDate} value={b.day} onChange={e => updateBusySlot(b.id, 'day', e.target.value)}
+                          className="rounded-lg border border-orange-200 bg-white px-2 py-1 text-sm focus:outline-none" />
+                        <input type="text" value={b.slots} placeholder="09:00-10:00" onChange={e => updateBusySlot(b.id, 'slots', e.target.value)}
+                          className="flex-1 rounded-lg border border-orange-200 bg-white px-2 py-1 text-sm focus:outline-none" />
+                        <button type="button" onClick={() => removeBusySlot(b.id)} className="text-orange-400 hover:text-red-500">
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 mt-6">
+          {/* ── Step 2: Preview Unified JSON ── */}
+          {step === 'preview' && unifiedData && (
+            <div className="space-y-4">
+              {/* Tasks */}
+              <div>
+                <h3 className="mb-2 text-sm font-semibold text-gray-700">
+                  ✅ {unifiedData.tasks?.length || 0} Tasks Normalized
+                </h3>
+                <div className="space-y-2">
+                  {unifiedData.tasks?.map((t: UnifiedTaskPreview, i: number) => (
+                    <div key={i} className="flex items-center gap-3 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+                      <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-600">{i + 1}</span>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-gray-800">{t.title}</p>
+                        <p className="text-xs text-gray-400">{t.duration}min · Priority {t.priority}{t.deadline ? ` · Due ${t.deadline}` : ''}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Available Time */}
+              <div>
+                <h3 className="mb-2 text-sm font-semibold text-gray-700">📅 Available Time ({unifiedData.constraints?.availableTime?.length || 0} days)</h3>
+                <div className="max-h-32 overflow-y-auto rounded-lg border border-gray-100 bg-gray-50 p-2 space-y-1">
+                  {unifiedData.constraints?.availableTime?.map((a: UnifiedConstraintEntry, i: number) => (
+                    <div key={i} className="flex items-center gap-2 text-xs">
+                      <Calendar className="h-3 w-3 text-blue-400 flex-shrink-0" />
+                      <span className="font-medium text-gray-700">{a.day}:</span>
+                      <span className="text-gray-500">{a.slots?.join(', ')}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Busy Time */}
+              {unifiedData.constraints?.busyTime?.length > 0 && (
+                <div>
+                  <h3 className="mb-2 text-sm font-semibold text-gray-700">🚫 Busy Time ({unifiedData.constraints.busyTime.length} entries)</h3>
+                  <div className="rounded-lg border border-orange-100 bg-orange-50 p-2 space-y-1">
+                    {unifiedData.constraints.busyTime.map((b: UnifiedConstraintEntry, i: number) => (
+                      <div key={i} className="flex items-center gap-2 text-xs">
+                        <Clock className="h-3 w-3 text-orange-400" />
+                        <span className="font-medium text-gray-700">{b.day}:</span>
+                        <span className="text-orange-600">{b.slots?.join(', ')}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="rounded-xl border border-blue-100 bg-blue-50 p-3">
+                <p className="text-xs text-blue-700">
+                  <strong>Ready to generate!</strong> The algorithm will fill morning (07:00-11:00), afternoon (13:00-17:00), then evening (18:00-22:00), while sorting tasks by deadline → priority → creation order.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* ── Step 3: Done ── */}
+          {step === 'done' && (
+            <div className="flex flex-col items-center justify-center gap-4 py-8 text-center">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
+                <CheckCircle2 className="h-9 w-9 text-green-500" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Schedule Generated! 🎉</h3>
+                <p className="mt-1 text-sm text-gray-500">Your study schedule has been created. Check &quot;My Schedule&quot; to view your blocks.</p>
+              </div>
+            </div>
+          )}
+
+          {/* Error */}
+          {error && (
+            <div className="mt-4 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3">
+              <AlertCircle className="h-4 w-4 flex-shrink-0 text-red-500 mt-0.5" />
+              <p className="text-sm text-red-600">{error}</p>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between border-t border-gray-100 px-6 py-4 flex-shrink-0">
+          <button
+            type="button"
+            onClick={step === 'input' ? handleClose : () => setStep('input')}
+            className="rounded-xl border border-gray-200 bg-white px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            {step === 'input' ? 'Cancel' : '← Back'}
+          </button>
+
+          {step === 'input' && (
             <button
               type="button"
-              onClick={onClose}
-              className="rounded-xl border border-gray-200 bg-white px-6 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+              onClick={handleNormalize}
+              disabled={isLoading || (mode === 'manual' && tasks.every(t => !t.title)) || (mode === 'csv' && !csvFile)}
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 px-6 py-2 text-sm font-medium text-white shadow-sm transition-all hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Cancel
+              {isLoading ? <><Loader2 className="h-4 w-4 animate-spin" /> Analyzing...</> : <>Analyze & Preview <ChevronRight className="h-4 w-4" /></>}
             </button>
+          )}
+
+          {step === 'preview' && (
             <button
-              type="submit"
-              disabled={generateSchedule.isPending || !subject || preferredTimes.length === 0}
-              className="inline-flex items-center justify-center min-w-35 gap-2 rounded-xl px-6 py-2.5 text-sm font-medium text-white shadow-none transition-all disabled:cursor-not-allowed disabled:bg-gray-300 disabled:bg-none [&:not(:disabled)]:bg-gradient-to-r [&:not(:disabled)]:from-blue-400 [&:not(:disabled)]:to-purple-400 [&:not(:disabled)]:hover:opacity-90"
+              type="button"
+              onClick={handleGenerate}
+              disabled={isLoading}
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 px-6 py-2 text-sm font-medium text-white shadow-sm transition-all hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {generateSchedule.isPending ? (
-                <>
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  Generating...
-                </>
-              ) : (
-                <>
-                  Generate Schedule
-                </>
-              )}
+              {isLoading ? <><Loader2 className="h-4 w-4 animate-spin" /> Scheduling...</> : <>Generate Schedule ✨</>}
             </button>
-          </div>
-        </form>
+          )}
+
+          {step === 'done' && (
+            <button
+              type="button"
+              onClick={handleClose}
+              className="rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 px-6 py-2 text-sm font-medium text-white hover:opacity-90 transition-all"
+            >
+              View My Schedule
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

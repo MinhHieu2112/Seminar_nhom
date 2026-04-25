@@ -2,6 +2,7 @@ import { Controller } from '@nestjs/common';
 import { MessagePattern, Payload } from '@nestjs/microservices';
 import { AgentAiService } from './agent-ai.service';
 import type { GenerateSchedulePayload } from './agent-ai.service';
+import { NormalizeInputDto } from './dto/unified-input.dto';
 
 @Controller()
 export class AgentAiController {
@@ -27,5 +28,18 @@ export class AgentAiController {
     @Payload() payload: { goalTitle: string; deadline?: string },
   ) {
     return this.agentAiService.decomposeGoal(payload.goalTitle, payload.deadline);
+  }
+
+  @MessagePattern('ai.normalize')
+  async normalizeInput(@Payload() payload: NormalizeInputDto) {
+    try {
+      const result = await this.agentAiService.normalizeInput(payload);
+      return { success: true, data: result };
+    } catch (error) {
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Normalization failed',
+      };
+    }
   }
 }

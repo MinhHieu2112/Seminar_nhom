@@ -1,10 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, LessThanOrEqual } from 'typeorm';
-import { AnalyticsDashboardResponseDto, StudyInsightsResponseDto } from './dto/analytics-response.dto';
+import { Between, LessThanOrEqual, Repository } from 'typeorm';
+import {
+  AnalyticsDashboardResponseDto,
+  StudyInsightsResponseDto,
+} from './dto/analytics-response.dto';
 import { CompletionCalculator } from './calculators/completion.calculator';
 import { ProductivityRule } from './rules/productivity.rule';
 import { TimeDistributionStrategy } from './strategies/time-distribution.strategy';
+import { Goal } from '../scheduler-service/entities/goal.entity';
 import { ScheduleBlock } from '../scheduler-service/entities/schedule-block.entity';
 import { Task } from '../scheduler-service/entities/task.entity';
 
@@ -17,76 +21,143 @@ export class AnalyticsService {
     private readonly blockRepo: Repository<ScheduleBlock>,
     @InjectRepository(Task)
     private readonly taskRepo: Repository<Task>,
+    @InjectRepository(Goal)
+    private readonly goalRepo: Repository<Goal>,
   ) {}
 
   async getUserDashboard(userId: string): Promise<AnalyticsDashboardResponseDto> {
     this.logger.log(`Fetching analytics dashboard for user ${userId}`);
 
-    // Fetch past blocks (from beginning of time up to now) to evaluate performance
     const now = new Date();
-    const allPastBlocks = await this.blockRepo.find({
-      where: {
-        userId,
-        plannedEnd: LessThanOrEqual(now)
-      }
-    });
+    const [goals, tasks, allPastBlocks, allBlocks] = await Promise.all([
+      this.goalRepo.find({
+        where: { userId },
+        relations: ['tasks'],
+      }),
+      this.taskRepo.find({
+        where: { userId },
+        relations: ['goal'],
+      }),
+      this.blockRepo.find({
+        where: {
+          userId,
+          plannedEnd: LessThanOrEqual(now),
+        },
+      }),
+      this.blockRepo.find({
+        where: { userId },
+      }),
+    ]);
 
     const plannedBlocks = allPastBlocks.length;
-    const actualBlocks = allPastBlocks.filter(b => b.status === 'done').length;
-    const streakDays = 0; // Requires complex query to calculate real streak
-    const avgFocusScore = 4.0; // Focus score is not yet implemented in DB, keeping static for now
-
-    // Lấy các session đã hoàn thành để phân tích
-    const doneBlocks = allPastBlocks.filter(b => b.status === 'done');
-    const dbSessions = doneBlocks.map(b => {
-      // Calculate duration in minutes
-      const diffMs = b.plannedEnd.getTime() - b.plannedStart.getTime();
-      return {
-        startTime: b.plannedStart,
-        durationMin: Math.round(diffMs / 60000)
-      };
-    });
-
-    // 1. Tính Tỷ lệ hoàn thành bằng Calculator
-    const completionRate = CompletionCalculator.calculateRate(plannedBlocks, actualBlocks);
-
-    // 2. Tính Điểm năng suất bằng Rule
-    const productivityScore = ProductivityRule.calculateScore(
-      completionRate,
-      avgFocusScore,
-      streakDays,
+    const completedBlocks = allPastBlocks.filter(
+      (block) => block.status === 'done',
+    ).length;
+    const completedTasks = tasks.filter((task) => task.status === 'done').length;
+    const overdueTasks = tasks.filter(
+      (task) => task.status !== 'done' && this.isTaskOverdue(task, now),
+    ).length;
+    const pendingTasks = Math.max(
+      tasks.length - completedTasks - overdueTasks,
+      0,
     );
 
-    // 3. Phân bổ thời gian bằng Strategy
-    const timeDistribution = TimeDistributionStrategy.analyze(dbSessions);
-    const suggestions = TimeDistributionStrategy.generateSuggestions(timeDistribution);
+    const completionRate = CompletionCalculator.calculateRate(
+      tasks.length,
+      completedTasks,
+    );
+    const productivityScore = ProductivityRule.calculateScore(
+      completionRate,
+      4,
+      0,
+    );
 
-    if (completionRate < 50 && plannedBlocks > 0) {
-      suggestions.push('Tỷ lệ hoàn thành mục tiêu của bạn khá thấp. Hãy thử chia nhỏ task ra hơn nữa và sử dụng Pomodoro 25 phút.');
+    const doneBlocks = allPastBlocks.filter((block) => block.status === 'done');
+    const dbSessions = doneBlocks.map((block) => ({
+      startTime: block.plannedStart,
+      durationMin: Math.round(
+        (block.plannedEnd.getTime() - block.plannedStart.getTime()) / 60000,
+      ),
+    }));
+    const timeDistribution = TimeDistributionStrategy.analyze(dbSessions);
+    const suggestions =
+      TimeDistributionStrategy.generateSuggestions(timeDistribution);
+
+    if (completionRate < 50 && tasks.length > 0) {
+      suggestions.push(
+        'Tỷ lệ hoàn thành task đang thấp. Hãy thử chia nhỏ việc học và lên lịch theo các phiên ngắn hơn.',
+      );
     }
+
+    if (overdueTasks > 0) {
+      suggestions.push(
+        `Bạn đang có ${overdueTasks} task quá hạn. Nên ưu tiên xử lý hoặc tạo lại lịch cho các task này.`,
+      );
+    }
+
+    const completedGoals = goals.filter(
+      (goal) =>
+        goal.tasks.length > 0 &&
+        goal.tasks.every((task) => task.status === 'done'),
+    ).length;
+    const activeGoals = goals.length - completedGoals;
+
+    const currentWeek = this.getCurrentWeekRange(now);
+    const currentWeekBlocks = allBlocks.filter(
+      (block) =>
+        block.plannedStart >= currentWeek.start &&
+        block.plannedStart <= currentWeek.end,
+    );
+    const weeklyMinutes = currentWeekBlocks.reduce(
+      (total, block) =>
+        total + (block.plannedEnd.getTime() - block.plannedStart.getTime()) / 60000,
+      0,
+    );
 
     return {
       completionRate,
       productivityScore,
       timeDistribution,
       suggestions,
+      summary: {
+        totalGoals: goals.length,
+        activeGoals,
+        completedGoals,
+        totalTasks: tasks.length,
+        pendingTasks,
+        completedTasks,
+        overdueTasks,
+        plannedBlocks,
+        completedBlocks,
+      },
+      weeklyOverview: {
+        scheduledBlocks: currentWeekBlocks.length,
+        studyHours: Math.round((weeklyMinutes / 60) * 10) / 10,
+        completedTasks,
+      },
     };
   }
 
-  async getStudyInsights(userId: string, from: string, to: string): Promise<StudyInsightsResponseDto> {
-    this.logger.log(`Generating study insights for user ${userId} from ${from} to ${to}`);
+  async getStudyInsights(
+    userId: string,
+    from: string,
+    to: string,
+  ): Promise<StudyInsightsResponseDto> {
+    this.logger.log(
+      `Generating study insights for user ${userId} from ${from} to ${to}`,
+    );
 
     const futureBlocks = await this.blockRepo.find({
       where: {
         userId,
-        plannedStart: Between(new Date(from), new Date(to))
-      }
+        plannedStart: Between(new Date(from), new Date(to)),
+      },
     });
 
-    // Calculate total duration in hours
     let totalMinutes = 0;
-    futureBlocks.forEach(b => {
-      totalMinutes += (b.plannedEnd.getTime() - b.plannedStart.getTime()) / 60000;
+    futureBlocks.forEach((block) => {
+      totalMinutes +=
+        (block.plannedEnd.getTime() - block.plannedStart.getTime()) / 60000;
     });
 
     const plannedHours = totalMinutes / 60;
@@ -94,24 +165,35 @@ export class AnalyticsService {
 
     const recommendations: string[] = [];
     if (isOverloaded) {
-      recommendations.push(`Bạn đã lên kế hoạch ${Math.round(plannedHours)} giờ học. Điều này có thể gây kiệt sức, hãy cân nhắc giảm bớt hoặc kéo dài deadline.`);
+      recommendations.push(
+        `Bạn đã lên kế hoạch ${Math.round(plannedHours)} giờ học. Điều này có thể gây kiệt sức, hãy cân nhắc giảm bớt hoặc kéo dài deadline.`,
+      );
     } else if (plannedHours > 0) {
-      recommendations.push(`Khối lượng học tập dự kiến đang ở mức hợp lý (${Math.round(plannedHours)} giờ). Chúc bạn một tuần năng suất!`);
+      recommendations.push(
+        `Khối lượng học tập dự kiến đang ở mức hợp lý (${Math.round(plannedHours)} giờ). Chúc bạn một tuần năng suất!`,
+      );
     } else {
-      recommendations.push(`Bạn chưa lên kế hoạch học tập cho thời gian này. Hãy bắt đầu ngay!`);
+      recommendations.push(
+        'Bạn chưa lên kế hoạch học tập cho thời gian này. Hãy bắt đầu ngay!',
+      );
     }
 
     return {
       isOverloaded,
-      message: isOverloaded ? 'Cảnh báo: Khối lượng công việc cao' : 'Khối lượng công việc ổn định',
+      message: isOverloaded
+        ? 'Cảnh báo: Khối lượng công việc cao'
+        : 'Khối lượng công việc ổn định',
       recommendations,
     };
   }
 
-  async getHistory(userId: string, period: 'weekly' | 'monthly' | 'yearly'): Promise<any> {
+  async getHistory(
+    userId: string,
+    period: 'weekly' | 'monthly' | 'yearly',
+  ): Promise<Array<{ date: string; planned: number; actual: number }>> {
     const now = new Date();
-    let from = new Date();
-    
+    const from = new Date(now);
+
     if (period === 'weekly') {
       from.setDate(now.getDate() - 7);
     } else if (period === 'monthly') {
@@ -123,36 +205,77 @@ export class AnalyticsService {
     const blocks = await this.blockRepo.find({
       where: {
         userId,
-        plannedStart: Between(from, now)
+        plannedStart: Between(from, now),
       },
-      order: { plannedStart: 'ASC' }
+      order: { plannedStart: 'ASC' },
     });
 
-    // Grouping logic depends on period. For simplicity, group by Day.
-    const grouped = new Map<string, { planned: number, actual: number }>();
-    
-    blocks.forEach(b => {
-      const day = b.plannedStart.toISOString().split('T')[0]; // YYYY-MM-DD
-      const durationHours = (b.plannedEnd.getTime() - b.plannedStart.getTime()) / 3600000;
-      
+    const grouped = new Map<string, { planned: number; actual: number }>();
+
+    blocks.forEach((block) => {
+      const day = this.formatDateKey(block.plannedStart);
+      const durationHours =
+        (block.plannedEnd.getTime() - block.plannedStart.getTime()) / 3600000;
+
       if (!grouped.has(day)) {
         grouped.set(day, { planned: 0, actual: 0 });
       }
-      
+
       const stats = grouped.get(day)!;
       stats.planned += durationHours;
-      if (b.status === 'done') {
+      if (block.status === 'done') {
         stats.actual += durationHours;
       }
     });
 
-    // Convert map to array and round values
-    const data = Array.from(grouped.entries()).map(([date, stats]) => ({
+    return Array.from(grouped.entries()).map(([date, stats]) => ({
       date,
       planned: Math.round(stats.planned * 10) / 10,
-      actual: Math.round(stats.actual * 10) / 10
+      actual: Math.round(stats.actual * 10) / 10,
     }));
+  }
 
-    return data;
+  private isTaskOverdue(task: Task, now: Date): boolean {
+    const deadline = task.deadline ?? task.goal?.deadline;
+    if (!deadline) {
+      return false;
+    }
+
+    return this.normalizeDeadline(deadline).getTime() < now.getTime();
+  }
+
+  private normalizeDeadline(deadline: Date): Date {
+    return new Date(
+      Date.UTC(
+        deadline.getUTCFullYear(),
+        deadline.getUTCMonth(),
+        deadline.getUTCDate(),
+        23,
+        59,
+        59,
+        999,
+      ),
+    );
+  }
+
+  private formatDateKey(date: Date): string {
+    const year = date.getFullYear();
+    const month = `${date.getMonth() + 1}`.padStart(2, '0');
+    const day = `${date.getDate()}`.padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  private getCurrentWeekRange(now: Date): { start: Date; end: Date } {
+    const start = new Date(now);
+    const day = start.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    start.setDate(start.getDate() + diff);
+    start.setHours(0, 0, 0, 0);
+
+    const end = new Date(start);
+    end.setDate(end.getDate() + 6);
+    end.setHours(23, 59, 59, 999);
+
+    return { start, end };
   }
 }

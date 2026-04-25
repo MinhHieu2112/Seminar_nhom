@@ -33,6 +33,14 @@ import { ScheduleService } from './schedule/schedule.service';
           port: parseInt(process.env.CALENDAR_SERVICE_PORT ?? '3004', 10),
         },
       },
+      {
+        name: 'QUEUE_SERVICE',
+        transport: Transport.TCP,
+        options: {
+          host: process.env.QUEUE_SERVICE_HOST ?? 'localhost',
+          port: parseInt(process.env.QUEUE_SERVICE_PORT ?? '8007', 10),
+        },
+      },
     ]),
   ],
   controllers: [SchedulerController],

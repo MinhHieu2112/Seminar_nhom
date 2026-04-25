@@ -1,4 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { randomUUID } from 'crypto';
+import { NormalizeInputDto, UnifiedInputDto, UnifiedTaskDto, UnifiedConstraintsDto, TimeSlotDto } from './dto/unified-input.dto';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -138,6 +140,109 @@ const DAY_NAMES: Record<string, number> = {
 @Injectable()
 export class AgentAiService {
   private readonly logger = new Logger(AgentAiService.name);
+
+  // ─── Phase 1: Normalize Input (Single Source of Truth) ───────────────────
+
+  async normalizeInput(payload: NormalizeInputDto): Promise<UnifiedInputDto> {
+    this.logger.log(`Normalizing input of type: ${payload.type} for user ${payload.userId}`);
+    
+    let tasks: UnifiedTaskDto[] = [];
+    
+    if (payload.type === 'csv') {
+      tasks = this.parseCsvToTasks(payload.data);
+    } else {
+      // Manual input assumed to be JSON or parsed by basic heuristic
+      try {
+        const parsed = JSON.parse(payload.data);
+        if (Array.isArray(parsed)) {
+          tasks = parsed.map((t: any) => ({
+            id: randomUUID(),
+            title: t.title || 'Untitled Task',
+            duration: parseInt(t.duration) || 60,
+            priority: parseInt(t.priority) || 3,
+            deadline: t.deadline || null,
+          }));
+        } else if (parsed.tasks) {
+          tasks = parsed.tasks;
+        }
+      } catch (e) {
+        this.logger.warn('Failed to parse manual input as JSON, falling back to heuristic');
+        tasks = this.parseTextToTasks(payload.data);
+      }
+    }
+
+    // Default constraints (in a real AI system, this would be extracted from user prompt/calendar)
+    // Here we provide a 7-day default available time window from 08:00 to 22:00
+    const constraints: UnifiedConstraintsDto = {
+      availableTime: this.generateDefaultAvailableTime(),
+      busyTime: [], // Default to no busy time unless specified in a more complex payload
+    };
+
+    return {
+      tasks,
+      constraints,
+    };
+  }
+
+  private parseCsvToTasks(csv: string): UnifiedTaskDto[] {
+    const lines = csv.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    const tasks: UnifiedTaskDto[] = [];
+    
+    // Skip header if present (title,duration,priority,deadline)
+    let startIndex = 0;
+    if (lines.length > 0 && lines[0].toLowerCase().includes('title')) {
+      startIndex = 1;
+    }
+
+    for (let i = startIndex; i < lines.length; i++) {
+      const parts = lines[i].split(',').map(p => p.trim());
+      if (parts.length >= 2) {
+        tasks.push({
+          id: randomUUID(),
+          title: parts[0],
+          duration: parseInt(parts[1]) || 60,
+          priority: parseInt(parts[2]) || 3,
+          deadline: parts[3] || undefined,
+        });
+      }
+    }
+    return tasks;
+  }
+
+  private parseTextToTasks(text: string): UnifiedTaskDto[] {
+    // Very basic fallback: split by newline, assume "Title, Duration"
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    return lines.map((line, i) => {
+      const parts = line.split(',');
+      return {
+        id: randomUUID(),
+        title: parts[0].trim(),
+        duration: parts.length > 1 ? parseInt(parts[1]) : 60,
+        priority: 3,
+      };
+    });
+  }
+
+  private generateDefaultAvailableTime(): TimeSlotDto[] {
+    const slots: TimeSlotDto[] = [];
+    const today = new Date();
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(today);
+      d.setDate(d.getDate() + i);
+      slots.push({
+        day: this.formatLocalDate(d),
+        slots: ['07:00-11:00', '13:00-17:00', '18:00-22:00']
+      });
+    }
+    return slots;
+  }
+
+  private formatLocalDate(date: Date): string {
+    const year = date.getFullYear();
+    const month = `${date.getMonth() + 1}`.padStart(2, '0');
+    const day = `${date.getDate()}`.padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
 
   // ─── Main: Generate from Form ─────────────────────────────────────────────
 

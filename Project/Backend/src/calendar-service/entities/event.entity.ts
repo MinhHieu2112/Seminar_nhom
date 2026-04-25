@@ -49,6 +49,18 @@ export class CalendarEvent {
   @Column({ type: 'uuid', nullable: true })
   externalId: string | null;
 
+  @Column({ type: 'uuid', nullable: true })
+  taskId: string | null;
+
+  @Column({ type: 'smallint', nullable: true })
+  pomodoroIndex: number | null;
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  sessionType: 'morning' | 'afternoon' | 'evening' | null;
+
+  @Column({ type: 'int', nullable: true })
+  queueOrder: number | null;
+
   @CreateDateColumn()
   createdAt: Date;
 
