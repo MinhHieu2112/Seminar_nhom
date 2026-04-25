@@ -202,18 +202,28 @@ export class AnalyticsService {
       from.setFullYear(now.getFullYear() - 1);
     }
 
+    const periodEnd = new Date();
+    // For planned hours we need to look forward too – use end-of-deadline window
+    const futureEnd = new Date(periodEnd);
+    if (period === 'weekly') {
+      futureEnd.setDate(futureEnd.getDate() + 7);
+    } else if (period === 'monthly') {
+      futureEnd.setMonth(futureEnd.getMonth() + 1);
+    } else {
+      futureEnd.setFullYear(futureEnd.getFullYear() + 1);
+    }
+
     const [blocks, tasks] = await Promise.all([
       this.blockRepo.find({
         where: {
           userId,
-          plannedStart: Between(from, now),
+          plannedStart: Between(from, futureEnd),
         },
         order: { plannedStart: 'ASC' },
       }),
       this.taskRepo.find({
         where: {
           userId,
-          createdAt: Between(from, now),
         },
         relations: ['goal'],
       }),

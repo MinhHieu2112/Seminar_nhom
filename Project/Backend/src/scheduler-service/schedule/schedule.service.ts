@@ -133,21 +133,30 @@ export class ScheduleService {
         return { success: false, scheduled: [], overflow: [], message: 'No tasks provided in payload' };
       }
 
-      const normalizedTasks = rawTasks.map((rawTask, index) => ({
-        id: this.normalizeTaskId(rawTask.id, index),
-        title: rawTask.title.trim(),
-        duration: rawTask.duration,
-        priority: rawTask.priority ?? 3,
-        deadline: this.parseDeadline(rawTask.deadline),
-        inputOrder: index,
-      }));
+      const now = new Date();
+
+      const normalizedTasks = rawTasks.map((rawTask, index) => {
+        const deadline = this.parseDeadline(rawTask.deadline);
+        const taskDeadlineMs = deadline ? deadline.getTime() : dayjs(now).add(30, 'day').toDate().getTime();
+        const diffMs = taskDeadlineMs - now.getTime();
+        const daysRemaining = Math.max(1, Math.ceil(diffMs / 86_400_000));
+
+        return {
+          id: this.normalizeTaskId(rawTask.id, index),
+          title: rawTask.title.trim(),
+          // Treat duration from AI generator as DAILY duration
+          duration: rawTask.duration * daysRemaining,
+          priority: rawTask.priority ?? 3,
+          deadline,
+          inputOrder: index,
+        };
+      });
 
       // ── Step 1: Clear old tasks/blocks for this goal BEFORE computing busy time.
       // This prevents duplicates when re-generating the same subject.
       await this.clearGoalTasks(normalizedUserId, payload.goalTitle);
 
       // ── Step 2: Build full day range (today → max deadline, at least 30 days)
-      const now = new Date();
       const maxDeadlineMs = normalizedTasks.reduce((max, t) => {
         if (!t.deadline) return max;
         return t.deadline.getTime() > max ? t.deadline.getTime() : max;
@@ -505,8 +514,8 @@ export class ScheduleService {
     let queueOrder = 1;
 
     // config defaults
-    const pomodoroMin = config.workMin || 25;
-    const minBlockGapMin = config.shortBreakMin || 5; // standard short break gap
+    const pomodoroMin = 45; // Changed from 25 to 45
+    const minBlockGapMin = 5; // standard short break gap
     const maxBlocksPerDay = 8; // standard daily limit
 
     if (freeSlots.length === 0 || tasks.length === 0) {
@@ -532,7 +541,7 @@ export class ScheduleService {
         workUnits.push({
           taskId: this.assertUuid(task.id, `task "${task.title}" id`),
           goalId: task.goalId || null,
-          subject: task.goalId || task.id, // Group by goal if available, else task itself
+          subject: task.title, // Group by task title for correct interleaving/grouping
           title: task.title,
           priority: task.priority,
           deadline: task.deadline,
@@ -566,22 +575,26 @@ export class ScheduleService {
 
       // Calculate dynamic target blocks for today to ensure even distribution
       let targetBlocksThisDay = 0;
-      const pendingByTask = new Map<string, { count: number; deadline: Date | null }>();
+      const targetBySubject = new Map<string, number>();
+      
+      const pendingByTask = new Map<string, { count: number; deadline: Date | null, title: string }>();
       for (const u of pending) {
-        const existing = pendingByTask.get(u.taskId);
+        const existing = pendingByTask.get(u.subject);
         if (existing) {
           existing.count++;
         } else {
-          pendingByTask.set(u.taskId, { count: 1, deadline: u.deadline });
+          pendingByTask.set(u.subject, { count: 1, deadline: u.deadline, title: u.subject });
         }
       }
 
-      for (const data of pendingByTask.values()) {
+      for (const [subject, data] of pendingByTask.entries()) {
         const taskDeadlineMs = data.deadline ? data.deadline.getTime() : endDate.valueOf();
         // Convert ms diff to days (using currentDay at start of day)
         const diffMs = taskDeadlineMs - currentDay.valueOf();
         const daysRemaining = Math.max(1, Math.ceil(diffMs / 86_400_000));
-        targetBlocksThisDay += Math.ceil(data.count / daysRemaining);
+        const quota = Math.ceil(data.count / daysRemaining);
+        targetBySubject.set(subject, quota);
+        targetBlocksThisDay += quota;
       }
 
       // Enforce the hard cap
@@ -594,97 +607,108 @@ export class ScheduleService {
         (s) => dayjs(s.start).format('YYYY-MM-DD') === dayStr && s.durationMin >= pomodoroMin
       );
 
-      let iterationGuard = 0;
-      while (daySlots.length > 0 && blocksThisDay < targetBlocksThisDay) {
-        iterationGuard++;
-        if (iterationGuard > 200) break; // Infinite loop safety
-
-        // Recalculate pending inside loop just in case
-        const currentPending = workUnits.filter((u) => !u.placed);
-        if (currentPending.length === 0) break;
-
-        // Group by subject to find next available unit per subject
-        const subjectQueue = new Map<string, WorkUnit>();
-        for (const unit of currentPending) {
-          if (!subjectQueue.has(unit.subject)) {
-            subjectQueue.set(unit.subject, unit);
+      // Group units by subject to place them consecutively (Grouping instead of Interleaving)
+      // Only include units whose deadline is STRICTLY AFTER today (deadline day = exam day, no studying that day)
+      const pendingGrouped = new Map<string, WorkUnit[]>();
+      for (const u of pending) {
+        // If deadline exists and today >= deadline day → skip (deadline day = exam day, no studying that day)
+        if (u.deadline) {
+          // Compare using UTC date strings to be timezone-safe
+          const deadlineDateStr = u.deadline.toISOString().slice(0, 10); // e.g. "2026-05-03"
+          if (dayStr >= deadlineDateStr) {
+            continue;
           }
         }
+        if (!pendingGrouped.has(u.subject)) pendingGrouped.set(u.subject, []);
+        pendingGrouped.get(u.subject)!.push(u);
+      }
 
-        // Sort subjects by urgency score
-        const subjects = Array.from(subjectQueue.entries()).sort(([, a], [, b]) => {
-          const totalA = workUnits.filter((u) => u.subject === a.subject).length;
-          const totalB = workUnits.filter((u) => u.subject === b.subject).length;
-          const remA = workUnits.filter((u) => u.subject === a.subject && !u.placed).length;
-          const remB = workUnits.filter((u) => u.subject === b.subject && !u.placed).length;
-          return (
-            this.urgencyScore(b, remB, totalB, now) -
-            this.urgencyScore(a, remA, totalA, now)
-          );
-        });
+      // Sort subjects by urgency
+      const sortedSubjects = Array.from(pendingGrouped.entries()).sort(([, unitsA], [, unitsB]) => {
+        const a = unitsA[0];
+        const b = unitsB[0];
+        const totalA = workUnits.filter((u) => u.subject === a.subject).length;
+        const totalB = workUnits.filter((u) => u.subject === b.subject).length;
+        const remA = unitsA.length;
+        const remB = unitsB.length;
+        return (
+          this.urgencyScore(b, remB, totalB, now) -
+          this.urgencyScore(a, remA, totalA, now)
+        );
+      });
 
-        // Interleave check: find first subject not scheduled in last 2 blocks
-        let chosen: WorkUnit | null = null;
-        for (const [, unit] of subjects) {
-          if (!this.recentlyScheduled(unit.subject, scheduled, 2)) {
-            chosen = unit;
+      for (const [subject, units] of sortedSubjects) {
+        if (blocksThisDay >= targetBlocksThisDay) break;
+        if (daySlots.length === 0) break;
+
+        let quota = targetBySubject.get(subject) ?? 1;
+        // Adjust quota if we would exceed daily max
+        if (blocksThisDay + quota > targetBlocksThisDay) {
+          quota = targetBlocksThisDay - blocksThisDay;
+        }
+
+        let placedForThisSubject = 0;
+
+        for (const unit of units) {
+          if (placedForThisSubject >= quota) break;
+          if (blocksThisDay >= targetBlocksThisDay) break;
+          if (daySlots.length === 0) break;
+
+          // Find first slot that can fit a pomodoro
+          let slotFound = false;
+          for (let i = 0; i < daySlots.length; i++) {
+            const slot = daySlots[i];
+            if (slot.durationMin < pomodoroMin) continue;
+
+            // Place block
+            const blockStart = new Date(slot.start);
+            const blockEnd = new Date(slot.start.getTime() + pomodoroMin * 60_000);
+
+            const scheduleBlock = this.blockRepo.create({
+              userId: normalizedUserId,
+              taskId: unit.taskId,
+              plannedStart: blockStart,
+              plannedEnd: blockEnd,
+              pomodoroIndex: unit.pomodoroIndex,
+              status: 'planned',
+            });
+            await this.blockRepo.save(scheduleBlock);
+
+            scheduled.push({
+              id: scheduleBlock.id,
+              taskId: unit.taskId,
+              taskTitle: unit.title,
+              plannedStart: blockStart,
+              plannedEnd: blockEnd,
+              pomodoroIndex: unit.pomodoroIndex,
+              sessionType: slot.sessionType,
+              queueOrder: queueOrder++,
+              status: 'planned',
+              ...{ _subject: unit.subject }
+            });
+
+            unit.placed = true;
+            blocksThisDay++;
+            placedForThisSubject++;
+            slotFound = true;
+
+            // Shrink slot to account for pomodoro + gap
+            const timeConsumedMin = pomodoroMin + minBlockGapMin;
+            slot.start = new Date(slot.start.getTime() + timeConsumedMin * 60_000);
+            slot.durationMin -= timeConsumedMin;
+            
+            // If slot is now too small, remove it
+            if (slot.durationMin < pomodoroMin) {
+              daySlots.splice(i, 1);
+            }
             break;
           }
-        }
 
-        // Fallback: if all pending subjects were recently scheduled, pick the most urgent one
-        if (!chosen && subjects.length > 0) {
-          chosen = subjects[0][1];
-        }
-
-        if (!chosen) break;
-
-        // Find first slot that can fit a pomodoro
-        let slotFound = false;
-        for (const slot of daySlots) {
-          if (slot.durationMin < pomodoroMin) continue;
-
-          // Place block
-          const blockStart = new Date(slot.start);
-          const blockEnd = new Date(slot.start.getTime() + pomodoroMin * 60_000);
-
-          const scheduleBlock = this.blockRepo.create({
-            userId: normalizedUserId,
-            taskId: chosen.taskId,
-            plannedStart: blockStart,
-            plannedEnd: blockEnd,
-            pomodoroIndex: chosen.pomodoroIndex,
-            status: 'planned',
-          });
-          await this.blockRepo.save(scheduleBlock);
-
-          scheduled.push({
-            id: scheduleBlock.id,
-            taskId: chosen.taskId,
-            taskTitle: chosen.title,
-            plannedStart: blockStart,
-            plannedEnd: blockEnd,
-            pomodoroIndex: chosen.pomodoroIndex,
-            sessionType: slot.sessionType,
-            queueOrder: queueOrder++,
-            status: 'planned',
-            ...{ _subject: chosen.subject } // Internal tracking for interleaving
-          });
-
-          chosen.placed = true;
-          blocksThisDay++;
-          slotFound = true;
-
-          // Shrink slot to account for pomodoro + gap
-          const timeConsumedMin = pomodoroMin + minBlockGapMin;
-          slot.start = new Date(slot.start.getTime() + timeConsumedMin * 60_000);
-          slot.durationMin -= timeConsumedMin;
-          break; // Move to next round-robin iteration
-        }
-
-        if (!slotFound) {
-          // No slots left that can fit a pomodoro
-          break;
+          if (!slotFound) {
+            // No valid slots left for today, clear daySlots
+            daySlots.length = 0;
+            break;
+          }
         }
       }
 
@@ -868,9 +892,17 @@ export class ScheduleService {
       return null;
     }
 
-    const parsed = /^\d{4}-\d{2}-\d{2}$/.test(deadline)
-      ? new Date(`${deadline}T23:59:59.999Z`)
-      : new Date(deadline);
+    let parsed: Date;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(deadline)) {
+      // Date-only string: treat as LOCAL end-of-day to avoid timezone shifting
+      // Store as start-of-day UTC+0 (00:00 UTC = end-of-previous-day+7h locally, so use 17:00 UTC = midnight UTC+7)
+      const [year, month, day] = deadline.split('-').map(Number);
+      // End of that day in UTC+7: 23:59:59 local = 16:59:59 UTC
+      parsed = new Date(Date.UTC(year, month - 1, day, 16, 59, 59, 999));
+    } else {
+      parsed = new Date(deadline);
+    }
+
     if (Number.isNaN(parsed.getTime())) {
       throw new BadRequestException(
         `Task deadline "${deadline}" must be a valid ISO date string`,

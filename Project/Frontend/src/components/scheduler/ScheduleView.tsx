@@ -13,9 +13,9 @@ import {
   startOfDay,
   startOfWeek,
 } from 'date-fns';
-import { Calendar, ChevronLeft, ChevronRight, Clock, Sparkles, Trash2, CheckCircle2 } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Clock, Sparkles, CheckCircle2 } from 'lucide-react';
 import type { ScheduleBlock } from '@/types/api';
-import { useClearSchedule, useSchedule, useUpdateBlock } from '@/lib/hooks/useScheduler';
+import { useSchedule, useUpdateBlock } from '@/lib/hooks/useScheduler';
 import { GenerateScheduleModal } from './GenerateScheduleModal';
 
 const TASK_GRADIENTS = [
@@ -83,7 +83,7 @@ export function ScheduleView() {
   const to = endOfDay(weekEnd).toISOString();
 
   const { data: blocks, isLoading } = useSchedule(from, to);
-  const clearSchedule = useClearSchedule();
+
   const updateBlock = useUpdateBlock();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -134,25 +134,6 @@ export function ScheduleView() {
         </div>
 
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => {
-              if (
-                window.confirm('Are you sure you want to clear your current schedule?')
-              ) {
-                clearSchedule.mutate(undefined);
-              }
-            }}
-            disabled={clearSchedule.isPending}
-            className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-medium text-red-600 shadow-sm transition-all hover:border-red-300 hover:bg-red-50 disabled:opacity-50"
-          >
-            {clearSchedule.isPending ? (
-              <div className="h-4 w-4 animate-spin rounded-full border-2 border-red-600 border-t-transparent" />
-            ) : (
-              <Trash2 className="h-4 w-4" />
-            )}
-            Clear
-          </button>
-
           <button
             onClick={() => setIsModalOpen(true)}
             className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 px-5 py-2.5 text-sm font-medium text-white shadow-md hover:shadow-lg transition-all"
