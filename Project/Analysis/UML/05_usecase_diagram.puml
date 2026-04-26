@@ -1,0 +1,163 @@
+@startuml UseCase_Diagram
+title Sơ đồ Use Case - Hệ thống Quản lý Lịch học AI
+
+skinparam backgroundColor #FAFAFA
+skinparam usecase {
+  BackgroundColor #EEF3FF
+  BorderColor #4A6CF7
+  FontSize 12
+}
+skinparam actor {
+  BackgroundColor #FFFDE7
+  BorderColor #FF9800
+  FontSize 12
+}
+skinparam ArrowColor #4A6CF7
+skinparam note {
+  BackgroundColor #FFFBE6
+  BorderColor #FFC107
+}
+
+left to right direction
+
+' ─── ACTORS ──────────────────────────────────────────────────────
+actor "Người dùng\n(Client)" as Client
+actor "Quản trị viên\n(Admin)" as Admin
+actor "AI Service\n(Agent AI)" as AIAgent
+actor "Hệ thống\n(System)" as System
+
+Admin --|> Client
+
+' ─── AUTHENTICATION PACKAGE ──────────────────────────────────────
+rectangle "Xác thực (Authentication)" #E8F5E9 {
+  usecase "Đăng ký tài khoản" as UC_Register
+  usecase "Đăng nhập" as UC_Login
+  usecase "Đăng xuất" as UC_Logout
+  usecase "Làm mới Token" as UC_Refresh
+  usecase "Quên mật khẩu" as UC_ForgotPassword
+  usecase "Đặt lại mật khẩu\n(OTP)" as UC_ResetPassword
+  usecase "Thay đổi mật khẩu" as UC_ChangePassword
+
+  UC_ForgotPassword ..> UC_ResetPassword : <<include>>
+}
+
+' ─── PROFILE PACKAGE ─────────────────────────────────────────────
+rectangle "Hồ sơ (Profile)" #E3F2FD {
+  usecase "Xem hồ sơ cá nhân" as UC_ViewProfile
+  usecase "Cập nhật hồ sơ\n(timezone, preferences)" as UC_UpdateProfile
+}
+
+' ─── GOAL MANAGEMENT ─────────────────────────────────────────────
+rectangle "Quản lý Mục tiêu (Goals)" #FFF3E0 {
+  usecase "Tạo mục tiêu học tập" as UC_CreateGoal
+  usecase "Xem danh sách mục tiêu" as UC_ListGoals
+  usecase "Cập nhật mục tiêu" as UC_UpdateGoal
+  usecase "Xóa mục tiêu" as UC_DeleteGoal
+  usecase "AI phân rã\nmục tiêu thành Tasks" as UC_DecomposeGoal
+}
+
+' ─── TASK MANAGEMENT ─────────────────────────────────────────────
+rectangle "Quản lý Task" #F3E5F5 {
+  usecase "Tạo Task thủ công" as UC_CreateTask
+  usecase "Xem Tasks của Goal" as UC_ListTasks
+  usecase "Cập nhật Task" as UC_UpdateTask
+  usecase "Xóa Task" as UC_DeleteTask
+}
+
+' ─── SCHEDULE MANAGEMENT ─────────────────────────────────────────
+rectangle "Quản lý Lịch học" #FCE4EC {
+  usecase "Sinh lịch học tự động\n(AI Pomodoro)" as UC_GenerateSchedule
+  usecase "Sinh lịch theo\nUnified JSON" as UC_GenerateUnified
+  usecase "Xem lịch học\n(theo khoảng ngày)" as UC_ViewSchedule
+  usecase "Cập nhật trạng thái\nphiên học" as UC_UpdateBlockStatus
+  usecase "Xóa lịch học" as UC_ClearSchedule
+
+  UC_GenerateSchedule ..> UC_GenerateUnified : <<extend>>
+}
+
+' ─── CALENDAR PACKAGE ────────────────────────────────────────────
+rectangle "Lịch (Calendar)" #E0F2F1 {
+  usecase "Tạo sự kiện\ntrên lịch" as UC_CreateEvent
+  usecase "Xem sự kiện\ntrên lịch" as UC_ListEvents
+  usecase "Cập nhật sự kiện" as UC_UpdateEvent
+  usecase "Xóa sự kiện" as UC_DeleteEvent
+  usecase "Kiểm tra\nxung đột lịch" as UC_CheckConflict
+  usecase "Xem khung giờ\nrảnh" as UC_FreeSlots
+}
+
+' ─── ANALYTICS PACKAGE ───────────────────────────────────────────
+rectangle "Phân tích (Analytics)" #FFFDE7 {
+  usecase "Xem Dashboard\nthống kê" as UC_Dashboard
+  usecase "Xem Study Insights\n(cảnh báo quá tải)" as UC_Insights
+  usecase "Xem lịch sử học\n(weekly/monthly/yearly)" as UC_History
+}
+
+' ─── ADMIN PACKAGE ───────────────────────────────────────────────
+rectangle "Quản trị (Admin)" #FFEBEE {
+  usecase "Xem danh sách\nngười dùng" as UC_AdminListUsers
+  usecase "Kích hoạt/\nVô hiệu hóa User" as UC_AdminToggleUser
+}
+
+' ─── SYSTEM / AI PACKAGE ─────────────────────────────────────────
+rectangle "AI / Hệ thống" #E8EAF6 {
+  usecase "Normalize Input\n(CSV / Manual text)" as UC_NormalizeInput
+  usecase "Gửi email OTP\n(Bull Queue)" as UC_SendEmail
+  usecase "Sync lịch hệ thống\nvào Calendar" as UC_SyncCalendar
+}
+
+' ─── CLIENT ASSOCIATIONS ─────────────────────────────────────────
+Client --> UC_Register
+Client --> UC_Login
+Client --> UC_Logout
+Client --> UC_Refresh
+Client --> UC_ForgotPassword
+Client --> UC_ChangePassword
+
+Client --> UC_ViewProfile
+Client --> UC_UpdateProfile
+
+Client --> UC_CreateGoal
+Client --> UC_ListGoals
+Client --> UC_UpdateGoal
+Client --> UC_DeleteGoal
+Client --> UC_DecomposeGoal
+
+Client --> UC_CreateTask
+Client --> UC_ListTasks
+Client --> UC_UpdateTask
+Client --> UC_DeleteTask
+
+Client --> UC_GenerateSchedule
+Client --> UC_ViewSchedule
+Client --> UC_UpdateBlockStatus
+Client --> UC_ClearSchedule
+
+Client --> UC_CreateEvent
+Client --> UC_ListEvents
+Client --> UC_UpdateEvent
+Client --> UC_DeleteEvent
+Client --> UC_CheckConflict
+Client --> UC_FreeSlots
+
+Client --> UC_Dashboard
+Client --> UC_Insights
+Client --> UC_History
+
+Client --> UC_NormalizeInput
+
+' ─── ADMIN ASSOCIATIONS ──────────────────────────────────────────
+Admin --> UC_AdminListUsers
+Admin --> UC_AdminToggleUser
+
+' ─── AI AGENT ASSOCIATIONS ───────────────────────────────────────
+AIAgent --> UC_DecomposeGoal
+AIAgent --> UC_NormalizeInput
+
+' ─── SYSTEM ASSOCIATIONS ─────────────────────────────────────────
+System --> UC_SendEmail
+System --> UC_SyncCalendar
+
+UC_GenerateSchedule ..> UC_SyncCalendar : <<include>>
+UC_ForgotPassword ..> UC_SendEmail : <<include>>
+
+@enduml

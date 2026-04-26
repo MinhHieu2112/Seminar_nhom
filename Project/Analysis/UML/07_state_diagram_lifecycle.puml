@@ -1,0 +1,104 @@
+@startuml State_Diagram_Task_Lifecycle
+title Sơ đồ trạng thái - Vòng đời của Task và ScheduleBlock
+
+skinparam backgroundColor #FAFAFA
+skinparam state {
+  BackgroundColor #EEF3FF
+  BorderColor #4A6CF7
+  FontSize 12
+  ArrowColor #4A6CF7
+  StartColor #4A6CF7
+  EndColor #4A6CF7
+}
+skinparam note {
+  BackgroundColor #FFFBE6
+  BorderColor #FFC107
+}
+
+' ─── TASK LIFECYCLE ──────────────────────────────────────────────
+
+state "Vòng đời Task" as TaskLifecycle {
+  [*] --> pending : Tạo Task\n(thủ công hoặc AI)
+
+  state pending #E3F2FD : **pending**\nTask đã tạo,\nchưa có lịch
+  state scheduled #E8F5E9 : **scheduled**\nTask đã được\nlên lịch (có ScheduleBlock)
+  state done #C8E6C9 : **done**\nTask hoàn thành
+  state skipped #FFECB3 : **skipped**\nTask bị bỏ qua
+
+  pending --> scheduled : Sinh lịch học\n(generateSchedule)
+  scheduled --> done : Đánh dấu hoàn thành\n(updateBlockStatus: done)
+  scheduled --> pending : Xóa lịch\n(clearSchedule)
+  pending --> skipped : Skip task\n(updateTask: status=skipped)
+  scheduled --> skipped : Skip task\n(updateTask)
+  done --> [*]
+  skipped --> [*]
+
+  note right of scheduled
+    Mỗi Task ở trạng thái 'scheduled'
+    có ít nhất 1 ScheduleBlock 'planned'
+  end note
+}
+
+' ─── SCHEDULE BLOCK LIFECYCLE ────────────────────────────────────
+
+state "Vòng đời ScheduleBlock" as BlockLifecycle {
+  [*] --> planned : Sinh lịch\n(generateSchedule)
+
+  state planned #E3F2FD : **planned**\nPhiên học\nđã lên lịch
+  state done2 #C8E6C9 : **done**\nPhiên học\nhoàn thành
+  state missed #FFCDD2 : **missed**\nPhiên học\nbị bỏ lỡ
+  state shifted #FFF9C4 : **shifted**\nPhiên học\nđược dời lịch
+
+  planned --> done2 : User đánh dấu done\n(PATCH /schedule/blocks/:id)
+  planned --> missed : Quá giờ mà\nchưa hoàn thành
+  planned --> shifted : Tái sinh lịch\n(autoshift/regenerate)
+  shifted --> planned : Lịch mới được tạo
+  done2 --> [*]
+  missed --> [*]
+
+  note right of missed
+    System có thể tự động
+    đánh dấu 'missed' nếu
+    plannedEnd đã qua
+  end note
+}
+
+' ─── GOAL LIFECYCLE ──────────────────────────────────────────────
+
+state "Vòng đời Goal" as GoalLifecycle {
+  [*] --> active : Tạo Goal mới
+
+  state active #E3F2FD : **active**\nMục tiêu đang\nthực hiện
+  state completed #C8E6C9 : **completed**\nTất cả Tasks\nhoàn thành
+  state paused #FFECB3 : **paused**\nTạm dừng\nmục tiêu
+
+  active --> completed : Tất cả tasks.status = 'done'
+  active --> paused : User tạm dừng
+  paused --> active : User tiếp tục
+  completed --> [*]
+}
+
+' ─── CALENDAR EVENT LIFECYCLE ────────────────────────────────────
+
+state "Vòng đời CalendarEvent" as CalendarLifecycle {
+  [*] --> event_created
+
+  state event_created : Tạo event\n(source: manual/google/system)
+
+  state "Phân loại theo source" as source_check {
+    state manual_event #E3F2FD : **manual**\nUser tạo thủ công
+    state system_event #E8F5E9 : **system**\nSinh từ\nSchedule/Queue
+    state google_event #FFF3E0 : **google**\nSync từ\nGoogle Calendar
+  }
+
+  event_created --> source_check
+  source_check --> manual_event
+  source_check --> system_event
+  source_check --> google_event
+
+  system_event --> [*] : Bị xóa khi\nClearSchedule\nhoặc regenerate
+  manual_event --> [*] : User xóa\n(DELETE /calendar/events/:id)
+  google_event --> [*] : Unsync\nhoặc xóa
+}
+
+@enduml

@@ -1,0 +1,142 @@
+@startuml Deployment_Diagram
+title Sơ đồ triển khai - Docker Compose Infrastructure
+
+skinparam backgroundColor #FAFAFA
+skinparam node {
+  BackgroundColor #EEF3FF
+  BorderColor #4A6CF7
+  FontSize 12
+}
+skinparam database {
+  BackgroundColor #FFF3E0
+  BorderColor #FF9800
+}
+skinparam component {
+  BackgroundColor #E8F5E9
+  BorderColor #4CAF50
+  FontSize 11
+}
+skinparam ArrowColor #555555
+skinparam ArrowFontSize 10
+skinparam cloud {
+  BackgroundColor #F5F5F5
+  BorderColor #9E9E9E
+}
+
+cloud "Docker Network\n(seminar_network)" {
+
+  ' ─── FRONTEND ──────────────────────────────────────────────
+  node "frontend\n(Next.js 14)" <<container>> {
+    component [Next.js App\nPort: 3001 (host)] as FE_App
+  }
+
+  ' ─── API GATEWAY ───────────────────────────────────────────
+  node "api-gateway\n(NestJS)" <<container>> {
+    component [HTTP Server\nPort: 3000] as GW_HTTP
+    component [JWT Middleware] as GW_JWT
+    component [TcpClientService\n(TCP Forwarder)] as GW_TCP_SVC
+    GW_HTTP --> GW_JWT
+    GW_HTTP --> GW_TCP_SVC
+  }
+
+  ' ─── USER SERVICE ──────────────────────────────────────────
+  node "user-service\n(NestJS)" <<container>> {
+    component [TCP Listener\nPort: 3001] as US_TCP
+    component [Bull Consumer\n(notification-jobs)] as US_Bull
+    US_TCP --> US_Bull
+  }
+
+  ' ─── SCHEDULER SERVICE ─────────────────────────────────────
+  node "scheduler-service\n(NestJS)" <<container>> {
+    component [TCP Listener\nPort: 3002] as SS_TCP
+    component [HTTP Server\nPort: 3002 (debug)] as SS_HTTP
+    component [PomdoroScheduler\nAlgorithm] as SS_Algo
+    SS_TCP --> SS_Algo
+  }
+
+  ' ─── CALENDAR SERVICE ──────────────────────────────────────
+  node "calendar-service\n(NestJS)" <<container>> {
+    component [TCP Listener\nPort: 3003] as CAL_TCP
+    component [HTTP Server\nPort: 3003 (debug)] as CAL_HTTP
+  }
+
+  ' ─── ANALYTICS SERVICE ─────────────────────────────────────
+  node "analytics-service\n(NestJS)" <<container>> {
+    component [HTTP Server\nPort: 3004] as AN_HTTP
+    component [TCP Listener\nPort: 3004] as AN_TCP
+  }
+
+  ' ─── AI SERVICE ────────────────────────────────────────────
+  node "ai-service\n(NestJS)" <<container>> {
+    component [TCP Listener\nPort: 3005] as AI_TCP
+    component [HTTP Server\nPort: 3005 (debug)] as AI_HTTP
+    component [AgentAiService\nTemplate + Heuristic Engine] as AI_Engine
+    AI_TCP --> AI_Engine
+  }
+
+  ' ─── NOTIFICATION SERVICE ──────────────────────────────────
+  node "notification-service\n(NestJS)" <<container>> {
+    component [TCP Listener\nPort: 3006] as NOT_TCP
+    component [Bull Worker\n(EmailProcessor)] as NOT_Worker
+    NOT_TCP --> NOT_Worker
+  }
+
+  ' ─── QUEUE SERVICE ─────────────────────────────────────────
+  node "queue-service\n(NestJS)" <<container>> {
+    component [TCP Listener\nPort: 3007] as QS_TCP
+    component [In-Memory\nQueue Store] as QS_Store
+    QS_TCP --> QS_Store
+  }
+
+  ' ─── DATABASES ─────────────────────────────────────────────
+  database "postgres-users\n(PostgreSQL 15)\nPort: 5433" as DB_Users
+  database "postgres-scheduler\n(PostgreSQL 15)\nPort: 5434" as DB_Scheduler
+  database "postgres-calendar\n(PostgreSQL 15)\nPort: 5435" as DB_Calendar
+  database "redis\n(Redis 7)\nPort: 6379" as DB_Redis
+
+  ' ─── CONNECTIONS ───────────────────────────────────────────
+  GW_TCP_SVC --> US_TCP : TCP :3001
+  GW_TCP_SVC --> SS_TCP : TCP :3002
+  GW_TCP_SVC --> CAL_TCP : TCP :3003
+  GW_TCP_SVC --> AN_TCP : TCP :3004
+  GW_TCP_SVC --> AI_TCP : TCP :3005
+  GW_TCP_SVC --> NOT_TCP : TCP :3006
+  GW_TCP_SVC --> QS_TCP : TCP :3007
+
+  US_TCP --> DB_Users : TypeORM\n(users_db)
+  US_TCP --> DB_Redis : ioredis\n(OTP + Blacklist)
+  US_Bull --> DB_Redis : Bull Consumer
+
+  SS_TCP --> DB_Scheduler : TypeORM\n(scheduler_db)
+
+  CAL_TCP --> DB_Calendar : TypeORM\n(calendar_db)
+
+  AN_TCP --> DB_Scheduler : TypeORM\n(shared read\nscheduler_db)
+
+  NOT_Worker --> DB_Redis : Bull Consumer\n(notification-jobs queue)
+}
+
+' ─── EXTERNAL HOST ACCESS ──────────────────────────────────────
+node "Host Machine / Browser" <<host>> {
+  component [Web Browser] as Browser
+}
+
+Browser --> FE_App : HTTP :3001
+Browser --> GW_HTTP : HTTP :3000\n(direct API calls)
+
+note bottom of DB_Redis
+  Redis dùng cho:
+  - OTP storage (TTL 300s)
+  - JWT blacklist (logout)
+  - Bull Queue channels:
+    notification-jobs
+end note
+
+note right of GW_TCP_SVC
+  Tất cả giao tiếp giữa
+  API Gateway và Microservices
+  dùng TCP (NestJS MessagePattern)
+  KHÔNG phải HTTP
+end note
+
+@enduml

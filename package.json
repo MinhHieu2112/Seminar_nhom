@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "plantuml": "^0.0.2"
+  }
+}

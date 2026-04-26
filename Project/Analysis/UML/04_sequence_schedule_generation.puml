@@ -1,0 +1,127 @@
+@startuml Sequence_Schedule_Generation
+title Sơ đồ tuần tự - Luồng Sinh lịch học AI
+
+skinparam backgroundColor #FAFAFA
+skinparam sequence {
+  ArrowColor #4A6CF7
+  ActorBorderColor #4A6CF7
+  ActorBackgroundColor #EEF3FF
+  ParticipantBorderColor #4A6CF7
+  ParticipantBackgroundColor #EEF3FF
+  ParticipantFontSize 11
+  LifeLineBorderColor #9E9E9E
+  BoxBorderColor #CCCCCC
+}
+skinparam note {
+  BackgroundColor #FFFBE6
+  BorderColor #FFC107
+}
+
+actor "Người dùng" as User
+participant "Frontend\n(Next.js)" as FE
+participant "API Gateway\n:3000" as GW
+participant "Scheduler\nService (TCP:3002)" as SS
+participant "AI Service\n(TCP:3005)" as AI
+participant "Calendar\nService (TCP:3003)" as CAL
+participant "Queue\nService (TCP:3007)" as QS
+database "scheduler_db\n(PostgreSQL)" as DB_S
+database "calendar_db\n(PostgreSQL)" as DB_C
+
+' ─── TẠO GOAL ────────────────────────────────────────────────────
+== Bước 1: Tạo Goal ==
+
+User -> FE : Nhập Goal title + deadline
+FE -> GW : POST /api/v1/scheduler/goals\n{ title, description, deadline }
+GW -> GW : extractUserId(JWT)
+GW -> SS : TCP: scheduler.goal.create\n{ userId, title, description, deadline }
+SS -> DB_S : INSERT INTO goals
+DB_S --> SS : Goal entity
+SS --> GW : Goal { id, title, status:'active', ... }
+GW --> FE : 201 Created + Goal
+FE --> User : Hiển thị Goal trong danh sách
+
+' ─── AI DECOMPOSE GOAL ───────────────────────────────────────────
+== Bước 2: AI phân rã Goal thành Tasks ==
+
+User -> FE : Bấm "AI Decompose Goal"
+FE -> GW : POST /api/v1/ai/decompose/{goalId}
+GW -> SS : TCP: scheduler.goal.get\n{ id: goalId, userId }
+SS --> GW : Goal { title, deadline }
+GW -> AI : TCP: ai.decompose-goal\n{ goalTitle, deadline }
+note right of AI
+  AI Service dùng 3 lớp fallback:
+  L2: Template Matching (Python, JS, React...)
+  L3: Keyword Heuristic
+  L4: Generic Scaffold
+end note
+AI -> AI : matchTemplate(goalTitle)
+AI -> AI : keywordHeuristic(goalTitle)
+AI --> GW : LlmTask[] [\n  { title, durationMin, priority, type },\n  ...\n]
+loop Với mỗi AI Task
+  GW -> SS : TCP: scheduler.task.create\n{ goalId, userId, title, durationMin, priority, type, source:'ai' }
+  SS -> DB_S : INSERT INTO tasks
+  DB_S --> SS : Task entity
+  SS --> GW : Task
+end
+GW --> FE : { success, goalId, totalTasks, tasks[] }
+FE --> User : Hiển thị danh sách Tasks
+
+' ─── GENERATE SCHEDULE (Unified) ─────────────────────────────────
+== Bước 3: Sinh lịch học (Generate Schedule) ==
+
+User -> FE : Mở modal "Tạo lịch học"\nNhập fromDate, toDate
+FE -> GW : POST /api/v1/scheduler/schedule/generate-unified\n{ userId, goals, tasks, timezoneOffset, constraints }
+GW -> SS : TCP: scheduler.schedule.generateUnified\n{ GenerateUnifiedDto }
+SS -> DB_S : Lấy tất cả pending Tasks của userId
+DB_S --> SS : Task[]
+SS -> SS : Tính toán available slots\ntừ constraints.availableTime
+SS -> SS : Pomodoro scheduling algorithm\n(sắp xếp theo priority, deadline)
+note right of SS
+  Thuật toán Pomodoro:
+  - Sắp xếp task theo priority DESC
+  - Chia task thành các block 25-50 min
+  - Phân bổ vào các time slots
+  - Tránh overload/deadline ngày
+end note
+SS -> DB_S : INSERT INTO schedule_blocks\n(plannedStart, plannedEnd, pomodoroIndex, status:'planned')
+DB_S --> SS : ScheduleBlock[]
+SS --> GW : { success, scheduled[], overflow[], message }
+GW -> QS : TCP: queue.schedule.list\n{ userId }
+QS --> GW : QueueItems[]
+GW -> CAL : TCP: calendar.schedule.replace\n{ userId, items[] }
+note right of CAL
+  Sync lịch từ Queue Service
+  sang Calendar Service
+  (source: 'system')
+end note
+CAL -> DB_C : DELETE old system events\nINSERT new CalendarEvents
+DB_C --> CAL : CalendarEvent[]
+CAL --> GW : OK
+GW --> FE : ScheduleResult
+FE --> User : Hiển thị lịch học (timeline view)
+
+' ─── XEM LỊCH ────────────────────────────────────────────────────
+== Bước 4: Xem lịch học ==
+
+User -> FE : Chọn khoảng ngày xem
+FE -> GW : GET /api/v1/scheduler/schedule/view\n?from=...&to=...
+GW -> SS : TCP: scheduler.schedule.view\n{ userId, from, to }
+SS -> DB_S : SELECT schedule_blocks\nWHERE userId AND plannedStart BETWEEN from AND to\nJOIN tasks
+DB_S --> SS : ScheduleBlock[] with task info
+SS --> GW : ScheduleBlock[]
+GW --> FE : mapped ScheduleBlock[]
+FE --> User : Hiển thị lịch học (calendar/list view)
+
+' ─── CẬP NHẬT TRẠNG THÁI BLOCK ───────────────────────────────────
+== Bước 5: Cập nhật trạng thái phiên học ==
+
+User -> FE : Đánh dấu phiên học hoàn thành
+FE -> GW : PATCH /api/v1/scheduler/schedule/blocks/{blockId}\n{ status: 'done' }
+GW -> SS : TCP: scheduler.block.updateStatus\n{ userId, blockId, status }
+SS -> DB_S : UPDATE schedule_blocks SET status='done'
+DB_S --> SS : Updated ScheduleBlock
+SS --> GW : ScheduleBlock
+GW --> FE : 200 OK
+FE --> User : Cập nhật UI (block màu xanh)
+
+@enduml

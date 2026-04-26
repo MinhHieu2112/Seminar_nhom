@@ -1,0 +1,126 @@
+@startuml Sequence_Auth_Flow
+title Sơ đồ tuần tự - Luồng Xác thực (Authentication)
+
+skinparam backgroundColor #FAFAFA
+skinparam sequence {
+  ArrowColor #4A6CF7
+  ActorBorderColor #4A6CF7
+  ActorBackgroundColor #EEF3FF
+  ParticipantBorderColor #4A6CF7
+  ParticipantBackgroundColor #EEF3FF
+  ParticipantFontSize 12
+  LifeLineBorderColor #9E9E9E
+  BoxBorderColor #CCCCCC
+}
+skinparam note {
+  BackgroundColor #FFFBE6
+  BorderColor #FFC107
+}
+
+actor "Người dùng" as User
+participant "Frontend\n(Next.js)" as FE
+participant "API Gateway\n:3000" as GW
+participant "User Service\n(TCP:3001)" as US
+participant "Redis\n(OTP/Token)" as Redis
+participant "Notification\nQueue (Bull)" as Queue
+participant "Email Service" as Email
+database "PostgreSQL\n(users_db)" as DB
+
+' ─── REGISTER ────────────────────────────────────────────────────
+== Đăng ký tài khoản ==
+
+User -> FE : Điền email + password
+FE -> GW : POST /api/v1/auth/register\n{ email, password }
+GW -> US : TCP: user.register\n{ email, password }
+US -> DB : findOne({ email })
+DB --> US : null (email chưa tồn tại)
+US -> US : bcrypt.hash(password, 12)
+US -> DB : INSERT INTO users
+DB --> US : User entity
+US -> US : generateTokens(userId)
+US --> GW : { accessToken, refreshToken, user }
+GW --> FE : 201 Created
+FE --> User : Chuyển hướng đến Dashboard
+
+' ─── LOGIN ───────────────────────────────────────────────────────
+== Đăng nhập ==
+
+User -> FE : Điền email + password
+FE -> GW : POST /api/v1/auth/login\n{ email, password }
+GW -> US : TCP: user.login\n{ email, password }
+US -> DB : findOne({ email }, select: password)
+DB --> US : User entity
+US -> US : bcrypt.compare(password, hash)
+alt Mật khẩu đúng
+  US -> US : jwt.sign({ sub, email, role, jti })
+  US --> GW : { accessToken, refreshToken, user }
+  GW --> FE : 200 OK + tokens
+  FE -> FE : Lưu tokens vào auth-store
+  FE --> User : Vào Dashboard
+else Mật khẩu sai
+  US --> GW : Error: Invalid credentials
+  GW --> FE : 401 Unauthorized
+  FE --> User : Hiển thị lỗi
+end
+
+' ─── REFRESH TOKEN ───────────────────────────────────────────────
+== Làm mới Token ==
+
+FE -> GW : POST /api/v1/auth/refresh\n{ refreshToken }
+GW -> US : TCP: user.refresh\n{ refreshToken }
+US -> US : jwt.verify(refreshToken)
+US -> Redis : SISMEMBER blacklist_jti
+Redis --> US : false (token hợp lệ)
+US -> US : generateNewTokens()
+US --> GW : { accessToken, refreshToken }
+GW --> FE : 200 OK + new tokens
+
+' ─── FORGOT PASSWORD ─────────────────────────────────────────────
+== Quên mật khẩu ==
+
+User -> FE : Nhập email
+FE -> GW : POST /api/v1/auth/forgot-password\n{ email }
+GW -> US : TCP: user.password.forgot\n{ email }
+US -> US : generateOtp(email)
+US -> Redis : SET otp:{email} expires 300s
+US -> Queue : Bull: add('send-email', { to, template:'otp', vars:{otp} })
+Queue -> Email : Gửi email OTP
+US --> GW : { success: true, message }
+GW --> FE : 200 OK
+FE --> User : "Kiểm tra email của bạn"
+
+' ─── RESET PASSWORD ──────────────────────────────────────────────
+== Đặt lại mật khẩu ==
+
+User -> FE : Nhập OTP + mật khẩu mới
+FE -> GW : POST /api/v1/auth/reset-password\n{ email, otp, newPassword }
+GW -> US : TCP: user.password.reset
+US -> Redis : GET otp:{email}
+Redis --> US : stored OTP
+US -> US : verifyOtp(input, stored)
+alt OTP hợp lệ
+  US -> DB : findOne({ email })
+  US -> US : bcrypt.hash(newPassword, 12)
+  US -> DB : UPDATE users SET password
+  US --> GW : { success: true }
+  GW --> FE : 200 OK
+  FE --> User : "Đặt lại thành công, hãy đăng nhập"
+else OTP không hợp lệ / hết hạn
+  US --> GW : { success: false, message: 'Invalid or expired OTP' }
+  GW --> FE : 400 Bad Request
+  FE --> User : Hiển thị lỗi
+end
+
+' ─── LOGOUT ──────────────────────────────────────────────────────
+== Đăng xuất ==
+
+User -> FE : Bấm Đăng xuất
+FE -> GW : POST /api/v1/auth/logout\n{ userId, jti }
+GW -> US : TCP: user.logout\n{ userId, jti }
+US -> Redis : SADD blacklist_jti (jti)
+US --> GW : { success: true }
+GW --> FE : 200 OK
+FE -> FE : Xóa tokens khỏi store
+FE --> User : Chuyển đến trang Login
+
+@enduml

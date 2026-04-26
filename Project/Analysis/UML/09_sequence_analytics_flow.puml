@@ -1,0 +1,98 @@
+@startuml Sequence_Analytics_Flow
+title Sơ đồ tuần tự - Luồng Analytics & Dashboard
+
+skinparam backgroundColor #FAFAFA
+skinparam sequence {
+  ArrowColor #4A6CF7
+  ActorBorderColor #4A6CF7
+  ActorBackgroundColor #EEF3FF
+  ParticipantBorderColor #4A6CF7
+  ParticipantBackgroundColor #EEF3FF
+  ParticipantFontSize 11
+  LifeLineBorderColor #9E9E9E
+}
+skinparam note {
+  BackgroundColor #FFFBE6
+  BorderColor #FFC107
+}
+
+actor "Người dùng" as User
+participant "Frontend\n(Analytics Page)" as FE
+participant "API Gateway\n:3000" as GW
+participant "Analytics\nService (TCP:3004)" as AN
+database "scheduler_db\n(PostgreSQL)" as DB
+
+' ─── DASHBOARD ───────────────────────────────────────────────────
+== Xem Dashboard thống kê ==
+
+User -> FE : Vào trang Analytics
+FE -> GW : GET /api/v1/analytics/dashboard\n(Authorization: Bearer JWT)
+GW -> GW : extractUserId(JWT)
+GW -> AN : TCP: analytics.dashboard\n{ userId }
+
+AN -> DB : SELECT * FROM goals\nWHERE userId + JOIN tasks
+AN -> DB : SELECT * FROM tasks\nWHERE userId + JOIN goal
+AN -> DB : SELECT * FROM schedule_blocks\nWHERE userId AND plannedEnd <= NOW()
+AN -> DB : SELECT * FROM schedule_blocks\nWHERE userId (all)
+
+note right of AN
+  Tính toán song song (Promise.all):
+  - goals + relations tasks
+  - all tasks + relations goal
+  - past blocks (plannedEnd <= now)
+  - all blocks
+end note
+
+DB --> AN : [goals[], tasks[], pastBlocks[], allBlocks[]]
+
+AN -> AN : CompletionCalculator.calculateRate(\n  tasks.length, completedTasks)
+AN -> AN : ProductivityRule.calculateScore(\n  completionRate, ...)
+AN -> AN : TimeDistributionStrategy.analyze(\n  doneBlocks sessions)
+AN -> AN : generateSuggestions(timeDistribution)
+AN -> AN : Tính currentWeekBlocks\n(lọc theo getCurrentWeekRange)
+
+AN --> GW : AnalyticsDashboardResponseDto {\n  completionRate,\n  productivityScore,\n  timeDistribution,\n  suggestions[],\n  summary: { totalGoals, activeGoals,\n    completedGoals, totalTasks,\n    pendingTasks, completedTasks,\n    overdueTasks, plannedBlocks,\n    completedBlocks },\n  weeklyOverview: { scheduledBlocks,\n    studyHours, completedTasks }\n}
+GW --> FE : 200 OK + dashboard data
+FE --> User : Hiển thị biểu đồ\n& thống kê
+
+' ─── STUDY INSIGHTS ──────────────────────────────────────────────
+== Xem Study Insights ==
+
+User -> FE : Chọn khoảng ngày phân tích
+FE -> GW : POST /api/v1/analytics/insights\n{ dateRange: { from, to } }
+GW -> AN : TCP: analytics.insights\n{ userId, from, to }
+
+AN -> DB : SELECT * FROM schedule_blocks\nWHERE userId AND plannedStart BETWEEN from AND to
+DB --> AN : futureBlocks[]
+
+AN -> AN : Tính tổng giờ học\n(totalMinutes từ plannedEnd - plannedStart)
+AN -> AN : isOverloaded = plannedHours > 40
+
+AN --> GW : StudyInsightsResponseDto {\n  isOverloaded,\n  message,\n  recommendations[]\n}
+GW --> FE : 200 OK
+FE --> User : Hiển thị cảnh báo\n(nếu overloaded)
+
+' ─── HISTORY ─────────────────────────────────────────────────────
+== Xem lịch sử học tập ==
+
+User -> FE : Chọn kỳ xem (weekly/monthly/yearly)
+FE -> GW : GET /api/v1/analytics/history\n?period=weekly
+GW -> AN : TCP: analytics.history\n{ userId, period }
+
+AN -> DB : SELECT * FROM schedule_blocks\nWHERE userId AND plannedStart BETWEEN from AND futureEnd
+AN -> DB : SELECT * FROM tasks\nWHERE userId + JOIN goal
+DB --> AN : [blocks[], tasks[]]
+
+AN -> AN : GROUP BY date\n(format: YYYY-MM-DD)
+loop Với mỗi block
+  AN -> AN : stats.planned += durationHours\nstats.actual += (if done)
+end
+loop Với mỗi task
+  AN -> AN : stats.tasksCompleted/Pending/Overdue++
+end
+
+AN --> GW : HistoryPoint[] [\n  { date, planned, actual,\n    tasksCompleted,\n    tasksPending, tasksOverdue }\n]
+GW --> FE : 200 OK + history data
+FE --> User : Hiển thị biểu đồ\nBar Chart / Line Chart
+
+@enduml

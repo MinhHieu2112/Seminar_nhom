@@ -1,0 +1,184 @@
+@startuml Component_Diagram_Architecture
+title Sơ đồ thành phần - Kiến trúc Microservices
+
+skinparam backgroundColor #FAFAFA
+skinparam componentStyle rectangle
+skinparam component {
+  BackgroundColor #EEF3FF
+  BorderColor #4A6CF7
+  FontSize 12
+}
+skinparam database {
+  BackgroundColor #FFF3E0
+  BorderColor #FF9800
+}
+skinparam cloud {
+  BackgroundColor #E8F5E9
+  BorderColor #4CAF50
+}
+skinparam node {
+  BackgroundColor #F3E5F5
+  BorderColor #9C27B0
+}
+skinparam queue {
+  BackgroundColor #E0F2F1
+  BorderColor #009688
+}
+skinparam ArrowColor #555555
+skinparam ArrowFontSize 10
+
+' ─── FRONTEND ────────────────────────────────────────────────────
+node "Frontend (Next.js 14)" #EEF3FF {
+  component [Auth Pages\n/login /register\n/forgot-password] as FE_Auth
+  component [Dashboard Page\n/dashboard] as FE_Dashboard
+  component [Scheduler Pages\n/scheduler (Goals/Tasks/Schedule)] as FE_Scheduler
+  component [Calendar Page\n/(dashboard)/calendar] as FE_Calendar
+  component [Analytics Page\n/(dashboard)/analytics] as FE_Analytics
+  component [Admin Page\n/admin] as FE_Admin
+  component [Profile Page\n/profile] as FE_Profile
+  component [API Client\nlib/api.ts + api-client.ts] as FE_ApiClient
+  component [Auth Store\nlib/auth-store.ts] as FE_AuthStore
+
+  FE_Auth --> FE_ApiClient
+  FE_Dashboard --> FE_ApiClient
+  FE_Scheduler --> FE_ApiClient
+  FE_Calendar --> FE_ApiClient
+  FE_Analytics --> FE_ApiClient
+  FE_Admin --> FE_ApiClient
+  FE_Profile --> FE_ApiClient
+  FE_ApiClient --> FE_AuthStore : reads JWT
+}
+
+' ─── API GATEWAY ─────────────────────────────────────────────────
+node "API Gateway (NestJS)\nPort: 3000" #FFFDE7 {
+  component [AuthGatewayController\nPOST /api/v1/auth/*] as GW_Auth
+  component [UsersGatewayController\nGET/PATCH /api/v1/users/*] as GW_Users
+  component [AdminGatewayController\nGET/POST /api/v1/admin/*] as GW_Admin
+  component [SchedulerGatewayController\n/api/v1/scheduler/*] as GW_Scheduler
+  component [CalendarGatewayController\n/api/v1/calendar/*] as GW_Calendar
+  component [AiGatewayController\nPOST /api/v1/ai/*] as GW_AI
+  component [AnalyticsGatewayController\nGET /api/v1/analytics/*] as GW_Analytics
+  component [TcpClientService\nTCP forwarder] as GW_TCP
+  component [JwtService\nJWT verify] as GW_JWT
+
+  GW_Auth --> GW_TCP
+  GW_Users --> GW_TCP
+  GW_Admin --> GW_TCP
+  GW_Scheduler --> GW_TCP
+  GW_Calendar --> GW_TCP
+  GW_AI --> GW_TCP
+  GW_Analytics --> GW_TCP
+
+  GW_Auth ..> GW_JWT
+  GW_Users ..> GW_JWT
+  GW_Admin ..> GW_JWT
+  GW_Scheduler ..> GW_JWT
+  GW_Calendar ..> GW_JWT
+  GW_AI ..> GW_JWT
+  GW_Analytics ..> GW_JWT
+}
+
+' ─── MICROSERVICES ───────────────────────────────────────────────
+node "User Service (NestJS)\nTCP Port: 3001" #E8F5E9 {
+  component [UsersController\nMessagePattern] as US_Controller
+  component [AuthService\nJWT + bcrypt] as US_Auth
+  component [UserService\nCRUD Profile] as US_User
+  component [OtpService\nOTP gen/verify] as US_OTP
+  component [TokenService\nRefresh tokens] as US_Token
+
+  US_Controller --> US_Auth
+  US_Controller --> US_User
+  US_Controller --> US_OTP
+  US_Auth --> US_Token
+}
+
+node "Scheduler Service (NestJS)\nTCP Port: 3002" #E3F2FD {
+  component [SchedulerController\nMessagePattern] as SS_Controller
+  component [GoalService] as SS_Goal
+  component [TaskService] as SS_Task
+  component [ScheduleService\nPomodoro algorithm] as SS_Schedule
+
+  SS_Controller --> SS_Goal
+  SS_Controller --> SS_Task
+  SS_Controller --> SS_Schedule
+}
+
+node "AI Service (NestJS)\nTCP Port: 3005" #F3E5F5 {
+  component [AgentAiController\nMessagePattern] as AI_Controller
+  component [AgentAiService\nDecompose + Normalize] as AI_Service
+
+  AI_Controller --> AI_Service
+}
+
+node "Calendar Service (NestJS)\nTCP Port: 3003" #FFF3E0 {
+  component [CalendarController\nMessagePattern] as CAL_Controller
+  component [EventService] as CAL_Event
+  component [AvailabilityService] as CAL_Avail
+  component [WorkingHoursService] as CAL_WH
+
+  CAL_Controller --> CAL_Event
+  CAL_Controller --> CAL_Avail
+  CAL_Controller --> CAL_WH
+}
+
+node "Analytics Service (NestJS)\nTCP Port: 3004" #FCE4EC {
+  component [AnalyticsController\nMessagePattern] as AN_Controller
+  component [AnalyticsService\nDashboard + Insights] as AN_Service
+  component [CompletionCalculator] as AN_Calc
+  component [ProductivityRule] as AN_Rule
+  component [TimeDistributionStrategy] as AN_Strategy
+
+  AN_Controller --> AN_Service
+  AN_Service --> AN_Calc
+  AN_Service --> AN_Rule
+  AN_Service --> AN_Strategy
+}
+
+node "Notification Service (NestJS)\nTCP Port: 3006" #E0F2F1 {
+  component [NotificationController] as NOT_Controller
+  component [NotificationService] as NOT_Service
+  component [EmailProcessor\nBull Worker] as NOT_Email
+
+  NOT_Controller --> NOT_Service
+  NOT_Service --> NOT_Email
+}
+
+' ─── DATABASES ───────────────────────────────────────────────────
+database "PostgreSQL\nusers_db" as DB_Users
+database "PostgreSQL\nscheduler_db" as DB_Scheduler
+database "PostgreSQL\ncalendar_db" as DB_Calendar
+database "Redis\n(OTP + Token Blacklist\n+ Bull Queue)" as DB_Redis
+
+' ─── CONNECTIONS: Frontend → Gateway ─────────────────────────────
+FE_ApiClient --> GW_Auth : HTTP REST\n(JSON)
+FE_ApiClient --> GW_Users : HTTP REST
+FE_ApiClient --> GW_Admin : HTTP REST
+FE_ApiClient --> GW_Scheduler : HTTP REST
+FE_ApiClient --> GW_Calendar : HTTP REST
+FE_ApiClient --> GW_AI : HTTP REST\n(multipart/form-data)
+FE_ApiClient --> GW_Analytics : HTTP REST
+
+' ─── CONNECTIONS: Gateway → Services (TCP) ───────────────────────
+GW_TCP --> US_Controller : TCP\nMessagePattern
+GW_TCP --> SS_Controller : TCP\nMessagePattern
+GW_TCP --> AI_Controller : TCP\nMessagePattern
+GW_TCP --> CAL_Controller : TCP\nMessagePattern
+GW_TCP --> AN_Controller : TCP\nMessagePattern
+GW_TCP --> NOT_Controller : TCP\nMessagePattern
+
+' ─── CONNECTIONS: Services → DBs ─────────────────────────────────
+US_Controller --> DB_Users : TypeORM
+US_OTP --> DB_Redis : ioredis
+US_Token --> DB_Redis : ioredis
+US_Controller ..> DB_Redis : Bull Queue\n(notification-jobs)
+
+SS_Controller --> DB_Scheduler : TypeORM
+CAL_Controller --> DB_Calendar : TypeORM
+AN_Service --> DB_Scheduler : TypeORM\n(shared read)
+
+NOT_Email --> DB_Redis : Bull Consumer
+
+' ─── AI SERVICE → Scheduler (internal gateway call) ──────────────
+GW_AI ..> GW_TCP : forward tasks\nto scheduler-service
+
+@enduml

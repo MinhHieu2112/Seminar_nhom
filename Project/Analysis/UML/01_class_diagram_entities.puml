@@ -1,0 +1,195 @@
+@startuml Class_Diagram_Entities
+title Sơ đồ lớp - Các Entity của hệ thống
+
+skinparam classAttributeIconSize 0
+skinparam classFontSize 13
+skinparam classFontStyle bold
+skinparam backgroundColor #FAFAFA
+skinparam class {
+  BackgroundColor #EEF3FF
+  BorderColor #4A6CF7
+  HeaderBackgroundColor #4A6CF7
+  HeaderFontColor white
+  ArrowColor #4A6CF7
+}
+skinparam note {
+  BackgroundColor #FFFBE6
+  BorderColor #FFC107
+}
+
+' ─── USER SERVICE ────────────────────────────────────────────────
+
+package "users-service" #E8F5E9 {
+
+  enum UserRole {
+    CLIENT
+    ADMIN
+  }
+
+  class User {
+    + id : UUID <<PK>>
+    + email : string <<unique>>
+    - password : string
+    + role : UserRole
+    + timezone : string
+    + preferences : JSONB
+    + isActive : boolean
+    + createdAt : Date
+    + updatedAt : Date
+  }
+
+  User --> UserRole
+}
+
+' ─── SCHEDULER SERVICE ───────────────────────────────────────────
+
+package "scheduler-service" #E3F2FD {
+
+  enum GoalStatus {
+    active
+    completed
+    paused
+  }
+
+  enum TaskStatus {
+    pending
+    scheduled
+    done
+    skipped
+  }
+
+  enum TaskType {
+    theory
+    practice
+    review
+  }
+
+  enum TaskSource {
+    ai
+    manual
+  }
+
+  enum BlockStatus {
+    planned
+    done
+    missed
+    shifted
+  }
+
+  class Goal {
+    + id : UUID <<PK>>
+    + userId : UUID <<FK>>
+    + title : text
+    + description : text
+    + deadline : timestamptz
+    + status : GoalStatus
+    + createdAt : timestamptz
+    --
+    + tasks : Task[]
+  }
+
+  class Task {
+    + id : UUID <<PK>>
+    + userId : UUID <<FK>>
+    + goalId : UUID <<FK>>
+    + title : text
+    + durationMin : int
+    + priority : smallint
+    + deadline : timestamptz
+    + type : TaskType
+    + status : TaskStatus
+    + source : TaskSource
+    + createdAt : timestamptz
+    --
+    + goal : Goal
+    + scheduleBlocks : ScheduleBlock[]
+  }
+
+  class ScheduleBlock {
+    + id : UUID <<PK>>
+    + userId : UUID <<FK>>
+    + taskId : UUID <<FK>>
+    + plannedStart : timestamptz
+    + plannedEnd : timestamptz
+    + pomodoroIndex : smallint
+    + status : BlockStatus
+    + createdAt : timestamptz
+    --
+    + task : Task
+  }
+
+  Goal --> GoalStatus
+  Task --> TaskStatus
+  Task --> TaskType
+  Task --> TaskSource
+  ScheduleBlock --> BlockStatus
+
+  Goal "1" *-- "0..*" Task : contains >
+  Task "1" *-- "0..*" ScheduleBlock : schedules >
+}
+
+' ─── CALENDAR SERVICE ────────────────────────────────────────────
+
+package "calendar-service" #FFF3E0 {
+
+  enum EventSource {
+    manual
+    google
+    system
+  }
+
+  class CalendarEvent {
+    + id : UUID <<PK>>
+    + userId : UUID <<FK>>
+    + title : varchar(255)
+    + startTime : timestamptz
+    + endTime : timestamptz
+    + recurrenceRule : text
+    + priority : int
+    + source : EventSource
+    + isAllDay : boolean
+    + description : text
+    + externalId : UUID
+    + taskId : UUID
+    + pomodoroIndex : smallint
+    + sessionType : varchar
+    + queueOrder : int
+    + createdAt : Date
+    + updatedAt : Date
+    --
+    + durationMin : int <<computed>>
+  }
+
+  class WorkingHoursConfig {
+    + id : UUID <<PK>>
+    + userId : UUID <<FK>>
+    + dayOfWeek : int
+    + startTime : varchar(5)
+    + endTime : varchar(5)
+    + isWorkingDay : boolean
+    + createdAt : Date
+    + updatedAt : Date
+  }
+
+  CalendarEvent --> EventSource
+}
+
+' ─── CROSS-SERVICE RELATIONSHIPS ─────────────────────────────────
+
+User "1" ..> "0..*" Goal : owns (by userId) >
+User "1" ..> "0..*" CalendarEvent : has (by userId) >
+User "1" ..> "0..*" WorkingHoursConfig : configures (by userId) >
+
+note bottom of ScheduleBlock
+  Mỗi ScheduleBlock đại diện cho
+  một phiên học Pomodoro được
+  lên lịch cho một Task
+end note
+
+note bottom of CalendarEvent
+  Events loại 'system' được tạo
+  tự động bởi Scheduler Service
+  khi sinh lịch
+end note
+
+@enduml

@@ -1,0 +1,174 @@
+@startuml Frontend_Component_Diagram
+title Sơ đồ thành phần - Frontend (Next.js 14 App Router)
+
+skinparam backgroundColor #FAFAFA
+skinparam componentStyle rectangle
+skinparam component {
+  BackgroundColor #EEF3FF
+  BorderColor #4A6CF7
+  FontSize 11
+}
+skinparam package {
+  BackgroundColor #F5F7FF
+  BorderColor #9FA8DA
+  FontSize 12
+  FontStyle bold
+}
+skinparam ArrowColor #555555
+skinparam ArrowFontSize 10
+skinparam note {
+  BackgroundColor #FFFBE6
+  BorderColor #FFC107
+}
+
+' ─── APP ROUTER (PAGES) ──────────────────────────────────────────
+package "app/ (App Router - Next.js)" {
+
+  package "Public Pages" #FFF3E0 {
+    component [page.tsx\n(Landing / Redirect)] as P_Root
+    component [login/page.tsx] as P_Login
+    component [register/page.tsx] as P_Register
+    component [forgot-password/page.tsx] as P_ForgotPwd
+    component [reset-password/page.tsx] as P_ResetPwd
+  }
+
+  package "(dashboard)/ Group Layout" #E8F5E9 {
+    component [dashboard/page.tsx\n(Overview)] as P_Dashboard
+    component [scheduler/page.tsx\n(Goals + Tasks + Schedule)] as P_Scheduler
+    component [profile/page.tsx] as P_Profile
+    component [admin/page.tsx] as P_Admin
+  }
+
+  component [layout.tsx\n(Root Layout + Providers)] as L_Root
+  component [globals.css] as CSS_Global
+}
+
+' ─── COMPONENTS ──────────────────────────────────────────────────
+package "components/" {
+
+  package "auth/" #FFE0B2 {
+    component [LoginForm.tsx] as C_LoginForm
+    component [RegisterForm.tsx] as C_RegisterForm
+  }
+
+  package "layout/" #E3F2FD {
+    component [Header.tsx\n(Nav + User Menu)] as C_Header
+    component [Sidebar.tsx] as C_Sidebar
+  }
+
+  package "dashboard/" #E8F5E9 {
+    component [StatsCard.tsx] as C_StatsCard
+    component [ActivityChart.tsx] as C_ActivityChart
+    component [UpcomingTasks.tsx] as C_UpcomingTasks
+  }
+
+  package "scheduler/" #F3E5F5 {
+    component [GoalList.tsx] as C_GoalList
+    component [CreateGoalForm.tsx] as C_CreateGoalForm
+    component [TaskList.tsx] as C_TaskList
+    component [ScheduleView.tsx\n(Timeline)] as C_ScheduleView
+    component [GenerateScheduleModal.tsx] as C_GenerateModal
+  }
+
+  package "analytics/" #FCE4EC {
+    component [AnalyticsDashboard.tsx] as C_Analytics
+    component [CompletionChart.tsx] as C_CompletionChart
+    component [TimeDistributionChart.tsx] as C_TimeChart
+  }
+
+  package "admin/" #FFF9C4 {
+    component [UsersTable.tsx] as C_UsersTable
+  }
+
+  package "profile/" #E0F2F1 {
+    component [ProfileForm.tsx] as C_ProfileForm
+  }
+
+  package "password/" #EDE7F6 {
+    component [ForgotPasswordForm.tsx] as C_ForgotForm
+    component [ResetPasswordForm.tsx] as C_ResetForm
+    component [ChangePasswordForm.tsx] as C_ChangeForm
+  }
+}
+
+' ─── LIB / STATE ─────────────────────────────────────────────────
+package "lib/" #FFFDE7 {
+  component [api.ts\n(authApi, goalApi, taskApi,\nscheduleApi, calendarApi,\nanalyticsApi, aiApi, adminApi)] as L_Api
+  component [api-client.ts\n(Axios instance + interceptors)] as L_ApiClient
+  component [auth-store.ts\n(Zustand store\naccessToken, user, logout)] as L_AuthStore
+  component [schemas.ts\n(Zod validation schemas)] as L_Schemas
+  component [providers.tsx\n(React Query Provider)] as L_Providers
+  package "hooks/" {
+    component [useAuth.ts] as H_Auth
+    component [useGoals.ts] as H_Goals
+    component [useSchedule.ts] as H_Schedule
+  }
+}
+
+' ─── TYPES ───────────────────────────────────────────────────────
+package "types/" #E8EAF6 {
+  component [api.ts\n(User, Goal, Task,\nScheduleBlock, CalendarEvent,\nAnalyticsDashboard, ...)] as T_Api
+}
+
+' ─── EXTERNAL ────────────────────────────────────────────────────
+component [API Gateway\nhttp://localhost:3000/api/v1] as ExtAPI
+
+' ─── PAGE → COMPONENT RELATIONSHIPS ──────────────────────────────
+P_Login --> C_LoginForm
+P_Register --> C_RegisterForm
+P_ForgotPwd --> C_ForgotForm
+P_ResetPwd --> C_ResetForm
+P_Dashboard --> C_StatsCard
+P_Dashboard --> C_ActivityChart
+P_Dashboard --> C_UpcomingTasks
+P_Scheduler --> C_GoalList
+P_Scheduler --> C_TaskList
+P_Scheduler --> C_ScheduleView
+P_Scheduler --> C_GenerateModal
+P_Profile --> C_ProfileForm
+P_Profile --> C_ChangeForm
+P_Admin --> C_UsersTable
+
+' ─── COMPONENT → LIB RELATIONSHIPS ──────────────────────────────
+C_LoginForm --> L_Api : authApi.login()
+C_RegisterForm --> L_Api : authApi.register()
+C_GoalList --> L_Api : goalApi.list/create/delete()
+C_TaskList --> L_Api : taskApi.listByGoal()
+C_ScheduleView --> L_Api : scheduleApi.view()
+C_GenerateModal --> L_Api : scheduleApi.generate()\naiApi.generateFromUnified()
+C_Analytics --> L_Api : analyticsApi.getDashboard()
+C_UsersTable --> L_Api : adminApi.listUsers()
+C_ProfileForm --> L_Api : profileApi.get/update()
+
+L_Api --> L_ApiClient : uses Axios instance
+L_ApiClient --> L_AuthStore : reads accessToken
+L_ApiClient --> ExtAPI : HTTP requests\n(Bearer JWT)
+L_Api --> T_Api : typed by
+
+H_Auth --> L_AuthStore
+H_Goals --> L_Api
+H_Schedule --> L_Api
+
+C_LoginForm --> L_Schemas : Zod validation
+C_RegisterForm --> L_Schemas : Zod validation
+C_CreateGoalForm --> L_Schemas : Zod validation
+
+L_Root --> L_Providers
+L_Providers ..> L_AuthStore : React Query cache
+
+note bottom of L_AuthStore
+  Zustand store lưu:
+  - accessToken / refreshToken
+  - user (id, email, role)
+  - isAuthenticated
+  Auto-refresh token khi hết hạn
+end note
+
+note bottom of L_ApiClient
+  Axios interceptors:
+  - Request: thêm Bearer token
+  - Response 401: auto refresh token
+  - Response error: throw ApiError
+end note
+
+@enduml
