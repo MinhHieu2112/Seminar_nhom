@@ -1,0 +1,172 @@
+@startuml Workflow_AIService
+title Workflow - AI Service (Phân tích & Phân rã mục tiêu học tập)
+
+skinparam backgroundColor #FAFAFA
+skinparam activity {
+  BackgroundColor #EEF3FF
+  BorderColor #4A6CF7
+  FontSize 11
+  ArrowColor #4A6CF7
+  StartColor #4A6CF7
+  EndColor #4A6CF7
+  DiamondBackgroundColor #FFFDE7
+  DiamondBorderColor #FF9800
+}
+skinparam note {
+  BackgroundColor #FFFBE6
+  BorderColor #FFC107
+}
+skinparam swimlane {
+  BorderColor #4A6CF7
+  TitleFontSize 12
+  TitleFontStyle bold
+}
+
+|#E8F5E9| **AgentAiController** |
+|#E3F2FD| **AgentAiService** |
+|#FFF3E0| **Template Engine** |
+|#F3E5F5| **Heuristic Engine** |
+
+' ─── DECOMPOSE GOAL ──────────────────────────────────────────────
+|**AgentAiController**|
+start
+:TCP: **ai.decompose-goal**\n{ goalTitle, deadline? };
+
+|**AgentAiService**|
+:goalTitle.toLowerCase();
+
+' Layer 2: Template Matching
+:--- L2: Template Matching ---;
+|**Template Engine**|
+:Duyệt KEYWORD_MAP:\npython, javascript, react,\nnextjs, nestjs, english, sql, toan...;
+if (goalTitle khớp keyword?) then (yes)
+  note right
+    Ví dụ: "học python" → KEYWORD_MAP['python']
+    → TEMPLATES['python'] = [
+      {title:'Python cơ bản', durationMin:60, priority:5, type:'theory'},
+      {title:'Kiểu dữ liệu', durationMin:45, priority:4, type:'practice'},
+      ...6 tasks
+    ]
+  end note
+  :Trả về TEMPLATES[key]\n(danh sách LlmTask[]);
+  |**AgentAiController**|
+  :Return LlmTask[];
+  stop
+else (no)
+  ' Layer 3: Keyword Heuristic
+  :--- L3: Keyword Heuristic ---;
+  |**Heuristic Engine**|
+  :Tách words từ goalTitle\n(loại bỏ stop words < 3 ký tự);
+  if (có từ khóa có nghĩa?) then (yes)
+    :topic = words[0..2].join(' ');
+    :Tạo 4 task template:\n- "Tìm hiểu tổng quan: {topic}" theory 45m\n- "Thực hành {topic} cơ bản" practice 60m\n- "Đọc tài liệu chuyên sâu {topic}" theory 45m\n- "Bài tập thực hành {topic}" practice 60m;
+    |**AgentAiController**|
+    :Return LlmTask[];
+    stop
+  else (no)
+    ' Layer 4: Generic Scaffold
+    :--- L4: Generic Scaffold ---;
+    |**AgentAiService**|
+    :Tạo 6 task generic:\n- "Tổng quan: {goalTitle}" theory 30m p5\n- "Đọc tài liệu nền tảng" theory 45m p4\n- "Thực hành bài tập cơ bản" practice 60m p4\n- "Ôn tập và ghi chú" theory 30m p3\n- "Thực hành dự án nhỏ" practice 90m p3\n- "Tổng kết và review" theory 30m p2;
+    |**AgentAiController**|
+    :Return LlmTask[];
+    stop
+  end if
+end if
+
+' ─── NORMALIZE INPUT ─────────────────────────────────────────────
+|**AgentAiController**|
+:TCP: **ai.normalize**\n{ userId, type:'csv'|'manual', data: string };
+
+|**AgentAiService**|
+if (type = 'csv'?) then (yes)
+  :parseCsvToTasks(data);
+  note right
+    CSV format:
+    title, duration, priority, deadline
+    (header optional)
+    Mỗi dòng → UnifiedTaskDto {
+      id: randomUUID(),
+      title, duration, priority, deadline
+    }
+  end note
+else (manual)
+  :JSON.parse(data);
+  if (parse thành công?) then (yes)
+    if (Array.isArray?) then (yes)
+      :Map mỗi item → UnifiedTaskDto;
+    else (no)
+      if (có .tasks field?) then (yes)
+        :tasks = parsed.tasks;
+      else (no)
+        :parseTextToTasks(data);
+        note right
+          Fallback: chia theo newline
+          "Title, Duration" format
+        end note
+      end if
+    end if
+  else (parse thất bại)
+    :parseTextToTasks(data);
+  end if
+end if
+
+:generateDefaultAvailableTime();
+note right
+  Tạo 7 ngày tới, mỗi ngày:
+  07:00-11:00
+  13:00-17:00
+  18:00-22:00
+end note
+
+:Trả về UnifiedInputDto {\ntasks: UnifiedTaskDto[],\nconstraints: {\n  availableTime: TimeSlotDto[],\n  busyTime: []\n}\n};
+
+|**AgentAiController**|
+:Return UnifiedInputDto;
+
+' ─── GENERATE FROM FORM ──────────────────────────────────────────
+|**AgentAiController**|
+:TCP: **ai.generate-schedule**\n{ userId, subject, fromDate, toDate,\nstudyHoursPerDay, preferredTimes, csvSlots? };
+
+|**AgentAiService**|
+:decomposeGoal(subject, toDate);
+note right
+  Chạy L2 → L3 → L4 fallback
+  để tạo danh sách LlmTask[]
+end note
+
+if (csvSlots tồn tại & không rỗng?) then (yes)
+  :convertCsvSlotsToDateRange(\ncsvSlots, fromDate, toDate);
+  note right
+    Map từng CSV slot (day: 'Monday')
+    → tất cả ngày Monday trong range
+    tạo TimeSlot { start, end }
+  end note
+else (no)
+  :computeAvailableSlots(\nfromDate, toDate,\nstudyHoursPerDay, preferredTimes);
+  note right
+    Với mỗi ngày trong range:
+      Với mỗi preferredTime (morning/afternoon/evening):
+        TIME_RANGES = {
+          morning: {6-10h},
+          afternoon: {10-16h},
+          evening: {16-22h}
+        }
+      Giới hạn total ≤ studyHoursPerDay
+  end note
+end if
+
+:greedySchedule(tasks, availableSlots);
+note right
+  Sắp xếp tasks theo priority DESC
+  Phân bổ greedy 30-min blocks
+  Xen kẽ theory/practice
+  (tránh 2 theory liên tiếp)
+end note
+
+:Trả về GenerateScheduleResult {\ntasks: LlmTask[],\navailableSlots: TimeSlot[],\nsummary: string\n};
+
+|**AgentAiController**|
+:Return result;
+stop
+@enduml

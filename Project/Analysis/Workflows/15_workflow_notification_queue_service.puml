@@ -1,0 +1,133 @@
+@startuml Workflow_NotificationService
+title Workflow - Notification Service & Queue Service
+
+skinparam backgroundColor #FAFAFA
+skinparam activity {
+  BackgroundColor #EEF3FF
+  BorderColor #4A6CF7
+  FontSize 11
+  ArrowColor #4A6CF7
+  StartColor #4A6CF7
+  EndColor #4A6CF7
+  DiamondBackgroundColor #FFFDE7
+  DiamondBorderColor #FF9800
+}
+skinparam note {
+  BackgroundColor #FFFBE6
+  BorderColor #FFC107
+}
+skinparam swimlane {
+  BorderColor #4A6CF7
+  TitleFontSize 12
+  TitleFontStyle bold
+}
+
+|#E8F5E9| **User Service** |
+|#E3F2FD| **Bull Queue (Redis)** |
+|#FFF3E0| **Notification Service** |
+|#F3E5F5| **Email Processor** |
+|#E0F2F1| **SMTP / Email** |
+
+' ─── NOTIFICATION FLOW ───────────────────────────────────────────
+|**User Service**|
+start
+:Phát sinh sự kiện cần thông báo:\n- forgotPassword (OTP)\n- register confirmation;
+
+:notificationQueue.add('send-email', {\n  to: email,\n  template: 'otp',\n  vars: { otp }\n});
+note right
+  Bull Queue tên: 'notification-jobs'
+  Kết nối Redis (REDIS_HOST:REDIS_PORT)
+  Retry: 3 lần nếu thất bại
+end note
+
+|**Bull Queue (Redis)**|
+:Thêm job vào hàng đợi;
+:Persist job trong Redis;
+:Gán job ID unique;
+:Job trong trạng thái WAITING;
+
+|**Notification Service**|
+:Bull Worker poll hàng đợi;
+:Nhận job 'send-email';
+
+|**Email Processor**|
+:Process job 'send-email';
+:Đọc template từ job data;
+
+if (template = 'otp'?) then (yes)
+  :Render OTP email template:\n- Subject: "Mã xác nhận OTP"\n- Body: "Mã OTP của bạn là: {otp}"\n- Expiry: "5 phút";
+else if (template = 'welcome'?) then (yes)
+  :Render welcome email;
+else (other)
+  :Render generic template;
+end if
+
+|**SMTP / Email**|
+:Gửi email qua SMTP\n(Nodemailer / AWS SES);
+if (Gửi thành công?) then (yes)
+  |**Bull Queue (Redis)**|
+  :Mark job COMPLETED;
+  :Remove từ active queue;
+else (thất bại)
+  |**Email Processor**|
+  :Log error;
+  |**Bull Queue (Redis)**|
+  :Mark job FAILED;
+  if (retry < 3?) then (yes)
+    :Đưa job vào DELAYED queue;
+    :Retry sau exponential backoff;
+  else (max retry reached)
+    :Mark job DEAD;
+    :Move to failed queue;
+    note right
+      Failed jobs có thể được
+      review và retry thủ công
+    end note
+  end if
+end if
+
+' ─── QUEUE SERVICE WORKFLOW ──────────────────────────────────────
+|**Notification Service**|
+:--- Queue Service ---\n(TCP Port: 3007);
+
+:TCP: **queue.schedule.add**\n{ userId, taskId, taskTitle,\nplannedStart, plannedEnd,\npomodoroIndex, sessionType, queueOrder };
+
+note right
+  Queue Service lưu trữ
+  các schedule items trong
+  bộ nhớ (in-memory Map)
+  trước khi sync vào Calendar
+end note
+
+:Lưu vào in-memory store:\nMap<userId, QueueItem[]>;
+
+:TCP: **queue.schedule.list**\n{ userId };
+:Trả về QueueItem[] của userId;
+
+note right
+  API Gateway gọi queue.schedule.list
+  SAU KHI generateSchedule thành công
+  → Sau đó sync vào Calendar Service
+  (calendar.schedule.replace)
+end note
+
+:TCP: **queue.schedule.clear**\n{ userId };
+:Xóa tất cả items của userId\nkhỏi in-memory store;
+
+stop
+
+' ─── LEGEND ──────────────────────────────────────────────────────
+legend right
+  **Notification Queue Flow:**
+  1. User Service → add job → Bull Queue (Redis)
+  2. Notification Service → consume job
+  3. Email Processor → render + send
+  4. SMTP → deliver email
+
+  **Queue Service Flow:**
+  1. Scheduler Service → add schedule items
+  2. API Gateway → fetch items (queue.schedule.list)
+  3. API Gateway → sync to Calendar Service
+end legend
+
+@enduml

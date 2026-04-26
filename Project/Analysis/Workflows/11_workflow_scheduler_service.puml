@@ -1,0 +1,161 @@
+@startuml Workflow_SchedulerService
+title Workflow - Scheduler Service (Quản lý Goal, Task & Sinh lịch Pomodoro)
+
+skinparam backgroundColor #FAFAFA
+skinparam activity {
+  BackgroundColor #EEF3FF
+  BorderColor #4A6CF7
+  FontSize 11
+  ArrowColor #4A6CF7
+  StartColor #4A6CF7
+  EndColor #4A6CF7
+  DiamondBackgroundColor #FFFDE7
+  DiamondBorderColor #FF9800
+}
+skinparam note {
+  BackgroundColor #FFFBE6
+  BorderColor #FFC107
+}
+skinparam swimlane {
+  BorderColor #4A6CF7
+  TitleFontSize 12
+  TitleFontStyle bold
+}
+
+|#E8F5E9| **SchedulerController** |
+|#E3F2FD| **GoalService** |
+|#FFF3E0| **TaskService** |
+|#F3E5F5| **ScheduleService** |
+|#FCE4EC| **PomodoroUtil** |
+|#E0F2F1| **scheduler_db** |
+
+' ─── GOAL CRUD ───────────────────────────────────────────────────
+|**SchedulerController**|
+start
+fork
+  :TCP: **scheduler.goal.create**\n{ userId, title, description, deadline };
+  |**GoalService**|
+  :normalizePayload(data)\n(flat hoặc nested dto);
+  |**scheduler_db**|
+  :INSERT INTO goals\n{ userId, title, description, deadline, status:'active' };
+  :Trả về Goal entity;
+  |**SchedulerController**|
+  :Return Goal;
+fork again
+  :TCP: **scheduler.goal.list**\n{ userId };
+  |**GoalService**|
+  |**scheduler_db**|
+  :SELECT * FROM goals\nWHERE userId\nORDER BY createdAt DESC;
+  :Trả về Goal[];
+fork again
+  :TCP: **scheduler.goal.update**\n{ id, userId, ...fields };
+  |**GoalService**|
+  |**scheduler_db**|
+  :UPDATE goals SET ...\nWHERE id AND userId;
+  :Trả về Goal updated;
+fork again
+  :TCP: **scheduler.goal.delete**\n{ id, userId };
+  |**GoalService**|
+  |**scheduler_db**|
+  :DELETE FROM goals\nWHERE id AND userId\n(CASCADE → tasks → blocks);
+  :Return { deleted: true };
+end fork
+
+' ─── TASK CRUD ───────────────────────────────────────────────────
+|**SchedulerController**|
+:TCP: **scheduler.task.create**\n{ goalId, userId, title, durationMin,\npriority, type, source };
+|**TaskService**|
+:Kiểm tra Goal tồn tại\nvà thuộc userId;
+|**scheduler_db**|
+:SELECT goals WHERE id AND userId;
+:Trả về Goal | null;
+|**TaskService**|
+if (Goal không tìm thấy?) then (yes)
+  :Throw NotFoundException;
+  stop
+else (no)
+  |**scheduler_db**|
+  :INSERT INTO tasks\n{ goalId, userId, title, durationMin,\npriority:3, type:'theory',\nstatus:'pending', source:'ai' };
+  :Trả về Task entity;
+  |**SchedulerController**|
+  :Return Task;
+end if
+
+' ─── GENERATE SCHEDULE ───────────────────────────────────────────
+|**SchedulerController**|
+:TCP: **scheduler.schedule.generateUnified**\n{ userId, tasks[], constraints,\ntimezoneOffsetMinutes };
+
+|**ScheduleService**|
+:Xóa toàn bộ schedule_blocks cũ\ncủa userId (clear trước khi generate);
+|**scheduler_db**|
+:DELETE FROM schedule_blocks WHERE userId;
+
+|**ScheduleService**|
+:Lấy tất cả Task pending\ncủa userId;
+|**scheduler_db**|
+:SELECT tasks WHERE userId\nAND status IN ('pending','scheduled');
+:Trả về Task[];
+
+|**ScheduleService**|
+:Sắp xếp Tasks theo\nPriority DESC + Deadline ASC;
+note right
+  Ưu tiên: priority cao trước
+  Thứ hai: deadline gần trước
+end note
+
+:Parse available time slots\ntừ constraints.availableTime;
+note right
+  Format: { day: 'YYYY-MM-DD',
+    slots: ['07:00-11:00', '13:00-17:00'] }
+end note
+
+:Áp dụng timezone offset\n(timezoneOffsetMinutes);
+
+|**PomodoroUtil**|
+fork
+  :Với mỗi Task:;
+  :Tính số Pomodoro cần = ceil(durationMin / 25);
+  :Tạo danh sách Pomodoro blocks;
+fork again
+  :Với mỗi available slot:;
+  :Kiểm tra slot có đủ 25 phút không?;
+  :Phân bổ Pomodoro block vào slot;
+  :Ghi nhận session type\n(morning/afternoon/evening);
+  :Cập nhật pomodoroIndex;
+end fork
+
+|**ScheduleService**|
+:Ghi ScheduleBlocks vào DB;
+|**scheduler_db**|
+:INSERT INTO schedule_blocks\n(bulk insert)\n{ userId, taskId, plannedStart,\nplannedEnd, pomodoroIndex,\nstatus:'planned' };
+
+:UPDATE tasks SET status='scheduled'\nWHERE id IN scheduledTaskIds;
+
+:Các Task không có slot → overflow[];
+
+|**ScheduleService**|
+:Trả về ScheduleResult {\nsuccess: true,\nscheduled: ScheduledBlockDto[],\noverflow: string[],\nmessage\n};
+
+' ─── VIEW & UPDATE BLOCK ─────────────────────────────────────────
+|**SchedulerController**|
+:TCP: **scheduler.schedule.view**\n{ userId, from, to };
+|**ScheduleService**|
+|**scheduler_db**|
+:SELECT schedule_blocks\nWHERE userId\nAND plannedStart BETWEEN from AND to\nJOIN tasks;
+:Trả về ScheduleBlock[] with task;
+
+|**SchedulerController**|
+:TCP: **scheduler.block.updateStatus**\n{ userId, blockId, status };
+|**ScheduleService**|
+|**scheduler_db**|
+:UPDATE schedule_blocks\nSET status = newStatus\nWHERE id AND userId;
+if (status = 'done'?) then (yes)
+  :Kiểm tra tất cả blocks\ncủa task đã done chưa?;
+  if (tất cả blocks done?) then (yes)
+    :UPDATE tasks SET status='done'\nWHERE taskId;
+  endif
+endif
+:Trả về Updated ScheduleBlock;
+
+stop
+@enduml

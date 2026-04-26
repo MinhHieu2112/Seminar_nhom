@@ -1,0 +1,197 @@
+@startuml Workflow_AnalyticsService
+title Workflow - Analytics Service (Thống kê & Phân tích học tập)
+
+skinparam backgroundColor #FAFAFA
+skinparam activity {
+  BackgroundColor #EEF3FF
+  BorderColor #4A6CF7
+  FontSize 11
+  ArrowColor #4A6CF7
+  StartColor #4A6CF7
+  EndColor #4A6CF7
+  DiamondBackgroundColor #FFFDE7
+  DiamondBorderColor #FF9800
+}
+skinparam note {
+  BackgroundColor #FFFBE6
+  BorderColor #FFC107
+}
+skinparam swimlane {
+  BorderColor #4A6CF7
+  TitleFontSize 12
+  TitleFontStyle bold
+}
+
+|#E8F5E9| **AnalyticsController** |
+|#E3F2FD| **AnalyticsService** |
+|#FFF3E0| **CompletionCalculator** |
+|#F3E5F5| **ProductivityRule** |
+|#FCE4EC| **TimeDistribution\nStrategy** |
+|#E0F2F1| **scheduler_db** (shared read) |
+
+' ─── DASHBOARD ───────────────────────────────────────────────────
+|**AnalyticsController**|
+start
+:TCP/HTTP: **analytics.dashboard**\n{ userId };
+
+|**AnalyticsService**|
+:Promise.all — truy vấn song song;
+
+fork
+  |**scheduler_db** (shared read)|
+  :SELECT goals WHERE userId\nJOIN tasks;
+  :→ goals[];
+fork again
+  |**scheduler_db** (shared read)|
+  :SELECT tasks WHERE userId\nJOIN goal;
+  :→ tasks[];
+fork again
+  |**scheduler_db** (shared read)|
+  :SELECT schedule_blocks\nWHERE userId\nAND plannedEnd <= NOW()\n(past blocks only);
+  :→ allPastBlocks[];
+fork again
+  |**scheduler_db** (shared read)|
+  :SELECT schedule_blocks\nWHERE userId (all);
+  :→ allBlocks[];
+end fork
+
+|**AnalyticsService**|
+:plannedBlocks = allPastBlocks.length;
+:completedBlocks = allPastBlocks\n  .filter(b => b.status='done').length;
+:completedTasks = tasks\n  .filter(t => t.status='done').length;
+
+:isTaskOverdue(task, now):;
+note right
+  deadline = task.deadline ?? goal.deadline
+  normalizeDeadline → UTC 23:59:59
+  overdue = deadline < now
+end note
+:overdueTasks = tasks.filter(isOverdue).length;
+:pendingTasks = total - completed - overdue;
+
+|**CompletionCalculator**|
+:calculateRate(totalTasks, completedTasks);
+note right
+  completionRate = (completed / total) * 100
+  Nếu total = 0 → 100%
+end note
+
+|**ProductivityRule**|
+:calculateScore(completionRate, streakDays, missedDays);
+note right
+  score = base (completionRate)
+        + streak bonus
+        - missed penalty
+  Clamped to [0, 100]
+end note
+
+|**TimeDistributionStrategy**|
+:analyze(doneBlockSessions);
+note right
+  doneBlocks → sessions { startTime, durationMin }
+  morning:   06:00 - 11:59
+  afternoon: 12:00 - 17:59
+  evening:   18:00 - 23:59
+  Tính % phân bổ theo 3 khung giờ
+end note
+:generateSuggestions(timeDistribution);
+note right
+  Nếu morning > 60% → "Bạn học hiệu quả vào buổi sáng"
+  Nếu evening > 60% → "Cân nhắc học sáng sớm hơn"
+  Nếu completionRate < 50% → "Chia nhỏ các phiên học"
+  Nếu overdueTasks > 0 → "Bạn có X task quá hạn"
+end note
+
+|**AnalyticsService**|
+:Tính currentWeekRange(now);
+note right
+  Thứ 2 đầu tuần 00:00:00
+  → Chủ nhật 23:59:59
+end note
+:currentWeekBlocks = allBlocks\n.filter(b => b.plannedStart IN thisWeek);
+:weeklyMinutes = sum(plannedEnd - plannedStart);
+
+:Return AnalyticsDashboardResponseDto {\n  completionRate,\n  productivityScore,\n  timeDistribution: { morning, afternoon, evening },\n  suggestions: string[],\n  summary: {\n    totalGoals, activeGoals, completedGoals,\n    totalTasks, pendingTasks, completedTasks,\n    overdueTasks, plannedBlocks, completedBlocks\n  },\n  weeklyOverview: {\n    scheduledBlocks,\n    studyHours: weeklyMinutes/60,\n    completedTasks\n  }\n};
+|**AnalyticsController**|
+:Return Dashboard;
+
+' ─── STUDY INSIGHTS ──────────────────────────────────────────────
+|**AnalyticsController**|
+:HTTP: **analytics.insights**\n{ userId, dateRange: { from, to } };
+
+|**AnalyticsService**|
+|**scheduler_db** (shared read)|
+:SELECT schedule_blocks\nWHERE userId\nAND plannedStart BETWEEN from AND to;
+:→ futureBlocks[];
+
+|**AnalyticsService**|
+:totalMinutes = sum(plannedEnd - plannedStart)\ntrên futureBlocks;
+:plannedHours = totalMinutes / 60;
+:isOverloaded = plannedHours > 40;
+
+if (isOverloaded?) then (yes)
+  :recommendations.push(\n"Bạn đã lên kế hoạch {hours} giờ học.\nĐiều này có thể gây kiệt sức...");
+else if (plannedHours > 0) then (yes)
+  :recommendations.push(\n"Khối lượng học tập hợp lý ({hours} giờ)...");
+else (no)
+  :recommendations.push(\n"Bạn chưa lên kế hoạch học tập...");
+end if
+
+:Return StudyInsightsResponseDto {\n  isOverloaded,\n  message,\n  recommendations: string[]\n};
+
+' ─── HISTORY ─────────────────────────────────────────────────────
+|**AnalyticsController**|
+:HTTP: **analytics.history**\n{ userId, period:'weekly'|'monthly'|'yearly' };
+
+|**AnalyticsService**|
+:Tính khoảng thời gian:;
+if (weekly?) then (yes)
+  :from = now - 7 ngày;
+  :futureEnd = now + 7 ngày;
+else if (monthly?) then (yes)
+  :from = now - 1 tháng;
+  :futureEnd = now + 1 tháng;
+else (yearly)
+  :from = now - 1 năm;
+  :futureEnd = now + 1 năm;
+end if
+
+fork
+  |**scheduler_db** (shared read)|
+  :SELECT schedule_blocks\nWHERE userId\nAND plannedStart BETWEEN from AND futureEnd\nORDER BY plannedStart ASC;
+  :→ blocks[];
+fork again
+  |**scheduler_db** (shared read)|
+  :SELECT tasks WHERE userId\nJOIN goal;
+  :→ tasks[];
+end fork
+
+|**AnalyticsService**|
+:GROUP BY date (YYYY-MM-DD):;
+fork
+  :Với mỗi block:;
+  :day = formatDateKey(plannedStart);
+  :stats.planned += duration;
+  if (block.status='done'?) then (yes)
+    :stats.actual += duration;
+  end if
+fork again
+  :Với mỗi task:;
+  :day = formatDateKey(createdAt);
+  if (status='done') then (yes)
+    :stats.tasksCompleted++;
+  else if (isOverdue) then (yes)
+    :stats.tasksOverdue++;
+  else (no)
+    :stats.tasksPending++;
+  end if
+end fork
+
+:Sort dates ASC;
+:Map → HistoryPoint[] [\n  { date, planned, actual,\n    tasksCompleted,\n    tasksPending, tasksOverdue }\n];
+:Return AnalyticsHistoryPoint[];
+|**AnalyticsController**|
+:Return History[];
+
+stop
+@enduml

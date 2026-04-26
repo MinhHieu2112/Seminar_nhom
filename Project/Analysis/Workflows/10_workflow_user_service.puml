@@ -1,0 +1,151 @@
+@startuml Workflow_UserService
+title Workflow - User Service (Xác thực & Quản lý người dùng)
+
+skinparam backgroundColor #FAFAFA
+skinparam activity {
+  BackgroundColor #EEF3FF
+  BorderColor #4A6CF7
+  FontSize 12
+  ArrowColor #4A6CF7
+  StartColor #4A6CF7
+  EndColor #4A6CF7
+  DiamondBackgroundColor #FFFDE7
+  DiamondBorderColor #FF9800
+}
+skinparam note {
+  BackgroundColor #FFFBE6
+  BorderColor #FFC107
+}
+skinparam swimlane {
+  BorderColor #4A6CF7
+  TitleFontSize 13
+  TitleFontStyle bold
+}
+
+|#E8F5E9| **UsersController**\n(TCP MessagePattern) |
+|#E3F2FD| **AuthService** |
+|#FFF3E0| **UserService** |
+|#FCE4EC| **OtpService** |
+|#F3E5F5| **TokenService** |
+|#E0F2F1| **PostgreSQL / Redis** |
+
+' ─── REGISTER ────────────────────────────────────────────────────
+|**UsersController**\n(TCP MessagePattern)|
+start
+:Nhận TCP message\n**user.register**\n{ email, password };
+
+|**AuthService**|
+:Kiểm tra email\ntrùng lặp;
+|**PostgreSQL / Redis**|
+:SELECT users WHERE email;
+:Trả về user | null;
+|**AuthService**|
+if (email đã tồn tại?) then (yes)
+  :Throw ConflictException;
+  stop
+else (no)
+  :bcrypt.hash(password, 12);
+  |**PostgreSQL / Redis**|
+  :INSERT INTO users;
+  :Trả về User entity;
+  |**TokenService**|
+  :generateTokens(userId, email, role);
+  note right
+    accessToken: JWT 15m
+    refreshToken: JWT 7d
+    jti: randomUUID()
+  end note
+  |**AuthService**|
+  :Trả về { accessToken,\nrefreshToken, user };
+end if
+
+' ─── LOGIN ───────────────────────────────────────────────────────
+|**UsersController**\n(TCP MessagePattern)|
+:Nhận TCP message\n**user.login**\n{ email, password };
+
+|**AuthService**|
+|**PostgreSQL / Redis**|
+:SELECT users WHERE email\n(include password field);
+:Trả về user | null;
+|**AuthService**|
+if (user không tồn tại?) then (yes)
+  :Throw UnauthorizedException;
+  stop
+else (no)
+  :bcrypt.compare(password, hash);
+  if (mật khẩu sai?) then (yes)
+    :Throw UnauthorizedException;
+    stop
+  else (no)
+    if (isActive = false?) then (yes)
+      :Throw ForbiddenException;
+      stop
+    else (no)
+      |**TokenService**|
+      :Tạo access + refresh token;
+      |**AuthService**|
+      :Trả về { accessToken,\nrefreshToken, user };
+    end if
+  end if
+end if
+
+' ─── REFRESH ─────────────────────────────────────────────────────
+|**UsersController**\n(TCP MessagePattern)|
+:Nhận TCP message\n**user.refresh**\n{ refreshToken };
+
+|**TokenService**|
+:jwt.verify(refreshToken);
+if (token không hợp lệ?) then (yes)
+  :Throw UnauthorizedException;
+  stop
+else (no)
+  |**PostgreSQL / Redis**|
+  :SISMEMBER blacklist {jti};
+  :Trả về true | false;
+  |**TokenService**|
+  if (jti đã bị blacklist?) then (yes)
+    :Throw UnauthorizedException;
+    stop
+  else (no)
+    :Tạo token mới;
+    :Trả về { accessToken, refreshToken };
+  end if
+end if
+
+' ─── FORGOT PASSWORD ─────────────────────────────────────────────
+|**UsersController**\n(TCP MessagePattern)|
+:Nhận TCP message\n**user.password.forgot**\n{ email };
+
+|**OtpService**|
+:generateOtp(email);
+note right
+  OTP = 6 chữ số ngẫu nhiên
+end note
+|**PostgreSQL / Redis**|
+:SET otp:{email} = otp\nEXPIRES 300s;
+|**UsersController**\n(TCP MessagePattern)|
+:Bull Queue add('send-email', { to, template:'otp', vars:{otp} });
+:Trả về { success: true, message };
+note right
+  Không tiết lộ email có tồn tại
+  hay không (bảo mật)
+end note
+
+' ─── ADMIN OPERATIONS ────────────────────────────────────────────
+|**UsersController**\n(TCP MessagePattern)|
+:Nhận TCP message\n**user.admin.list** | **user.admin.toggle**;
+
+|**UserService**|
+if (admin.list?) then (yes)
+  |**PostgreSQL / Redis**|
+  :SELECT users paginated\n(page, limit);
+  :Trả về { data: User[], total };
+else (toggle)
+  |**PostgreSQL / Redis**|
+  :SELECT user by userId;
+  :UPDATE isActive = !isActive;
+  :Trả về updated User;
+end if
+
+stop
+@enduml

@@ -1,0 +1,144 @@
+@startuml Workflow_CalendarService
+title Workflow - Calendar Service (Quản lý lịch & Kiểm tra xung đột)
+
+skinparam backgroundColor #FAFAFA
+skinparam activity {
+  BackgroundColor #EEF3FF
+  BorderColor #4A6CF7
+  FontSize 11
+  ArrowColor #4A6CF7
+  StartColor #4A6CF7
+  EndColor #4A6CF7
+  DiamondBackgroundColor #FFFDE7
+  DiamondBorderColor #FF9800
+}
+skinparam note {
+  BackgroundColor #FFFBE6
+  BorderColor #FFC107
+}
+skinparam swimlane {
+  BorderColor #4A6CF7
+  TitleFontSize 12
+  TitleFontStyle bold
+}
+
+|#E8F5E9| **CalendarController** |
+|#E3F2FD| **EventService** |
+|#FFF3E0| **AvailabilityService** |
+|#F3E5F5| **WorkingHoursService** |
+|#E0F2F1| **calendar_db** |
+
+' ─── CREATE EVENT ────────────────────────────────────────────────
+|**CalendarController**|
+start
+:TCP: **calendar.event.create**\n{ userId, dto: { title, startTime, endTime,\ndescription, recurrenceRule, priority,\nisAllDay, source, taskId, pomodoroIndex... } };
+
+|**EventService**|
+:Validate: startTime < endTime;
+if (startTime >= endTime?) then (yes)
+  :Throw BadRequestException\n"End time must be after start time";
+  stop
+else (no)
+  :Kiểm tra xung đột lịch;
+  |**calendar_db**|
+  :SELECT * FROM calendar_events\nWHERE userId\nAND NOT (endTime <= newStart OR startTime >= newEnd);
+  :Trả về conflicts[];
+  |**EventService**|
+  if (có xung đột?) then (yes)
+    note right
+      Chỉ warning nếu source='manual'
+      Bỏ qua nếu source='system'
+      (scheduler có thể overlap)
+    end note
+    :Log warning conflicts;
+  endif
+  |**calendar_db**|
+  :INSERT INTO calendar_events {\nuserId, title, startTime, endTime,\nsource:'manual', priority:3,\nisAllDay:false, ...dto\n};
+  :Trả về CalendarEvent;
+  |**CalendarController**|
+  :Return CalendarEvent;
+end if
+
+' ─── LIST EVENTS ─────────────────────────────────────────────────
+|**CalendarController**|
+:TCP: **calendar.event.list**\n{ userId, from?, to? };
+
+|**EventService**|
+if (from và to có giá trị?) then (yes)
+  |**calendar_db**|
+  :SELECT * FROM calendar_events\nWHERE userId\nAND startTime >= from\nAND endTime <= to\nORDER BY startTime ASC;
+else (no)
+  |**calendar_db**|
+  :SELECT * FROM calendar_events\nWHERE userId\nORDER BY startTime ASC;
+end if
+:Trả về CalendarEvent[];
+|**CalendarController**|
+:Return CalendarEvent[];
+
+' ─── SCHEDULE REPLACE (từ Queue Service sync) ────────────────────
+|**CalendarController**|
+:TCP: **calendar.schedule.replace**\n{ userId, items: [\n  { title, startTime, endTime,\n    source:'system', taskId,\n    pomodoroIndex, sessionType, queueOrder }\n] };
+
+|**EventService**|
+:Xóa tất cả events source='system'\ncủa userId;
+|**calendar_db**|
+:DELETE FROM calendar_events\nWHERE userId AND source='system';
+
+|**EventService**|
+:Bulk insert events mới;
+|**calendar_db**|
+:INSERT INTO calendar_events (batch)\nmỗi item trong items[];
+:Trả về inserted count;
+|**CalendarController**|
+:Return { replaced: count };
+
+' ─── FREE SLOTS ──────────────────────────────────────────────────
+|**CalendarController**|
+:TCP: **calendar.freeslots.get**\n{ userId, from, to, minDurationMin? };
+
+|**AvailabilityService**|
+:Lấy WorkingHours config của user;
+|**WorkingHoursService**|
+|**calendar_db**|
+:SELECT * FROM working_hours_config\nWHERE userId\nORDER BY dayOfWeek;
+:Trả về WorkingHoursConfig[];
+
+|**AvailabilityService**|
+:Lấy tất cả events trong range;
+|**calendar_db**|
+:SELECT * FROM calendar_events\nWHERE userId AND\nstartTime BETWEEN from AND to;
+:Trả về events[];
+
+|**AvailabilityService**|
+:Với mỗi ngày trong range:;
+
+fork
+  :Xác định working hours\ntheo dayOfWeek config;
+  :workStart = config.startTime;
+  :workEnd = config.endTime;
+fork again
+  :Lọc events trùng ngày;
+  :Sắp xếp theo startTime ASC;
+  :Tính khoảng trống giữa events\n(free slots);
+end fork
+
+:Lọc slots có duration >= minDurationMin;
+:Trả về FreeSlot[] { start, end, durationMin };
+|**CalendarController**|
+:Return FreeSlot[];
+
+' ─── CONFLICT CHECK ──────────────────────────────────────────────
+|**CalendarController**|
+:TCP: **calendar.conflict.check**\n{ userId, startTime, endTime, excludeEventId? };
+
+|**EventService**|
+|**calendar_db**|
+:SELECT * FROM calendar_events\nWHERE userId\nAND id != excludeEventId\nAND NOT (endTime <= newStart\n    OR startTime >= newEnd);
+:Trả về conflicting events[];
+|**EventService**|
+:hasConflict = conflicts.length > 0;
+|**CalendarController**|
+:Return { hasConflict, conflicts: CalendarEvent[] };
+
+stop
+@enduml

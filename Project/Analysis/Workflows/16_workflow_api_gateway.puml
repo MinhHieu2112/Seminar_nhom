@@ -1,0 +1,142 @@
+@startuml Workflow_APIGateway
+title Workflow - API Gateway (Request Routing & JWT Verification)
+
+skinparam backgroundColor #FAFAFA
+skinparam activity {
+  BackgroundColor #EEF3FF
+  BorderColor #4A6CF7
+  FontSize 11
+  ArrowColor #4A6CF7
+  StartColor #4A6CF7
+  EndColor #4A6CF7
+  DiamondBackgroundColor #FFFDE7
+  DiamondBorderColor #FF9800
+}
+skinparam note {
+  BackgroundColor #FFFBE6
+  BorderColor #FFC107
+}
+skinparam swimlane {
+  BorderColor #4A6CF7
+  TitleFontSize 12
+  TitleFontStyle bold
+}
+
+|#EEF3FF| **HTTP Request** |
+|#E8F5E9| **API Gateway** |
+|#E3F2FD| **JwtService** |
+|#FFF3E0| **TcpClientService** |
+|#F3E5F5| **Target Microservice** |
+
+start
+|**HTTP Request**|
+:Client gửi HTTP Request\nPOST/GET/PATCH/DELETE\n/api/v1/{service}/{endpoint};
+
+|**API Gateway**|
+:NestJS Router khớp controller;
+
+fork
+  :AuthGatewayController\n/api/v1/auth/*;
+fork again
+  :UsersGatewayController\n/api/v1/users/*;
+fork again
+  :AdminGatewayController\n/api/v1/admin/*;
+fork again
+  :SchedulerGatewayController\n/api/v1/scheduler/*;
+fork again
+  :CalendarGatewayController\n/api/v1/calendar/*;
+fork again
+  :AiGatewayController\n/api/v1/ai/*;
+fork again
+  :AnalyticsGatewayController\n/api/v1/analytics/*;
+end fork
+
+' ─── JWT VERIFICATION ────────────────────────────────────────────
+:Endpoint yêu cầu Authentication?;
+if (endpoint cần JWT?\n(tất cả trừ register/login/refresh\nforgot/reset password)) then (yes)
+  :extractUserId(authHeader, jwtService);
+
+  if (Header có 'Bearer '?) then (no)
+    :Throw UnauthorizedException\n"No token provided";
+    |**HTTP Request**|
+    :401 Unauthorized;
+    stop
+  else (yes)
+    :token = authHeader.substring(7);
+    |**JwtService**|
+    :jwtService.verify(token, { secret: JWT_SECRET });
+    if (token không hợp lệ\nhoặc hết hạn?) then (yes)
+      |**API Gateway**|
+      :Throw UnauthorizedException\n"Invalid token";
+      |**HTTP Request**|
+      :401 Unauthorized;
+      stop
+    else (no)
+      |**API Gateway**|
+      :userId = payload.sub;
+      :Tiếp tục xử lý request;
+    end if
+  end if
+else (no — public endpoint)
+  :Bỏ qua JWT verification;
+end if
+
+' ─── FORWARD TO MICROSERVICE ─────────────────────────────────────
+:safeSend(tcpClient, serviceName, pattern, data);
+
+|**TcpClientService**|
+:Xác định TCP port theo serviceName:;
+note right
+  'user-service'      → TCP :3001
+  'scheduler-service' → TCP :3002
+  'calendar-service'  → TCP :3003
+  'analytics-service' → TCP :3004
+  'ai-service'        → TCP :3005
+  'notification-svc'  → TCP :3006
+  'queue-service'     → TCP :3007
+end note
+
+:tcpClient.send(pattern, data)\n(RxJS Observable → Promise);
+
+|**Target Microservice**|
+:@MessagePattern(pattern)\nHandler nhận payload;
+:Xử lý business logic;
+:Trả về kết quả;
+
+|**TcpClientService**|
+:Nhận response từ Observable;
+
+|**API Gateway**|
+if (Lỗi xảy ra?) then (yes)
+  :Phân loại lỗi từ error.message:;
+  if ("not found" in msg?) then (yes)
+    :Throw BadRequestException(msg);
+    |**HTTP Request**|
+    :400 Bad Request;
+  else if ("invalid" in msg?) then (yes)
+    :Throw BadRequestException(msg);
+    |**HTTP Request**|
+    :400 Bad Request;
+  else (unknown)
+    :Throw InternalServerErrorException\n"Service error: {msg}";
+    |**HTTP Request**|
+    :500 Internal Server Error;
+  end if
+  stop
+else (no)
+  :Return response data;
+  |**HTTP Request**|
+  :200/201 OK + JSON body;
+end if
+
+' ─── SPECIAL: SCHEDULE GENERATE SYNC ────────────────────────────
+|**API Gateway**|
+note right
+  ĐẶỆC BIỆT: Sau khi generateSchedule thành công:
+  1. Gọi queue.schedule.list → lấy items
+  2. Gọi calendar.schedule.replace → sync Calendar
+  (syncSystemScheduleFromQueue helper)
+end note
+
+stop
+@enduml
