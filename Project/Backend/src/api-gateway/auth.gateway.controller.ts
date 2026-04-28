@@ -57,63 +57,50 @@ async function safeSend<T>(
   }
 }
 
+interface QueueItem {
+  id: string;
+  taskId: string;
+  taskTitle: string;
+  plannedStart: Date | string;
+  plannedEnd: Date | string;
+  sessionType: string;
+  pomodoroIndex: number;
+  queueOrder: number;
+}
+
 async function syncSystemScheduleFromQueue(
   tcpClient: TcpClientService,
   userId: string,
 ) {
-  const queueItems = await safeSend<any[]>(
+  const queueItems = await safeSend<QueueItem[]>(
     tcpClient,
     'queue-service',
     'queue.schedule.list',
     { userId },
   );
 
-  await safeSend(
-    tcpClient,
-    'calendar-service',
-    'calendar.schedule.replace',
-    {
-      userId,
-      items: queueItems.map((item) => ({
-        title: item.taskTitle,
-        startTime:
-          item.plannedStart instanceof Date
-            ? item.plannedStart.toISOString()
-            : item.plannedStart,
-        endTime:
-          item.plannedEnd instanceof Date
-            ? item.plannedEnd.toISOString()
-            : item.plannedEnd,
-        priority: 3,
-        source: 'system',
-        description: `${item.sessionType} session`,
-        externalId: item.id,
-        taskId: item.taskId,
-        pomodoroIndex: item.pomodoroIndex,
-        sessionType: item.sessionType,
-        queueOrder: item.queueOrder,
-      })),
-    },
-  );
-}
-
-function mapCalendarEventsToScheduleBlocks(events: any[]) {
-  return events.map((event) => ({
-    id: event.id,
-    taskId: event.taskId ?? event.externalId ?? event.id,
-    userId: event.userId,
-    plannedStart: event.startTime,
-    plannedEnd: event.endTime,
-    pomodoroIndex: event.pomodoroIndex ?? 1,
-    sessionType: event.sessionType ?? null,
-    queueOrder: event.queueOrder ?? null,
-    status: 'scheduled',
-    createdAt: event.createdAt,
-    task: {
-      id: event.taskId ?? event.externalId ?? event.id,
-      title: event.title,
-    },
-  }));
+  await safeSend(tcpClient, 'calendar-service', 'calendar.schedule.replace', {
+    userId,
+    items: queueItems.map((item) => ({
+      title: item.taskTitle,
+      startTime:
+        item.plannedStart instanceof Date
+          ? item.plannedStart.toISOString()
+          : item.plannedStart,
+      endTime:
+        item.plannedEnd instanceof Date
+          ? item.plannedEnd.toISOString()
+          : item.plannedEnd,
+      priority: 3,
+      source: 'system',
+      description: `${item.sessionType} session`,
+      externalId: item.id,
+      taskId: item.taskId,
+      pomodoroIndex: item.pomodoroIndex,
+      sessionType: item.sessionType,
+      queueOrder: item.queueOrder,
+    })),
+  });
 }
 
 // ─── Auth ────────────────────────────────────────────────────────────────────
@@ -505,7 +492,25 @@ export class SchedulerGatewayController {
   ) {
     const userId = extractUserId(authHeader, this.jwtService);
     // Read directly from schedule_blocks (accurate after cascade deletes)
-    const blocks = await safeSend<any[]>(
+    const blocks = await safeSend<Array<{
+      id: string;
+      taskId: string;
+      userId: string;
+      plannedStart: Date | string;
+      plannedEnd: Date | string;
+      pomodoroIndex?: number;
+      sessionType?: string | null;
+      queueOrder?: number | null;
+      status: string;
+      createdAt: Date | string;
+      task?: {
+        id: string;
+        title: string;
+        durationMin: number;
+        priority: string;
+        type: string;
+      } | null;
+    }>>(
       this.tcpClient,
       'scheduler-service',
       'scheduler.schedule.view',
@@ -516,23 +521,24 @@ export class SchedulerGatewayController {
       },
     );
     // Map schedule_blocks to the same ScheduleBlock shape the frontend expects
-    return (blocks ?? []).map((b: any) => ({
+    return (blocks ?? []).map((b) => ({
       id: b.id,
       taskId: b.taskId,
       userId: b.userId,
-      plannedStart: b.plannedStart instanceof Date
-        ? b.plannedStart.toISOString()
-        : b.plannedStart,
-      plannedEnd: b.plannedEnd instanceof Date
-        ? b.plannedEnd.toISOString()
-        : b.plannedEnd,
+      plannedStart:
+        b.plannedStart instanceof Date
+          ? b.plannedStart.toISOString()
+          : b.plannedStart,
+      plannedEnd:
+        b.plannedEnd instanceof Date
+          ? b.plannedEnd.toISOString()
+          : b.plannedEnd,
       pomodoroIndex: b.pomodoroIndex ?? 1,
       sessionType: b.sessionType ?? null,
       queueOrder: b.queueOrder ?? null,
       status: b.status,
-      createdAt: b.createdAt instanceof Date
-        ? b.createdAt.toISOString()
-        : b.createdAt,
+      createdAt:
+        b.createdAt instanceof Date ? b.createdAt.toISOString() : b.createdAt,
       task: b.task
         ? {
             id: b.task.id,
@@ -730,18 +736,17 @@ export class AiGatewayController {
     @UploadedFile() file?: any, // Express.Multer.File
   ) {
     const userId = extractUserId(authHeader, this.jwtService);
-    
+
     let dataToNormalize = body.data || '';
     if (body.type === 'csv' && file) {
       dataToNormalize = file.buffer.toString('utf-8');
     }
 
-    return safeSend(
-      this.tcpClient,
-      'ai-service',
-      'ai.normalize',
-      { userId, type: body.type, data: dataToNormalize },
-    );
+    return safeSend(this.tcpClient, 'ai-service', 'ai.normalize', {
+      userId,
+      type: body.type,
+      data: dataToNormalize,
+    });
   }
 
   @Post('decompose/:goalId')
@@ -772,7 +777,7 @@ export class AiGatewayController {
       this.tcpClient,
       'ai-service',
       'ai.decompose-goal',
-      { goalTitle: goal.title, deadline: goal.deadline }
+      { goalTitle: goal.title, deadline: goal.deadline },
     );
 
     // Bước 3: Lưu từng task vào Scheduler-Service qua TCP
@@ -817,13 +822,14 @@ export class AiGatewayController {
     @UploadedFile() file?: any, // Express.Multer.File
   ) {
     const userId = extractUserId(authHeader, this.jwtService);
-    
+
     // Parse CSV file manually if it exists
     const csvSlots: any[] = [];
     if (file) {
       const csvStr = file.buffer.toString('utf-8');
       const lines = csvStr.split('\n');
-      for (let i = 1; i < lines.length; i++) { // Skip header
+      for (let i = 1; i < lines.length; i++) {
+        // Skip header
         const line = lines[i].trim();
         if (!line) continue;
         // Assume format: subject,day,startTime,endTime
@@ -840,8 +846,12 @@ export class AiGatewayController {
       subject: body.subject,
       fromDate: body.fromDate,
       toDate: body.toDate,
-      studyHoursPerDay: body.studyHoursPerDay ? parseInt(body.studyHoursPerDay) : 2,
-      preferredTimes: body.preferredTimes ? JSON.parse(body.preferredTimes) : ['morning'],
+      studyHoursPerDay: body.studyHoursPerDay
+        ? parseInt(body.studyHoursPerDay)
+        : 2,
+      preferredTimes: body.preferredTimes
+        ? JSON.parse(body.preferredTimes)
+        : ['morning'],
       notes: body.notes,
       csvSlots: csvSlots.length > 0 ? csvSlots : undefined,
     };
@@ -850,7 +860,7 @@ export class AiGatewayController {
       this.tcpClient,
       'ai-service',
       'ai.generate-schedule',
-      aiPayload
+      aiPayload,
     );
 
     // 2. Create Goal
@@ -860,14 +870,18 @@ export class AiGatewayController {
         this.tcpClient,
         'scheduler-service',
         'scheduler.goal.create',
-        { userId, title: body.subject, deadline: body.toDate }
+        { userId, title: body.subject, deadline: body.toDate },
       );
     } catch (err) {
-      throw new InternalServerErrorException('Failed to create Goal for schedule');
+      throw new InternalServerErrorException(
+        'Failed to create Goal for schedule',
+      );
     }
 
     if (!goal) {
-      throw new InternalServerErrorException('Failed to create Goal for schedule');
+      throw new InternalServerErrorException(
+        'Failed to create Goal for schedule',
+      );
     }
 
     // 3. Create Tasks
@@ -901,11 +915,13 @@ export class AiGatewayController {
         this.tcpClient,
         'scheduler-service',
         'scheduler.schedule.generateCustom',
-        { userId, customSlots: aiResult.availableSlots }
+        { userId, customSlots: aiResult.availableSlots },
       );
       await syncSystemScheduleFromQueue(this.tcpClient, userId);
     } catch (err) {
-      throw new InternalServerErrorException('Failed to schedule the tasks with custom slots');
+      throw new InternalServerErrorException(
+        'Failed to schedule the tasks with custom slots',
+      );
     }
 
     return {
@@ -920,7 +936,13 @@ export class AiGatewayController {
 
   @Post('generate')
   @HttpCode(HttpStatus.OK)
-  generatePreview(@Body() body: { goal: string; availableSlots: Array<{ start: string; end: string }> }) {
+  generatePreview(
+    @Body()
+    body: {
+      goal: string;
+      availableSlots: Array<{ start: string; end: string }>;
+    },
+  ) {
     // This endpoint is just a quick preview using TCP, we should forward to ai-service
     // Wait, the ai-service doesn't expose generic standalone preview via TCP yet.
     // For now, let's just do decompose goal and a mock or we skip this endpoint since generate-schedule is the real one.

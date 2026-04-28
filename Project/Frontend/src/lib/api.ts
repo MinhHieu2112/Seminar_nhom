@@ -13,6 +13,7 @@ import type {
   Goal,
   Task,
   ScheduleBlock,
+  BlockStatus,
   CreateGoalRequest,
   CreateTaskRequest,
   GenerateScheduleRequest,
