@@ -38,7 +38,7 @@ export class TaskService {
   async findByGoal(goalId: string, userId: string): Promise<Task[]> {
     const tasks = await this.taskRepo.find({
       where: { goalId, userId },
-      relations: ['goal'],
+      relations: ['goal', 'scheduleBlocks'],
     });
     return this.sortTasks(tasks);
   }

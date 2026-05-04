@@ -69,6 +69,9 @@ export const passwordApi = {
       '/auth/reset-password',
       data,
     ),
+
+  verifyOtp: (data: { email: string; otp: string }) =>
+    apiClient.post<{ success: boolean }>('/auth/verify-otp', data),
 };
 
 // ─── Admin ────────────────────────────────────────────────────────────────────

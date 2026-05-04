@@ -1,5 +1,5 @@
 import { Controller, Logger } from '@nestjs/common';
-import { MessagePattern, Payload } from '@nestjs/microservices';
+import { MessagePattern, Payload, RpcException } from '@nestjs/microservices';
 import { InjectQueue } from '@nestjs/bull';
 import type { Queue } from 'bull';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -100,11 +100,20 @@ export class UsersController {
    * FIX: original implementation only verified OTP but never updated the password.
    * Now it verifies OTP, finds the user, hashes the new password, and saves.
    */
+  @MessagePattern('user.password.verify-otp')
+  async verifyOtp(@Payload() dto: { email: string; otp: string }) {
+    const isValid = await this.otpService.verifyOtp(dto.email, dto.otp);
+    if (!isValid) {
+      throw new RpcException({ statusCode: 400, message: 'Invalid or expired OTP' });
+    }
+    return { success: true };
+  }
+
   @MessagePattern('user.password.reset')
   async resetPassword(@Payload() dto: ResetPasswordDto) {
     const isValid = await this.otpService.verifyOtp(dto.email, dto.otp);
     if (!isValid) {
-      return { success: false, message: 'Invalid or expired OTP' };
+      throw new RpcException({ statusCode: 400, message: 'Invalid or expired OTP' });
     }
 
     const user = await this.userRepo.findOne({ where: { email: dto.email } });

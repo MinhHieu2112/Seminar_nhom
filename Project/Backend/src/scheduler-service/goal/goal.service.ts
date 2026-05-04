@@ -46,7 +46,7 @@ export class GoalService {
   async findByUser(userId: string): Promise<Goal[]> {
     return this.goalRepo.find({
       where: { userId },
-      relations: ['tasks'],
+      relations: ['tasks', 'tasks.scheduleBlocks'],
       order: { createdAt: 'DESC' },
     });
   }
@@ -54,7 +54,7 @@ export class GoalService {
   async findOne(id: string, userId: string): Promise<Goal> {
     const goal = await this.goalRepo.findOne({
       where: { id, userId },
-      relations: ['tasks'],
+      relations: ['tasks', 'tasks.scheduleBlocks'],
     });
     if (!goal) {
       throw new NotFoundException('Goal not found');

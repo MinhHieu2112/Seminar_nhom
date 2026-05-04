@@ -1,17 +1,33 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   useCreateTask,
   useDeleteTask,
   useTasks,
   useUpdateTask,
+  useUpdateBlock,
 } from '@/lib/hooks/useScheduler';
 import { createTaskSchema } from '@/lib/schemas';
-import type { Task } from '@/types/api';
+import type { Task, ScheduleBlock } from '@/types/api';
 
 interface TaskListProps {
   goalId: string;
+}
+
+interface DailyTask {
+  id: string;
+  taskId: string;
+  title: string;
+  dateKey: string;
+  durationMin: number;
+  priority: number;
+  type: string;
+  status: 'pending' | 'done';
+  deadline: string | null;
+  blocks: ScheduleBlock[];
+  isLocked: boolean;
+  originalTask: Task;
 }
 
 function getTaskDeadline(task: Task): string | null {
@@ -22,7 +38,6 @@ function getDeadlineDateKey(deadline: string | null): string | null {
   if (!deadline) {
     return null;
   }
-
   return deadline.slice(0, 10);
 }
 
@@ -34,24 +49,24 @@ function getTodayDateKey() {
   return `${year}-${month}-${day}`;
 }
 
-function isTaskLocked(task: Task): boolean {
-  const deadlineKey = getDeadlineDateKey(getTaskDeadline(task));
-  if (!deadlineKey) {
-    return false;
-  }
-
-  const todayKey = getTodayDateKey();
-  return deadlineKey < todayKey;
-}
-
 function formatDeadline(deadline: string | null): string | null {
   const dateKey = getDeadlineDateKey(deadline);
   if (!dateKey) {
     return null;
   }
-
   const [year, month, day] = dateKey.split('-');
   return `${day}/${month}/${year}`;
+}
+
+function formatDateDisplay(dateKey: string) {
+  if (dateKey === 'Unscheduled') return 'Chưa xếp lịch';
+  const today = getTodayDateKey();
+  if (dateKey === today) return `Hôm nay, ${formatDeadline(dateKey)}`;
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowKey = tomorrow.toISOString().slice(0, 10);
+  if (dateKey === tomorrowKey) return `Ngày mai, ${formatDeadline(dateKey)}`;
+  return formatDeadline(dateKey) ?? dateKey;
 }
 
 export function TaskList({ goalId }: TaskListProps) {
@@ -59,9 +74,94 @@ export function TaskList({ goalId }: TaskListProps) {
   const createTask = useCreateTask();
   const updateTask = useUpdateTask();
   const deleteTask = useDeleteTask();
+  const updateBlock = useUpdateBlock();
 
   const [isAdding, setIsAdding] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const dailyTasksByDate = useMemo(() => {
+    if (!tasks) return {};
+
+    const grouped: Record<string, DailyTask[]> = {};
+
+    tasks.forEach((task: Task) => {
+      const deadline = getTaskDeadline(task);
+      const deadlineKey = getDeadlineDateKey(deadline);
+      const todayKey = getTodayDateKey();
+      
+      if (!task.scheduleBlocks || task.scheduleBlocks.length === 0) {
+        // Unscheduled
+        const dateKey = 'Unscheduled';
+        if (!grouped[dateKey]) grouped[dateKey] = [];
+        
+        const isLocked = deadlineKey ? deadlineKey < todayKey : false;
+        
+        grouped[dateKey].push({
+          id: `${task.id}_unscheduled`,
+          taskId: task.id,
+          title: task.title,
+          dateKey,
+          durationMin: task.durationMin,
+          priority: task.priority,
+          type: task.type,
+          status: task.status === 'done' ? 'done' : 'pending',
+          deadline,
+          blocks: [],
+          isLocked,
+          originalTask: task,
+        });
+      } else {
+        // Group blocks by date
+        const blocksByDate: Record<string, ScheduleBlock[]> = {};
+        task.scheduleBlocks.forEach((block) => {
+          const dateKey = block.plannedStart.slice(0, 10);
+          if (!blocksByDate[dateKey]) blocksByDate[dateKey] = [];
+          blocksByDate[dateKey].push(block);
+        });
+
+        // Create a DailyTask for each date
+        Object.entries(blocksByDate).forEach(([dateKey, blocks]) => {
+          if (!grouped[dateKey]) grouped[dateKey] = [];
+          
+          // Calculate duration from blocks (assuming each block is 45 mins of work)
+          let durationMin = 0;
+          blocks.forEach(b => {
+             const start = new Date(b.plannedStart).getTime();
+             const end = new Date(b.plannedEnd).getTime();
+             durationMin += Math.round((end - start) / 60000);
+          });
+          
+          const isDone = blocks.every(b => b.status === 'done');
+          const isLocked = dateKey < todayKey;
+
+          grouped[dateKey].push({
+            id: `${task.id}_${dateKey}`,
+            taskId: task.id,
+            title: task.title,
+            dateKey,
+            durationMin,
+            priority: task.priority,
+            type: task.type,
+            status: isDone ? 'done' : 'pending',
+            deadline,
+            blocks,
+            isLocked,
+            originalTask: task,
+          });
+        });
+      }
+    });
+
+    return grouped;
+  }, [tasks]);
+
+  const sortedDates = useMemo(() => {
+    return Object.keys(dailyTasksByDate).sort((a, b) => {
+      if (a === 'Unscheduled') return -1;
+      if (b === 'Unscheduled') return 1;
+      return a.localeCompare(b);
+    });
+  }, [dailyTasksByDate]);
 
   async function handleAddTask(formData: FormData) {
     const rawData = {
@@ -95,17 +195,31 @@ export function TaskList({ goalId }: TaskListProps) {
     );
   }
 
-  function handleToggleStatus(task: Task) {
-    if (isTaskLocked(task)) {
+  async function handleToggleStatus(dailyTask: DailyTask) {
+    if (dailyTask.isLocked) return;
+
+    if (dailyTask.dateKey === 'Unscheduled') {
+      const newStatus = dailyTask.status === 'done' ? 'pending' : 'done';
+      updateTask.mutate({
+        id: dailyTask.taskId,
+        goalId,
+        data: { status: newStatus },
+      });
       return;
     }
 
-    const newStatus = task.status === 'done' ? 'pending' : 'done';
-    updateTask.mutate({
-      id: task.id,
-      goalId,
-      data: { status: newStatus },
-    });
+    const newStatus = dailyTask.status === 'done' ? 'planned' : 'done';
+    
+    // Update all blocks for this daily task
+    try {
+      await Promise.all(
+        dailyTask.blocks.map(block => 
+          updateBlock.mutateAsync({ blockId: block.id, status: newStatus })
+        )
+      );
+    } catch (error) {
+      console.error('Failed to update blocks', error);
+    }
   }
 
   if (isLoading) {
@@ -113,7 +227,7 @@ export function TaskList({ goalId }: TaskListProps) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-medium">Nhiệm vụ</h3>
         <button
@@ -146,7 +260,7 @@ export function TaskList({ goalId }: TaskListProps) {
                 name="durationMin"
                 type="number"
                 min={5}
-                max={480}
+                max={4800}
                 defaultValue={25}
                 className="mt-1 block w-full rounded border px-2 py-1"
               />
@@ -191,65 +305,68 @@ export function TaskList({ goalId }: TaskListProps) {
       {tasks && tasks.length === 0 ? (
         <p className="text-gray-500">Chưa có nhiệm vụ nào.</p>
       ) : (
-        <div className="space-y-2">
-          {tasks?.map((task: Task) => {
-            const deadline = getTaskDeadline(task);
-            const locked = isTaskLocked(task);
-
-            return (
-              <div
-                key={task.id}
-                className={`flex items-center justify-between rounded-md border p-3 ${
-                  task.status === 'done' ? 'bg-gray-100' : 'bg-white'
-                } ${locked ? 'border-red-200 bg-red-50/60' : ''}`}
-              >
-                <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    checked={task.status === 'done'}
-                    onChange={() => handleToggleStatus(task)}
-                    disabled={locked || updateTask.isPending}
-                    className="h-4 w-4"
-                  />
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p
-                        className={`font-medium ${
-                          task.status === 'done'
-                            ? 'line-through text-gray-500'
-                            : ''
-                        }`}
-                      >
-                        {task.title}
-                      </p>
-                      {locked && (
-                        <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
-                          Quá hạn
-                        </span>
-                      )}
+        <div className="space-y-6">
+          {sortedDates.map((dateKey) => (
+            <div key={dateKey} className="space-y-3">
+              <h4 className="font-semibold text-gray-700 border-b pb-1">
+                {formatDateDisplay(dateKey)}
+              </h4>
+              <div className="space-y-2">
+                {dailyTasksByDate[dateKey].map((dailyTask) => (
+                  <div
+                    key={dailyTask.id}
+                    className={`flex items-center justify-between rounded-md border p-3 ${
+                      dailyTask.status === 'done' ? 'bg-gray-100' : 'bg-white'
+                    } ${dailyTask.isLocked ? 'border-red-200 bg-red-50/60' : ''}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={dailyTask.status === 'done'}
+                        onChange={() => handleToggleStatus(dailyTask)}
+                        disabled={dailyTask.isLocked || updateTask.isPending || updateBlock.isPending}
+                        className="h-4 w-4 cursor-pointer"
+                      />
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p
+                            className={`font-medium ${
+                              dailyTask.status === 'done'
+                                ? 'line-through text-gray-500'
+                                : ''
+                            }`}
+                          >
+                            {dailyTask.title}
+                          </p>
+                          {dailyTask.isLocked && (
+                            <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
+                              Khóa
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-500">
+                          {dailyTask.durationMin} phút · Ưu tiên {dailyTask.priority} ·{' '}
+                          {dailyTask.type === 'theory' ? 'Lý thuyết' : dailyTask.type === 'practice' ? 'Thực hành' : 'Ôn tập'}
+                          {dailyTask.deadline ? ` · Hạn gốc ${formatDeadline(dailyTask.deadline)}` : ''}
+                        </p>
+                      </div>
                     </div>
-                    <p className="text-sm text-gray-500">
-                      {task.durationMin} phút · Ưu tiên {task.priority} ·{' '}
-                      {task.type === 'theory' ? 'Lý thuyết' : task.type === 'practice' ? 'Thực hành' : 'Ôn tập'}
-                      {deadline ? ` · Hạn ${formatDeadline(deadline)}` : ''}
-                    </p>
-                    {locked && (
-                      <p className="text-xs text-red-600">
-                        Task quá hạn đang bị khóa, không thể đổi trạng thái hoặc xóa.
-                      </p>
-                    )}
+                    <button
+                      onClick={() => {
+                        if (window.confirm('Hành động này sẽ xóa TOÀN BỘ nhiệm vụ gốc (bao gồm các ngày khác). Bạn có chắc không?')) {
+                          deleteTask.mutate({ id: dailyTask.taskId, goalId });
+                        }
+                      }}
+                      disabled={dailyTask.isLocked || deleteTask.isPending}
+                      className="text-sm text-red-600 hover:text-red-800 disabled:cursor-not-allowed disabled:text-red-300"
+                    >
+                      Xóa
+                    </button>
                   </div>
-                </div>
-                <button
-                  onClick={() => deleteTask.mutate({ id: task.id, goalId })}
-                  disabled={locked || deleteTask.isPending}
-                  className="text-sm text-red-600 hover:text-red-800 disabled:cursor-not-allowed disabled:text-red-300"
-                >
-                  Xóa
-                </button>
+                ))}
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       )}
     </div>

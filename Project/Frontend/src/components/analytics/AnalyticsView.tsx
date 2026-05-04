@@ -10,9 +10,14 @@ import {
   Tooltip,
   XAxis,
   YAxis,
+  PieChart,
+  Pie,
+  Cell,
 } from 'recharts';
-import { BarChart2, Calendar, Clock, Target, CheckSquare } from 'lucide-react';
+import { BarChart2, Calendar, Clock, Target, CheckSquare, PieChart as PieChartIcon } from 'lucide-react';
 import { useAnalyticsDashboard, useAnalyticsHistory } from '@/lib/hooks/useAnalytics';
+
+const PIE_COLORS = ['#10b981', '#fcd34d', '#ef4444'];
 
 export function AnalyticsView() {
   const [period, setPeriod] = useState<'weekly' | 'monthly' | 'yearly'>('weekly');
@@ -21,6 +26,18 @@ export function AnalyticsView() {
 
   const totalPlanned = history.reduce((total, item) => total + item.planned, 0);
   const totalActual = history.reduce((total, item) => total + item.actual, 0);
+
+  const completedBlocks = analytics?.summary?.completedBlocks ?? 0;
+  const overdueBlocks = analytics?.summary?.overdueTasks ?? 0;
+  const plannedBlocks = analytics?.summary?.plannedBlocks ?? 0;
+  // Ensure pending is not negative
+  const pendingBlocks = Math.max(plannedBlocks - completedBlocks - overdueBlocks, 0);
+
+  const taskStatusData = [
+    { name: 'Hoàn thành', value: completedBlocks },
+    { name: 'Đang chờ', value: pendingBlocks },
+    { name: 'Trễ hạn', value: overdueBlocks },
+  ];
 
   return (
     <div className="space-y-6">
@@ -48,140 +65,14 @@ export function AnalyticsView() {
         </div>
       </div>
 
-      <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-        <h2 className="mb-6 flex items-center gap-2 text-lg font-semibold text-gray-900">
-          <BarChart2 className="h-5 w-5 text-blue-500" />
-          Giờ học
-        </h2>
-
-        {isLoading ? (
-          <div className="flex h-80 items-center justify-center text-gray-500">
-            Đang tải...
-          </div>
-        ) : history.length === 0 ? (
-          <div className="flex h-80 flex-col items-center justify-center text-gray-500">
-            <BarChart2 className="mb-2 h-12 w-12 text-gray-300" />
-            <p>Chưa có dữ liệu học tập trong kỳ này</p>
-          </div>
-        ) : (
-          <div className="h-80 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={history}
-                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis
-                  dataKey="date"
-                  tickFormatter={(value) => {
-                    const date = new Date(value);
-                    return period === 'yearly'
-                      ? date.toLocaleString('default', { month: 'short' })
-                      : date.getDate().toString();
-                  }}
-                />
-                <YAxis />
-                <Tooltip
-                  cursor={{ fill: 'rgba(0,0,0,0.05)' }}
-                  contentStyle={{
-                    borderRadius: '8px',
-                    border: 'none',
-                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-                  }}
-                />
-                <Legend iconType="circle" />
-                <Bar
-                  name="Giờ kế hoạch"
-                  dataKey="planned"
-                  fill="#93c5fd"
-                  radius={[4, 4, 0, 0]}
-                />
-                <Bar
-                  name="Giờ thực tế"
-                  dataKey="actual"
-                  fill="#3b82f6"
-                  radius={[4, 4, 0, 0]}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-      </div>
-
-      <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-        <h2 className="mb-6 flex items-center gap-2 text-lg font-semibold text-gray-900">
-          <CheckSquare className="h-5 w-5 text-green-500" />
-          Tình trạng
-        </h2>
-
-        {isLoading ? (
-          <div className="flex h-80 items-center justify-center text-gray-500">
-            Đang tải...
-          </div>
-        ) : history.length === 0 ? (
-          <div className="flex h-80 flex-col items-center justify-center text-gray-500">
-            <CheckSquare className="mb-2 h-12 w-12 text-gray-300" />
-            <p>Chưa có dữ liệu nhiệm vụ trong kỳ này</p>
-          </div>
-        ) : (
-          <div className="h-80 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={history}
-                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis
-                  dataKey="date"
-                  tickFormatter={(value) => {
-                    const date = new Date(value);
-                    return period === 'yearly'
-                      ? date.toLocaleString('default', { month: 'short' })
-                      : date.getDate().toString();
-                  }}
-                />
-                <YAxis allowDecimals={false} />
-                <Tooltip
-                  cursor={{ fill: 'rgba(0,0,0,0.05)' }}
-                  contentStyle={{
-                    borderRadius: '8px',
-                    border: 'none',
-                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-                  }}
-                />
-                <Legend iconType="circle" />
-                <Bar
-                  name="Hoàn thành"
-                  dataKey="tasksCompleted"
-                  stackId="a"
-                  fill="#10b981"
-                />
-                <Bar
-                  name="Đang chờ"
-                  dataKey="tasksPending"
-                  stackId="a"
-                  fill="#fcd34d"
-                />
-                <Bar
-                  name="Trễ hạn"
-                  dataKey="tasksOverdue"
-                  stackId="a"
-                  fill="#ef4444"
-                  radius={[4, 4, 0, 0]}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-      </div>
-
+      {/* Summary Cards Row */}
       <div className="grid gap-6 md:grid-cols-4">
         <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
           <div className="mb-2 flex items-center gap-3">
             <div className="rounded-lg bg-blue-100 p-2">
               <Calendar className="h-5 w-5 text-blue-600" />
             </div>
-            <h3 className="font-medium text-gray-900">Tổng số giờ dã lên kế hoạch</h3>
+            <h3 className="font-medium text-gray-900">Giờ đã lên kế hoạch</h3>
           </div>
           <p className="text-2xl font-bold text-gray-900">
             {totalPlanned.toFixed(1)}h
@@ -193,7 +84,7 @@ export function AnalyticsView() {
             <div className="rounded-lg bg-green-100 p-2">
               <Clock className="h-5 w-5 text-green-600" />
             </div>
-            <h3 className="font-medium text-gray-900">Tổng giờ đã học tập</h3>
+            <h3 className="font-medium text-gray-900">Giờ đã học thực tế</h3>
           </div>
           <p className="text-2xl font-bold text-gray-900">
             {totalActual.toFixed(1)}h
@@ -215,15 +106,117 @@ export function AnalyticsView() {
         <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
           <div className="mb-2 flex items-center gap-3">
             <div className="rounded-lg bg-amber-100 p-2">
-              <Clock className="h-5 w-5 text-amber-600" />
+              <CheckSquare className="h-5 w-5 text-amber-600" />
             </div>
-            <h3 className="font-medium text-gray-900">Tỷ lệ trễ hạn</h3>
+            <h3 className="font-medium text-gray-900">Phiên trễ hạn</h3>
           </div>
           <p className="text-2xl font-bold text-gray-900">
             {analytics?.summary?.overdueTasks ?? 0}
           </p>
         </div>
       </div>
-    </div>
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* Main Bar Chart - Hours */}
+        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm lg:col-span-2">
+          <h2 className="mb-6 flex items-center gap-2 text-lg font-semibold text-gray-900">
+            <BarChart2 className="h-5 w-5 text-blue-500" />
+            Biểu đồ giờ học
+          </h2>
+
+          {isLoading ? (
+            <div className="flex h-80 items-center justify-center text-gray-500">
+              Đang tải...
+            </div>
+          ) : history.length === 0 ? (
+            <div className="flex h-80 flex-col items-center justify-center text-gray-500">
+              <BarChart2 className="mb-2 h-12 w-12 text-gray-300" />
+              <p>Chưa có dữ liệu học tập trong kỳ này</p>
+            </div>
+          ) : (
+            <div className="h-80 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={history}
+                  margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis
+                    dataKey="date"
+                    tickFormatter={(value) => {
+                      const date = new Date(value);
+                      return period === 'yearly'
+                        ? date.toLocaleString('default', { month: 'short' })
+                        : date.getDate().toString();
+                    }}
+                  />
+                  <YAxis />
+                  <Tooltip
+                    cursor={{ fill: 'rgba(0,0,0,0.05)' }}
+                    contentStyle={{
+                      borderRadius: '8px',
+                      border: 'none',
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                    }}
+                  />
+                  <Legend iconType="circle" />
+                  <Bar
+                    name="Giờ kế hoạch"
+                    dataKey="planned"
+                    fill="#93c5fd"
+                    radius={[4, 4, 0, 0]}
+                  />
+                  <Bar
+                    name="Giờ thực tế"
+                    dataKey="actual"
+                    fill="#3b82f6"
+                    radius={[4, 4, 0, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+
+        {/* Pie Chart - Task Status */}
+        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm lg:col-span-1">
+          <h2 className="mb-6 flex items-center gap-2 text-lg font-semibold text-gray-900">
+            <PieChartIcon className="h-5 w-5 text-purple-500" />
+            Trạng thái hoàn thành
+          </h2>
+          <div className="flex h-80 flex-col items-center justify-center">
+            {taskStatusData.every(d => d.value === 0) ? (
+               <div className="text-gray-500 flex flex-col items-center">
+                  <PieChartIcon className="h-10 w-10 text-gray-300 mb-2" />
+                  Chưa có dữ liệu
+               </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={taskStatusData}
+                    cx="50%"
+                    cy="45%"
+                    innerRadius={60}
+                    outerRadius={90}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    {taskStatusData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
+                  />
+                  <Legend verticalAlign="bottom" height={36} iconType="circle" />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </div>
+      </div>
+
+      </div>
   );
 }

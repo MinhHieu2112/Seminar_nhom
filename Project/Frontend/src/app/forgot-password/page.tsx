@@ -10,6 +10,7 @@ import { passwordApi } from '@/lib/api';
 export default function ForgotPasswordPage() {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
+  const [submittedEmail, setSubmittedEmail] = useState('');
 
   const {
     register,
@@ -24,6 +25,7 @@ export default function ForgotPasswordPage() {
 
     try {
       await passwordApi.forgot({ email: data.email });
+      setSubmittedEmail(data.email);
       setSubmitted(true);
     } catch (err: unknown) {
       const axiosErr = err as {
@@ -66,8 +68,8 @@ export default function ForgotPasswordPage() {
               Nếu tài khoản tồn tại, chúng tôi đã gửi mã khôi phục mật khẩu.
             </p>
             <Link
-              href="/reset-password"
-              className="mt-4 inline-block text-sm text-blue-600 hover:text-blue-500"
+              href={`/reset-password?email=${encodeURIComponent(submittedEmail)}`}
+              className="mt-4 inline-block text-sm text-blue-600 hover:text-blue-500 font-medium"
             >
               Nhập mã khôi phục →
             </Link>

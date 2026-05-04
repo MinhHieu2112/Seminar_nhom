@@ -8,9 +8,6 @@ import {
   Calendar,
   User,
   Users,
-  BookOpen,
-  Clock,
-  Bell,
   BarChart2,
 } from 'lucide-react';
 import { useAuthStore } from '@/lib/auth-store';
@@ -41,7 +38,7 @@ export function Sidebar() {
 
   return (
     <aside className="fixed left-0 top-16 z-40 h-[calc(100vh-4rem)] w-64 overflow-y-auto border-r border-gray-200 bg-white">
-      <div className="flex flex-col gap-1 p-4">
+      <div className="flex flex-col gap-1 p-4 h-full">
         {/* Main Navigation */}
         <nav className="space-y-1">
           {filteredNav.map((item) => {
@@ -65,32 +62,8 @@ export function Sidebar() {
           })}
         </nav>
 
-        {/* Divider */}
-        <div className="my-4 border-t border-gray-200" />
-
-        {/* Quick Stats Section */}
-        <div className="rounded-xl bg-gradient-to-br from-blue-50 to-purple-50 p-4">
-          <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
-            Thống kê nhanh
-          </h4>
-          <div className="mt-3 space-y-3">
-            <div className="flex items-center gap-3">
-              <BookOpen className="h-4 w-4 text-blue-600" />
-              <span className="text-sm text-gray-600">0 Mục tiêu</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <Clock className="h-4 w-4 text-purple-600" />
-              <span className="text-sm text-gray-600">0 Nhiệm vụ</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <Bell className="h-4 w-4 text-orange-600" />
-              <span className="text-sm text-gray-600">0 Thông báo</span>
-            </div>
-          </div>
-        </div>
-
         {/* Footer */}
-        <div className="mt-auto pt-4">
+        <div className="mt-auto pt-4 border-t border-gray-200">
           <p className="text-xs text-gray-400 text-center">
             © 2026 StudyPlan
           </p>

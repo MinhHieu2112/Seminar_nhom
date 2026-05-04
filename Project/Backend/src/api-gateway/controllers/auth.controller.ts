@@ -59,6 +59,17 @@ export class AuthGatewayController {
     );
   }
 
+  @Post('verify-otp')
+  @HttpCode(HttpStatus.OK)
+  verifyOtp(@Body() dto: { email: string; otp: string }) {
+    return safeSend(
+      this.tcpClient,
+      'user-service',
+      'user.password.verify-otp',
+      dto,
+    );
+  }
+
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
   resetPassword(@Body() dto: any) {
