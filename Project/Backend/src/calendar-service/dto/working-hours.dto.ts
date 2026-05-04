@@ -8,12 +8,14 @@ import {
   Length,
   Matches,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CreateWorkingHoursDto {
   @IsInt()
   @Min(0)
   @Max(6)
-  dayOfWeek: number;
+  @Type(() => Number)
+  dayOfWeek!: number;
 
   @IsString()
   @Length(5, 5)

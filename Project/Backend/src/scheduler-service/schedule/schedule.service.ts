@@ -1,4 +1,4 @@
-import { Injectable, Logger, Inject, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, Inject, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between } from 'typeorm';
 import { ClientProxy } from '@nestjs/microservices';
@@ -787,7 +787,7 @@ export class ScheduleService {
     });
 
     if (!block) {
-      throw new Error('Schedule block not found');
+      throw new NotFoundException('Schedule block not found');
     }
 
     block.status = status;

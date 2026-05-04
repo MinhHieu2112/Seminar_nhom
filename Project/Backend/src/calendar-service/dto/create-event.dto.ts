@@ -9,18 +9,19 @@ import {
   Max,
   Length,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import type { EventSource } from '../entities';
 
 export class CreateEventDto {
   @IsString()
   @Length(1, 255)
-  title: string;
+  title!: string;
 
   @IsDateString()
-  startTime: string;
+  startTime!: string;
 
   @IsDateString()
-  endTime: string;
+  endTime!: string;
 
   @IsString()
   @IsOptional()
@@ -30,6 +31,7 @@ export class CreateEventDto {
   @Min(1)
   @Max(5)
   @IsOptional()
+  @Type(() => Number)
   priority?: number;
 
   @IsEnum(['manual', 'google', 'system'])
@@ -55,6 +57,7 @@ export class CreateEventDto {
   @IsInt()
   @Min(1)
   @IsOptional()
+  @Type(() => Number)
   pomodoroIndex?: number;
 
   @IsString()
@@ -64,5 +67,6 @@ export class CreateEventDto {
   @IsInt()
   @Min(1)
   @IsOptional()
+  @Type(() => Number)
   queueOrder?: number;
 }

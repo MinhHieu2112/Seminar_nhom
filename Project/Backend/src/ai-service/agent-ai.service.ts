@@ -366,7 +366,7 @@ export class AgentAiService {
 
   // ─── Phase 1: Normalize Input (Single Source of Truth) ───────────────────
 
-  async normalizeInput(payload: NormalizeInputDto): Promise<UnifiedInputDto> {
+  normalizeInput(payload: NormalizeInputDto): UnifiedInputDto {
     this.logger.log(
       `Normalizing input of type: ${payload.type} for user ${payload.userId}`,
     );
@@ -382,15 +382,15 @@ export class AgentAiService {
         if (Array.isArray(parsed)) {
           tasks = parsed.map((t: any) => ({
             id: randomUUID(),
-            title: t.title || 'Untitled Task',
-            duration: parseInt(t.duration) || 60,
-            priority: parseInt(t.priority) || 3,
-            deadline: t.deadline || null,
+            title: t.title ? String(t.title) : 'Untitled Task',
+            duration: parseInt(String(t.duration)) || 60,
+            priority: parseInt(String(t.priority)) || 3,
+            deadline: t.deadline ? String(t.deadline) : undefined,
           }));
         } else if (parsed.tasks) {
           tasks = parsed.tasks;
         }
-      } catch (e) {
+      } catch {
         this.logger.warn(
           'Failed to parse manual input as JSON, falling back to heuristic',
         );
@@ -445,7 +445,7 @@ export class AgentAiService {
       .split('\n')
       .map((l) => l.trim())
       .filter((l) => l.length > 0);
-    return lines.map((line, i) => {
+    return lines.map((line) => {
       const parts = line.split(',');
       return {
         id: randomUUID(),
@@ -479,13 +479,13 @@ export class AgentAiService {
 
   // ─── Main: Generate from Form ─────────────────────────────────────────────
 
-  async generateScheduleFromForm(
+  generateScheduleFromForm(
     payload: GenerateSchedulePayload,
-  ): Promise<GenerateScheduleResult> {
+  ): GenerateScheduleResult {
     this.logger.log(`Generating schedule for subject: "${payload.subject}"`);
 
     // Step 1: AI decompose subject → tasks
-    const tasks = await this.decomposeGoal(payload.subject, payload.toDate);
+    const tasks = this.decomposeGoal(payload.subject, payload.toDate);
 
     // Step 2: Compute available slots (CSV or form data)
     const availableSlots =
@@ -510,10 +510,7 @@ export class AgentAiService {
 
   // ─── Decompose Goal (Layered Fallback) ───────────────────────────────────
 
-  async decomposeGoal(
-    goalTitle: string,
-    deadline?: string,
-  ): Promise<LlmTask[]> {
+  decomposeGoal(goalTitle: string, deadline?: string): LlmTask[] {
     this.logger.log(
       `Decomposing goal: "${goalTitle}" (deadline: ${deadline ?? 'none'})`,
     );

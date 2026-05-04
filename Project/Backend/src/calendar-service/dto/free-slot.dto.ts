@@ -1,13 +1,16 @@
-import { IsDateString, IsOptional } from 'class-validator';
+import { IsDateString, IsOptional, IsInt } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class GetFreeSlotsDto {
   @IsDateString()
-  from: string;
+  from!: string;
 
   @IsDateString()
-  to: string;
+  to!: string;
 
   @IsOptional()
+  @IsInt()
+  @Type(() => Number)
   minDurationMin?: number;
 }
 

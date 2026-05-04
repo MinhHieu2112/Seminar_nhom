@@ -1,4 +1,4 @@
-import { IsString, MaxLength, IsOptional, IsJSON } from 'class-validator';
+import { IsString, MaxLength, IsOptional, IsObject } from 'class-validator';
 
 export class UpdateProfileDto {
   @IsOptional()
@@ -7,6 +7,6 @@ export class UpdateProfileDto {
   timezone?: string;
 
   @IsOptional()
-  @IsJSON()
+  @IsObject()
   preferences?: Record<string, unknown>;
 }

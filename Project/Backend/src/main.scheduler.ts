@@ -1,11 +1,11 @@
 import { NestFactory } from '@nestjs/core';
 import { Transport, MicroserviceOptions } from '@nestjs/microservices';
 import { ValidationPipe } from '@nestjs/common';
-import { ProcessModule } from './scheduler-service/process.module';
+import { SchedulerModule } from './scheduler-service/scheduler.module';
 
 async function bootstrap() {
   const app = await NestFactory.createMicroservice<MicroserviceOptions>(
-    ProcessModule,
+    SchedulerModule,
     {
       transport: Transport.TCP,
       options: {

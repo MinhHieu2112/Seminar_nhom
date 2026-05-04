@@ -46,4 +46,4 @@ import { ScheduleService } from './schedule/schedule.service';
   controllers: [SchedulerController],
   providers: [GoalService, TaskService, ScheduleService],
 })
-export class ProcessModule {}
+export class SchedulerModule {}
