@@ -1,0 +1,138 @@
+.is-order-summary {
+  background: #ffffff;
+  border: 1px solid #f0f0f0;
+  border-radius: 12px;
+  padding: 1.5rem;
+}
+
+.contains-order {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.contains-order h4 {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #444;
+  margin: 0;
+}
+
+.total-cost,
+.final-cost {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.total-cost h4:first-child {
+  color: #666;
+  font-weight: 500;
+}
+
+.total-cost h4:last-child,
+.final-cost h4:last-child {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.final-cost {
+  border-bottom: none;
+  padding-top: 0.5rem;
+  border-top: 1px solid #f0f0f0;
+}
+
+.shipping,
+.promo-code,
+.payment-method {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.select-dropdown {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #333;
+  background: #f8f8f8;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+
+.select-dropdown:focus {
+  border-color: #22c55e;
+}
+
+.enter-promo {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.enter-promo .select-dropdown {
+  flex: 1;
+  background: #fff;
+}
+
+.flat-button {
+  border: none;
+  color: #fff;
+  background-color: #22c55e;
+  padding: 0.6rem 1.5rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.flat-button:hover:not(:disabled) {
+  background-color: #16a34a;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(34, 197, 94, 0.25);
+}
+
+.apply-promo {
+  background-color: #fa7474;
+  padding: 0.6rem 1rem;
+}
+
+.apply-promo:hover:not(:disabled) {
+  background-color: #e85c5c;
+  box-shadow: 0 4px 10px rgba(250, 116, 116, 0.25);
+}
+
+.checkout {
+  padding: 0.85rem 1.5rem;
+  width: 100%;
+  font-size: 1rem;
+  margin-top: 0.5rem;
+}
+
+.checkout:disabled {
+  background-color: #d1d5db;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.promo-code small {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.8rem;
+}
+
+.promo-code input.select-dropdown {
+  padding: 0.6rem 0.75rem;
+}
+
+.contains-order > div:last-child {
+  margin-top: 0.5rem;
+}

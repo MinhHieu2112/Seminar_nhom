@@ -492,34 +492,31 @@ export class SchedulerGatewayController {
   ) {
     const userId = extractUserId(authHeader, this.jwtService);
     // Read directly from schedule_blocks (accurate after cascade deletes)
-    const blocks = await safeSend<Array<{
-      id: string;
-      taskId: string;
-      userId: string;
-      plannedStart: Date | string;
-      plannedEnd: Date | string;
-      pomodoroIndex?: number;
-      sessionType?: string | null;
-      queueOrder?: number | null;
-      status: string;
-      createdAt: Date | string;
-      task?: {
+    const blocks = await safeSend<
+      Array<{
         id: string;
-        title: string;
-        durationMin: number;
-        priority: string;
-        type: string;
-      } | null;
-    }>>(
-      this.tcpClient,
-      'scheduler-service',
-      'scheduler.schedule.view',
-      {
-        userId,
-        from: query.from,
-        to: query.to,
-      },
-    );
+        taskId: string;
+        userId: string;
+        plannedStart: Date | string;
+        plannedEnd: Date | string;
+        pomodoroIndex?: number;
+        sessionType?: string | null;
+        queueOrder?: number | null;
+        status: string;
+        createdAt: Date | string;
+        task?: {
+          id: string;
+          title: string;
+          durationMin: number;
+          priority: string;
+          type: string;
+        } | null;
+      }>
+    >(this.tcpClient, 'scheduler-service', 'scheduler.schedule.view', {
+      userId,
+      from: query.from,
+      to: query.to,
+    });
     // Map schedule_blocks to the same ScheduleBlock shape the frontend expects
     return (blocks ?? []).map((b) => ({
       id: b.id,

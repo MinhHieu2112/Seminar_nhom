@@ -1,0 +1,9 @@
+/Users/nguyenvominhhieu/Downloads/Bai_8/ProjectWeb-BE/product-service/src/main/java/vn/tt/practice/productservice/ProductServiceApplication.java
+/Users/nguyenvominhhieu/Downloads/Bai_8/ProjectWeb-BE/product-service/src/main/java/vn/tt/practice/productservice/config/RedisConfig.java
+/Users/nguyenvominhhieu/Downloads/Bai_8/ProjectWeb-BE/product-service/src/main/java/vn/tt/practice/productservice/config/SecurityConfig.java
+/Users/nguyenvominhhieu/Downloads/Bai_8/ProjectWeb-BE/product-service/src/main/java/vn/tt/practice/productservice/controller/ProductController.java
+/Users/nguyenvominhhieu/Downloads/Bai_8/ProjectWeb-BE/product-service/src/main/java/vn/tt/practice/productservice/dto/ProductDTO.java
+/Users/nguyenvominhhieu/Downloads/Bai_8/ProjectWeb-BE/product-service/src/main/java/vn/tt/practice/productservice/mapper/ProductMapper.java
+/Users/nguyenvominhhieu/Downloads/Bai_8/ProjectWeb-BE/product-service/src/main/java/vn/tt/practice/productservice/model/Product.java
+/Users/nguyenvominhhieu/Downloads/Bai_8/ProjectWeb-BE/product-service/src/main/java/vn/tt/practice/productservice/repository/ProductRepo.java
+/Users/nguyenvominhhieu/Downloads/Bai_8/ProjectWeb-BE/product-service/src/main/java/vn/tt/practice/productservice/service/ProductService.java

@@ -1,6 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'crypto';
-import { NormalizeInputDto, UnifiedInputDto, UnifiedTaskDto, UnifiedConstraintsDto, TimeSlotDto } from './dto/unified-input.dto';
+import {
+  NormalizeInputDto,
+  UnifiedInputDto,
+  UnifiedTaskDto,
+  UnifiedConstraintsDto,
+  TimeSlotDto,
+} from './dto/unified-input.dto';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -45,62 +51,252 @@ export interface GenerateScheduleResult {
 
 const TEMPLATES: Record<string, LlmTask[]> = {
   python: [
-    { title: 'Python cơ bản & cú pháp', durationMin: 60, priority: 5, type: 'theory' },
-    { title: 'Kiểu dữ liệu và điều kiện', durationMin: 45, priority: 4, type: 'practice' },
-    { title: 'Vòng lặp và hàm', durationMin: 60, priority: 4, type: 'practice' },
+    {
+      title: 'Python cơ bản & cú pháp',
+      durationMin: 60,
+      priority: 5,
+      type: 'theory',
+    },
+    {
+      title: 'Kiểu dữ liệu và điều kiện',
+      durationMin: 45,
+      priority: 4,
+      type: 'practice',
+    },
+    {
+      title: 'Vòng lặp và hàm',
+      durationMin: 60,
+      priority: 4,
+      type: 'practice',
+    },
     { title: 'OOP và Module', durationMin: 60, priority: 3, type: 'theory' },
-    { title: 'File I/O và Exception', durationMin: 45, priority: 3, type: 'practice' },
-    { title: 'Dự án mini thực hành', durationMin: 90, priority: 2, type: 'practice' },
+    {
+      title: 'File I/O và Exception',
+      durationMin: 45,
+      priority: 3,
+      type: 'practice',
+    },
+    {
+      title: 'Dự án mini thực hành',
+      durationMin: 90,
+      priority: 2,
+      type: 'practice',
+    },
   ],
   javascript: [
-    { title: 'JavaScript cơ bản & DOM', durationMin: 60, priority: 5, type: 'theory' },
-    { title: 'Event handling & Async/Await', durationMin: 60, priority: 4, type: 'practice' },
-    { title: 'Array methods & ES6+', durationMin: 45, priority: 4, type: 'practice' },
+    {
+      title: 'JavaScript cơ bản & DOM',
+      durationMin: 60,
+      priority: 5,
+      type: 'theory',
+    },
+    {
+      title: 'Event handling & Async/Await',
+      durationMin: 60,
+      priority: 4,
+      type: 'practice',
+    },
+    {
+      title: 'Array methods & ES6+',
+      durationMin: 45,
+      priority: 4,
+      type: 'practice',
+    },
     { title: 'Fetch API & HTTP', durationMin: 45, priority: 3, type: 'theory' },
-    { title: 'Dự án mini To-Do App', durationMin: 90, priority: 2, type: 'practice' },
+    {
+      title: 'Dự án mini To-Do App',
+      durationMin: 90,
+      priority: 2,
+      type: 'practice',
+    },
   ],
   react: [
-    { title: 'React components & JSX', durationMin: 60, priority: 5, type: 'theory' },
-    { title: 'Props, State & useState', durationMin: 60, priority: 4, type: 'practice' },
-    { title: 'useEffect & lifecycle', durationMin: 45, priority: 4, type: 'theory' },
+    {
+      title: 'React components & JSX',
+      durationMin: 60,
+      priority: 5,
+      type: 'theory',
+    },
+    {
+      title: 'Props, State & useState',
+      durationMin: 60,
+      priority: 4,
+      type: 'practice',
+    },
+    {
+      title: 'useEffect & lifecycle',
+      durationMin: 45,
+      priority: 4,
+      type: 'theory',
+    },
     { title: 'React Router', durationMin: 45, priority: 3, type: 'practice' },
-    { title: 'Context API & state management', durationMin: 60, priority: 3, type: 'theory' },
-    { title: 'Build project với React', durationMin: 90, priority: 2, type: 'practice' },
+    {
+      title: 'Context API & state management',
+      durationMin: 60,
+      priority: 3,
+      type: 'theory',
+    },
+    {
+      title: 'Build project với React',
+      durationMin: 90,
+      priority: 2,
+      type: 'practice',
+    },
   ],
   nextjs: [
-    { title: 'App Router & File-based routing', durationMin: 60, priority: 5, type: 'theory' },
-    { title: 'Server vs Client Components', durationMin: 60, priority: 5, type: 'theory' },
-    { title: 'Data fetching & Server Actions', durationMin: 60, priority: 4, type: 'practice' },
-    { title: 'API Routes & Middleware', durationMin: 45, priority: 3, type: 'practice' },
-    { title: 'Deploy lên Vercel', durationMin: 30, priority: 2, type: 'practice' },
+    {
+      title: 'App Router & File-based routing',
+      durationMin: 60,
+      priority: 5,
+      type: 'theory',
+    },
+    {
+      title: 'Server vs Client Components',
+      durationMin: 60,
+      priority: 5,
+      type: 'theory',
+    },
+    {
+      title: 'Data fetching & Server Actions',
+      durationMin: 60,
+      priority: 4,
+      type: 'practice',
+    },
+    {
+      title: 'API Routes & Middleware',
+      durationMin: 45,
+      priority: 3,
+      type: 'practice',
+    },
+    {
+      title: 'Deploy lên Vercel',
+      durationMin: 30,
+      priority: 2,
+      type: 'practice',
+    },
   ],
   nestjs: [
-    { title: 'NestJS modules, controllers, services', durationMin: 60, priority: 5, type: 'theory' },
-    { title: 'Dependency Injection & Providers', durationMin: 45, priority: 4, type: 'theory' },
-    { title: 'REST API với NestJS', durationMin: 60, priority: 4, type: 'practice' },
-    { title: 'TypeORM & Database', durationMin: 60, priority: 3, type: 'practice' },
-    { title: 'Guards, Interceptors, Pipes', durationMin: 45, priority: 3, type: 'theory' },
-    { title: 'Build full API project', durationMin: 90, priority: 2, type: 'practice' },
+    {
+      title: 'NestJS modules, controllers, services',
+      durationMin: 60,
+      priority: 5,
+      type: 'theory',
+    },
+    {
+      title: 'Dependency Injection & Providers',
+      durationMin: 45,
+      priority: 4,
+      type: 'theory',
+    },
+    {
+      title: 'REST API với NestJS',
+      durationMin: 60,
+      priority: 4,
+      type: 'practice',
+    },
+    {
+      title: 'TypeORM & Database',
+      durationMin: 60,
+      priority: 3,
+      type: 'practice',
+    },
+    {
+      title: 'Guards, Interceptors, Pipes',
+      durationMin: 45,
+      priority: 3,
+      type: 'theory',
+    },
+    {
+      title: 'Build full API project',
+      durationMin: 90,
+      priority: 2,
+      type: 'practice',
+    },
   ],
   english: [
-    { title: 'Từ vựng chủ đề 1 (flashcard)', durationMin: 30, priority: 5, type: 'practice' },
+    {
+      title: 'Từ vựng chủ đề 1 (flashcard)',
+      durationMin: 30,
+      priority: 5,
+      type: 'practice',
+    },
     { title: 'Ngữ pháp cơ bản', durationMin: 45, priority: 4, type: 'theory' },
-    { title: 'Luyện nghe Podcast', durationMin: 30, priority: 4, type: 'practice' },
-    { title: 'Reading comprehension', durationMin: 45, priority: 3, type: 'practice' },
-    { title: 'Luyện viết paragraph', durationMin: 30, priority: 2, type: 'practice' },
+    {
+      title: 'Luyện nghe Podcast',
+      durationMin: 30,
+      priority: 4,
+      type: 'practice',
+    },
+    {
+      title: 'Reading comprehension',
+      durationMin: 45,
+      priority: 3,
+      type: 'practice',
+    },
+    {
+      title: 'Luyện viết paragraph',
+      durationMin: 30,
+      priority: 2,
+      type: 'practice',
+    },
   ],
   sql: [
-    { title: 'SELECT, WHERE, ORDER BY', durationMin: 45, priority: 5, type: 'theory' },
-    { title: 'JOIN (INNER, LEFT, RIGHT)', durationMin: 60, priority: 4, type: 'practice' },
-    { title: 'GROUP BY & Aggregate', durationMin: 45, priority: 4, type: 'theory' },
-    { title: 'Subqueries & CTEs', durationMin: 60, priority: 3, type: 'practice' },
-    { title: 'Indexes & Optimization', durationMin: 45, priority: 2, type: 'theory' },
+    {
+      title: 'SELECT, WHERE, ORDER BY',
+      durationMin: 45,
+      priority: 5,
+      type: 'theory',
+    },
+    {
+      title: 'JOIN (INNER, LEFT, RIGHT)',
+      durationMin: 60,
+      priority: 4,
+      type: 'practice',
+    },
+    {
+      title: 'GROUP BY & Aggregate',
+      durationMin: 45,
+      priority: 4,
+      type: 'theory',
+    },
+    {
+      title: 'Subqueries & CTEs',
+      durationMin: 60,
+      priority: 3,
+      type: 'practice',
+    },
+    {
+      title: 'Indexes & Optimization',
+      durationMin: 45,
+      priority: 2,
+      type: 'theory',
+    },
   ],
   toan: [
-    { title: 'Ôn lý thuyết chương 1', durationMin: 45, priority: 5, type: 'theory' },
-    { title: 'Bài tập cơ bản chương 1', durationMin: 60, priority: 4, type: 'practice' },
-    { title: 'Lý thuyết chương 2', durationMin: 45, priority: 4, type: 'theory' },
-    { title: 'Bài tập nâng cao', durationMin: 60, priority: 3, type: 'practice' },
+    {
+      title: 'Ôn lý thuyết chương 1',
+      durationMin: 45,
+      priority: 5,
+      type: 'theory',
+    },
+    {
+      title: 'Bài tập cơ bản chương 1',
+      durationMin: 60,
+      priority: 4,
+      type: 'practice',
+    },
+    {
+      title: 'Lý thuyết chương 2',
+      durationMin: 45,
+      priority: 4,
+      type: 'theory',
+    },
+    {
+      title: 'Bài tập nâng cao',
+      durationMin: 60,
+      priority: 3,
+      type: 'practice',
+    },
     { title: 'Đề thi thử', durationMin: 90, priority: 3, type: 'practice' },
     { title: 'Giải đề & Review', durationMin: 45, priority: 2, type: 'theory' },
   ],
@@ -126,13 +322,40 @@ const TIME_RANGES: Record<string, { startHour: number; endHour: number }> = {
 };
 
 const DAY_NAMES: Record<string, number> = {
-  sunday: 0, sun: 0, cn: 0, 'chủ nhật': 0,
-  monday: 1, mon: 1, t2: 1, 'thứ 2': 1, 'thứ hai': 1,
-  tuesday: 2, tue: 2, t3: 2, 'thứ 3': 2, 'thứ ba': 2,
-  wednesday: 3, wed: 3, t4: 3, 'thứ 4': 3, 'thứ tư': 3,
-  thursday: 4, thu: 4, t5: 4, 'thứ 5': 4, 'thứ năm': 4,
-  friday: 5, fri: 5, t6: 5, 'thứ 6': 5, 'thứ sáu': 5,
-  saturday: 6, sat: 6, t7: 6, 'thứ 7': 6, 'thứ bảy': 6,
+  sunday: 0,
+  sun: 0,
+  cn: 0,
+  'chủ nhật': 0,
+  monday: 1,
+  mon: 1,
+  t2: 1,
+  'thứ 2': 1,
+  'thứ hai': 1,
+  tuesday: 2,
+  tue: 2,
+  t3: 2,
+  'thứ 3': 2,
+  'thứ ba': 2,
+  wednesday: 3,
+  wed: 3,
+  t4: 3,
+  'thứ 4': 3,
+  'thứ tư': 3,
+  thursday: 4,
+  thu: 4,
+  t5: 4,
+  'thứ 5': 4,
+  'thứ năm': 4,
+  friday: 5,
+  fri: 5,
+  t6: 5,
+  'thứ 6': 5,
+  'thứ sáu': 5,
+  saturday: 6,
+  sat: 6,
+  t7: 6,
+  'thứ 7': 6,
+  'thứ bảy': 6,
 };
 
 // ─── Service ─────────────────────────────────────────────────────────────────
@@ -144,10 +367,12 @@ export class AgentAiService {
   // ─── Phase 1: Normalize Input (Single Source of Truth) ───────────────────
 
   async normalizeInput(payload: NormalizeInputDto): Promise<UnifiedInputDto> {
-    this.logger.log(`Normalizing input of type: ${payload.type} for user ${payload.userId}`);
-    
+    this.logger.log(
+      `Normalizing input of type: ${payload.type} for user ${payload.userId}`,
+    );
+
     let tasks: UnifiedTaskDto[] = [];
-    
+
     if (payload.type === 'csv') {
       tasks = this.parseCsvToTasks(payload.data);
     } else {
@@ -166,7 +391,9 @@ export class AgentAiService {
           tasks = parsed.tasks;
         }
       } catch (e) {
-        this.logger.warn('Failed to parse manual input as JSON, falling back to heuristic');
+        this.logger.warn(
+          'Failed to parse manual input as JSON, falling back to heuristic',
+        );
         tasks = this.parseTextToTasks(payload.data);
       }
     }
@@ -185,9 +412,12 @@ export class AgentAiService {
   }
 
   private parseCsvToTasks(csv: string): UnifiedTaskDto[] {
-    const lines = csv.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    const lines = csv
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0);
     const tasks: UnifiedTaskDto[] = [];
-    
+
     // Skip header if present (title,duration,priority,deadline)
     let startIndex = 0;
     if (lines.length > 0 && lines[0].toLowerCase().includes('title')) {
@@ -195,7 +425,7 @@ export class AgentAiService {
     }
 
     for (let i = startIndex; i < lines.length; i++) {
-      const parts = lines[i].split(',').map(p => p.trim());
+      const parts = lines[i].split(',').map((p) => p.trim());
       if (parts.length >= 2) {
         tasks.push({
           id: randomUUID(),
@@ -211,7 +441,10 @@ export class AgentAiService {
 
   private parseTextToTasks(text: string): UnifiedTaskDto[] {
     // Very basic fallback: split by newline, assume "Title, Duration"
-    const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    const lines = text
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0);
     return lines.map((line, i) => {
       const parts = line.split(',');
       return {
@@ -231,7 +464,7 @@ export class AgentAiService {
       d.setDate(d.getDate() + i);
       slots.push({
         day: this.formatLocalDate(d),
-        slots: ['07:00-11:00', '13:00-17:00', '18:00-22:00']
+        slots: ['07:00-11:00', '13:00-17:00', '18:00-22:00'],
       });
     }
     return slots;
@@ -281,7 +514,9 @@ export class AgentAiService {
     goalTitle: string,
     deadline?: string,
   ): Promise<LlmTask[]> {
-    this.logger.log(`Decomposing goal: "${goalTitle}" (deadline: ${deadline ?? 'none'})`);
+    this.logger.log(
+      `Decomposing goal: "${goalTitle}" (deadline: ${deadline ?? 'none'})`,
+    );
 
     // L2: Template Matching
     const templateResult = this.matchTemplate(goalTitle);
@@ -332,21 +567,71 @@ export class AgentAiService {
     if (words.length === 0) return null;
     const topic = words.slice(0, 3).join(' ');
     return [
-      { title: `Tìm hiểu tổng quan: ${topic}`, durationMin: 45, priority: 5, type: 'theory' },
-      { title: `Thực hành ${topic} cơ bản`, durationMin: 60, priority: 4, type: 'practice' },
-      { title: `Đọc tài liệu chuyên sâu ${topic}`, durationMin: 45, priority: 3, type: 'theory' },
-      { title: `Bài tập thực hành ${topic}`, durationMin: 60, priority: 3, type: 'practice' },
+      {
+        title: `Tìm hiểu tổng quan: ${topic}`,
+        durationMin: 45,
+        priority: 5,
+        type: 'theory',
+      },
+      {
+        title: `Thực hành ${topic} cơ bản`,
+        durationMin: 60,
+        priority: 4,
+        type: 'practice',
+      },
+      {
+        title: `Đọc tài liệu chuyên sâu ${topic}`,
+        durationMin: 45,
+        priority: 3,
+        type: 'theory',
+      },
+      {
+        title: `Bài tập thực hành ${topic}`,
+        durationMin: 60,
+        priority: 3,
+        type: 'practice',
+      },
     ];
   }
 
   private genericScaffold(goalTitle: string): LlmTask[] {
     return [
-      { title: `Tổng quan: ${goalTitle}`, durationMin: 30, priority: 5, type: 'theory' },
-      { title: 'Đọc tài liệu nền tảng', durationMin: 45, priority: 4, type: 'theory' },
-      { title: 'Thực hành bài tập cơ bản', durationMin: 60, priority: 4, type: 'practice' },
-      { title: 'Ôn tập và ghi chú', durationMin: 30, priority: 3, type: 'theory' },
-      { title: 'Thực hành dự án nhỏ', durationMin: 90, priority: 3, type: 'practice' },
-      { title: 'Tổng kết và review', durationMin: 30, priority: 2, type: 'theory' },
+      {
+        title: `Tổng quan: ${goalTitle}`,
+        durationMin: 30,
+        priority: 5,
+        type: 'theory',
+      },
+      {
+        title: 'Đọc tài liệu nền tảng',
+        durationMin: 45,
+        priority: 4,
+        type: 'theory',
+      },
+      {
+        title: 'Thực hành bài tập cơ bản',
+        durationMin: 60,
+        priority: 4,
+        type: 'practice',
+      },
+      {
+        title: 'Ôn tập và ghi chú',
+        durationMin: 30,
+        priority: 3,
+        type: 'theory',
+      },
+      {
+        title: 'Thực hành dự án nhỏ',
+        durationMin: 90,
+        priority: 3,
+        type: 'practice',
+      },
+      {
+        title: 'Tổng kết và review',
+        durationMin: 30,
+        priority: 2,
+        type: 'theory',
+      },
     ];
   }
 

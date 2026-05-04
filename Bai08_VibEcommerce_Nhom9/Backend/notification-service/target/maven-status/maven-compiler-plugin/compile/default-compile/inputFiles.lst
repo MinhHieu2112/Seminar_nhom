@@ -1,0 +1,5 @@
+/Users/nguyenvominhhieu/Downloads/Bai_8/ProjectWeb-BE/notification-service/src/main/java/vn/tt/practice/notificationservice/NotificationServiceApplication.java
+/Users/nguyenvominhhieu/Downloads/Bai_8/ProjectWeb-BE/notification-service/src/main/java/vn/tt/practice/notificationservice/config/KafkaConsumerConfig.java
+/Users/nguyenvominhhieu/Downloads/Bai_8/ProjectWeb-BE/notification-service/src/main/java/vn/tt/practice/notificationservice/config/UserClient.java
+/Users/nguyenvominhhieu/Downloads/Bai_8/ProjectWeb-BE/notification-service/src/main/java/vn/tt/practice/notificationservice/consumer/OrderEventConsumer.java
+/Users/nguyenvominhhieu/Downloads/Bai_8/ProjectWeb-BE/notification-service/src/main/java/vn/tt/practice/notificationservice/service/EmailService.java

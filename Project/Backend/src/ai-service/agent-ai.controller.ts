@@ -13,9 +13,7 @@ export class AgentAiController {
    * Nhận form data (+ optional CSV slots đã parse) → trả về tasks + availableSlots
    */
   @MessagePattern('ai.generate-schedule')
-  async handleGenerateSchedule(
-    @Payload() payload: GenerateSchedulePayload,
-  ) {
+  async handleGenerateSchedule(@Payload() payload: GenerateSchedulePayload) {
     return this.agentAiService.generateScheduleFromForm(payload);
   }
 
@@ -27,7 +25,10 @@ export class AgentAiController {
   async handleDecomposeGoal(
     @Payload() payload: { goalTitle: string; deadline?: string },
   ) {
-    return this.agentAiService.decomposeGoal(payload.goalTitle, payload.deadline);
+    return this.agentAiService.decomposeGoal(
+      payload.goalTitle,
+      payload.deadline,
+    );
   }
 
   @MessagePattern('ai.normalize')
@@ -38,7 +39,8 @@ export class AgentAiController {
     } catch (error) {
       return {
         success: false,
-        message: error instanceof Error ? error.message : 'Normalization failed',
+        message:
+          error instanceof Error ? error.message : 'Normalization failed',
       };
     }
   }
