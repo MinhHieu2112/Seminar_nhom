@@ -60,6 +60,10 @@ export class UserService {
       throw new NotFoundException('User not found');
     }
 
+    if (!user.password) {
+      throw new ForbiddenException('Cannot change password for an account created with Google Sign-in');
+    }
+
     const isPasswordValid = await bcrypt.compare(
       dto.oldPassword,
       user.password,

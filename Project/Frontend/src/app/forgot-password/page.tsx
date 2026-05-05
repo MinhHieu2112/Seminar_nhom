@@ -1,16 +1,28 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { forgotPasswordSchema, type ForgotPasswordFormData } from '@/lib/schemas';
 import { passwordApi } from '@/lib/api';
+import { AuthLayout } from '@/components/auth/AuthLayout';
 
 export default function ForgotPasswordPage() {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
   const [submittedEmail, setSubmittedEmail] = useState('');
+  const [otpCode, setOtpCode] = useState<string | null>(null);
+  const [countdown, setCountdown] = useState(10);
+
+  useEffect(() => {
+    if (otpCode && countdown > 0) {
+      const timer = setTimeout(() => setCountdown(c => c - 1), 1000);
+      return () => clearTimeout(timer);
+    } else if (countdown === 0) {
+      setOtpCode(null);
+    }
+  }, [otpCode, countdown]);
 
   const {
     register,
@@ -22,16 +34,18 @@ export default function ForgotPasswordPage() {
 
   const onSubmit = async (data: ForgotPasswordFormData) => {
     setError('');
-
     try {
-      await passwordApi.forgot({ email: data.email });
+      const response = await passwordApi.forgot({ email: data.email });
       setSubmittedEmail(data.email);
+      if (response.data.otp) {
+        setOtpCode(response.data.otp);
+        setCountdown(10);
+      }
       setSubmitted(true);
     } catch (err: unknown) {
       const axiosErr = err as {
         response?: { status?: number; data?: { error?: { message?: string } } };
       };
-
       if (axiosErr.response?.status === 429) {
         setError('Quá nhiều yêu cầu. Vui lòng đợi trước khi yêu cầu mã OTP khác.');
       } else {
@@ -45,89 +59,98 @@ export default function ForgotPasswordPage() {
 
   if (submitted) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
-        <div className="w-full max-w-md rounded-lg bg-white p-8 shadow">
-          <div className="text-center">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
-              <svg
-                className="h-6 w-6 text-green-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M5 13l4 4L19 7"
-                />
-              </svg>
-            </div>
-            <h2 className="text-xl font-semibold text-gray-900">Kiểm tra email của bạn</h2>
-            <p className="mt-2 text-sm text-gray-600">
-              Nếu tài khoản tồn tại, chúng tôi đã gửi mã khôi phục mật khẩu.
-            </p>
-            <Link
-              href={`/reset-password?email=${encodeURIComponent(submittedEmail)}`}
-              className="mt-4 inline-block text-sm text-blue-600 hover:text-blue-500 font-medium"
-            >
-              Nhập mã khôi phục →
-            </Link>
+      <AuthLayout>
+        <div className="fp-success">
+          <div className="fp-success-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 6L9 17l-5-5" />
+            </svg>
           </div>
+          <h2 className="fp-success-title">Kiểm tra email của bạn</h2>
+          <p className="fp-success-desc">
+            Nếu tài khoản tồn tại, chúng tôi đã gửi mã khôi phục mật khẩu đến{' '}
+            <strong>{submittedEmail}</strong>.
+          </p>
+
+          {otpCode && (
+            <div style={{ marginTop: 20, marginBottom: 20, padding: 15, backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, textAlign: 'center' }}>
+              <p style={{ margin: '0 0 10px 0', color: '#166534', fontSize: 14 }}>Mã OTP tự động (sẽ ẩn sau {countdown}s):</p>
+              <div style={{ fontSize: 32, letterSpacing: 8, fontWeight: 'bold', color: '#15803d' }}>
+                {otpCode}
+              </div>
+            </div>
+          )}
+
+          <Link
+            href={`/reset-password?email=${encodeURIComponent(submittedEmail)}`}
+            className="fp-btn-primary"
+            id="fp-enter-code"
+          >
+            Nhập mã khôi phục →
+          </Link>
+          <p className="fp-back-link">
+            <Link href="/login" className="fp-link">← Quay lại đăng nhập</Link>
+          </p>
         </div>
-      </div>
+      </AuthLayout>
     );
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
-      <div className="w-full max-w-md rounded-lg bg-white p-8 shadow">
-        <h2 className="text-center text-2xl font-bold text-gray-900">
-          Quên mật khẩu
-        </h2>
-        <p className="mt-2 text-center text-sm text-gray-600">
-          Nhập email của bạn và chúng tôi sẽ gửi mã khôi phục
-        </p>
+    <AuthLayout>
+      <>
+        <div className="fp-header">
+          <h1 className="fp-title">Quên mật khẩu</h1>
+          <p className="fp-subtitle">Nhập email và chúng tôi sẽ gửi mã khôi phục cho bạn.</p>
+        </div>
 
-        {error && (
-          <div className="mt-4 rounded-md bg-red-50 p-3 text-sm text-red-600">
-            {error}
+        <form onSubmit={handleSubmit(onSubmit)} className="fp-form">
+          {error && (
+            <div className="fp-error-banner" role="alert">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 3a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 018 4zm0 8a1 1 0 110-2 1 1 0 010 2z" />
+              </svg>
+              {error}
+            </div>
+          )}
+
+          <div className="fp-field">
+            <div className="fp-input-wrapper">
+              <input
+                {...register('email')}
+                id="forgot-email"
+                type="email"
+                autoComplete="email"
+                className={`fp-input${errors.email ? ' fp-input--error' : ''}`}
+                placeholder="Địa chỉ email của bạn"
+              />
+              <div className="fp-input-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+                  <polyline points="22,6 12,13 2,6" />
+                </svg>
+              </div>
+            </div>
+            {errors.email && <p className="fp-field-error">{errors.email.message}</p>}
           </div>
-        )}
 
-        <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4">
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-              Email
-            </label>
-            <input
-              {...register('email')}
-              id="email"
-              type="email"
-              autoComplete="email"
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
-            {errors.email && (
-              <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
+          <button id="forgot-submit" type="submit" disabled={isSubmitting} className="fp-btn-primary">
+            {isSubmitting ? (
+              <>
+                <span className="fp-spinner" />
+                Đang gửi...
+              </>
+            ) : (
+              'Gửi mã khôi phục'
             )}
-          </div>
-
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {isSubmitting ? 'Đang gửi...' : 'Gửi mã khôi phục'}
           </button>
-        </form>
 
-        <p className="mt-4 text-center text-sm text-gray-600">
-          Nhớ mật khẩu của bạn?{' '}
-          <Link href="/login" className="text-blue-600 hover:text-blue-500">
-            Đăng nhập
-          </Link>
-        </p>
-      </div>
-    </div>
+          <p className="fp-login-link">
+            Nhớ mật khẩu?{' '}
+            <Link href="/login" className="fp-link">Đăng nhập</Link>
+          </p>
+        </form>
+      </>
+    </AuthLayout>
   );
 }

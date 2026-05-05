@@ -12,12 +12,12 @@ import type {
 const GOALS_QUERY_KEY = ['goals'];
 const GOAL_QUERY_KEY = ['goal'];
 
-export function useGoals() {
+export function useGoals(page = 1, limit = 10) {
   return useQuery({
-    queryKey: GOALS_QUERY_KEY,
+    queryKey: [...GOALS_QUERY_KEY, page, limit],
     queryFn: async () => {
-      const response = await goalApi.list();
-      return response.data;
+      const response = await goalApi.list(page, limit);
+      return response.data; // this is now { data, total, page, limit }
     },
   });
 }

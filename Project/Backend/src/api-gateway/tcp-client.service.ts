@@ -99,9 +99,14 @@ export class TcpClientService implements OnModuleInit, OnModuleDestroy {
       const result = await lastValueFrom(client.send(pattern, data));
       return result as T;
     } catch (error) {
-      const msg = error instanceof Error ? error.message : 'Unknown error';
+      const msg =
+        error instanceof Error
+          ? error.message
+          : typeof error === 'object'
+            ? JSON.stringify(error)
+            : String(error);
       this.logger.error(`Error calling ${service}.${pattern}: ${msg}`);
-      throw new Error(`Error calling ${service}.${pattern}: ${msg}`);
+      throw error;
     }
   }
 }

@@ -81,8 +81,8 @@ export class SchedulerController {
   }
 
   @MessagePattern('scheduler.goal.list')
-  async listGoals(@Payload() data: { userId: string }) {
-    return this.goalService.findByUser(data.userId);
+  async listGoals(@Payload() data: { userId: string; page?: number; limit?: number }) {
+    return this.goalService.findByUser(data.userId, data.page, data.limit);
   }
 
   @MessagePattern('scheduler.goal.get')

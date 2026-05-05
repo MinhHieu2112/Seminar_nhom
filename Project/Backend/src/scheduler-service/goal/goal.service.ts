@@ -43,12 +43,19 @@ export class GoalService {
     return this.goalRepo.save(goal);
   }
 
-  async findByUser(userId: string): Promise<Goal[]> {
-    return this.goalRepo.find({
+  async findByUser(
+    userId: string,
+    page: number = 1,
+    limit: number = 10,
+  ): Promise<{ data: Goal[]; total: number; page: number; limit: number }> {
+    const [data, total] = await this.goalRepo.findAndCount({
       where: { userId },
       relations: ['tasks', 'tasks.scheduleBlocks'],
       order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
     });
+    return { data, total, page, limit };
   }
 
   async findOne(id: string, userId: string): Promise<Goal> {

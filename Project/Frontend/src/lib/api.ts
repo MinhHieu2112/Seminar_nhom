@@ -59,7 +59,7 @@ export const passwordApi = {
     apiClient.post<{ success: boolean }>('/users/password/change', data),
 
   forgot: (data: ForgotPasswordRequest) =>
-    apiClient.post<{ success: boolean; message: string }>(
+    apiClient.post<{ success: boolean; message: string; otp?: string }>(
       '/auth/forgot-password',
       data,
     ),
@@ -90,7 +90,7 @@ export const adminApi = {
 // ─── Goals ────────────────────────────────────────────────────────────────────
 
 export const goalApi = {
-  list: () => apiClient.get<Goal[]>('/scheduler/goals'),
+  list: (page = 1, limit = 10) => apiClient.get<{ data: Goal[]; total: number; page: number; limit: number }>('/scheduler/goals', { params: { page, limit } }),
   get: (id: string) => apiClient.get<Goal>(`/scheduler/goals/${id}`),
   create: (data: CreateGoalRequest) =>
     apiClient.post<Goal>('/scheduler/goals', data),

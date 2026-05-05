@@ -4,6 +4,7 @@ import { useState, useRef } from 'react';
 import { X, Target, UploadCloud, FileText, Calendar, Clock, Plus, Trash2, AlertCircle, CheckCircle2, ChevronRight, Loader2 } from 'lucide-react';
 import { aiApi } from '@/lib/api';
 import { useQueryClient } from '@tanstack/react-query';
+import { useGoals } from '@/lib/hooks/useScheduler';
 
 interface GenerateScheduleModalProps {
   isOpen: boolean;
@@ -104,9 +105,29 @@ export function GenerateScheduleModal({ isOpen, onClose, defaultFromDate, defaul
   // Unified JSON preview (after Phase 1)
   const [unifiedData, setUnifiedData] = useState<UnifiedPreviewData | null>(null);
 
+  const { data: goalData } = useGoals(1, 50);
+  const [selectedGoalId, setSelectedGoalId] = useState<string>('');
+
+  const handleGoalSelect = (goalId: string) => {
+    setSelectedGoalId(goalId);
+    const goal = goalData?.data.find(g => g.id === goalId);
+    if (goal) {
+      setGoalTitle(goal.title);
+      if (goal.tasks && goal.tasks.length > 0) {
+        setTasks(goal.tasks.map(t => ({
+          id: t.id,
+          title: t.title,
+          duration: 60, // default
+          priority: t.priority || 3,
+          deadline: goal.deadline ? goal.deadline.split('T')[0] : defaultToDate.split('T')[0]
+        })));
+      }
+    }
+  };
+
   if (!isOpen) return null;
 
-  // ── Manual task helpers ───────────────────────────────────────────────────
+  // ... (Manual task helpers)
 
   const addTask = () => {
     setTasks(prev => [...prev, { id: Date.now().toString(), title: '', duration: 60, priority: 3, deadline: defaultToDate.split('T')[0] }]);
@@ -298,16 +319,35 @@ export function GenerateScheduleModal({ isOpen, onClose, defaultFromDate, defaul
                 </button>
               </div>
 
-              {/* Goal Title Input */}
-              <div className="space-y-1">
-                <label className="text-sm font-semibold text-gray-700">Tên môn học / lịch học</label>
-                <input
-                  type="text"
-                  value={goalTitle}
-                  onChange={e => setGoalTitle(e.target.value)}
-                  placeholder="VD: Toán cao cấp, Chuẩn bị IELTS"
-                  className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
-                />
+              {/* Goal Selection & Title */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                    <Target className="h-3.5 w-3.5 text-blue-500" />
+                    Chọn từ Mục tiêu
+                  </label>
+                  <select
+                    value={selectedGoalId}
+                    onChange={(e) => handleGoalSelect(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm focus:border-blue-400 focus:outline-none"
+                  >
+                    <option value="">-- Chọn mục tiêu đã tạo --</option>
+                    {(goalData?.data || []).map((g) => (
+                      <option key={g.id} value={g.id}>{g.title}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-sm font-semibold text-gray-700">Tên lịch học dự kiến</label>
+                  <input
+                    type="text"
+                    value={goalTitle}
+                    onChange={e => setGoalTitle(e.target.value)}
+                    placeholder="VD: Lịch học Toán cao cấp"
+                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm focus:border-blue-400 focus:outline-none"
+                  />
+                </div>
               </div>
 
               {/* Manual Mode */}

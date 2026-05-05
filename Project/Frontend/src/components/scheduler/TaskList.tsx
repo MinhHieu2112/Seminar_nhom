@@ -229,7 +229,7 @@ export function TaskList({ goalId }: TaskListProps) {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-medium">Nhiệm vụ</h3>
+
         <button
           onClick={() => setIsAdding(!isAdding)}
           className="rounded-md bg-green-600 px-3 py-1.5 text-sm text-white hover:bg-green-700"

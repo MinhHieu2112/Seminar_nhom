@@ -16,10 +16,12 @@ export class OtpService {
     return otp;
   }
 
-  async verifyOtp(email: string, otp: string): Promise<boolean> {
+  async verifyOtp(email: string, otp: string, consume: boolean = true): Promise<boolean> {
     const stored = await this.redis.get(`otp:${email}`);
     if (stored === otp) {
-      await this.redis.del(`otp:${email}`);
+      if (consume) {
+        await this.redis.del(`otp:${email}`);
+      }
       return true;
     }
     return false;

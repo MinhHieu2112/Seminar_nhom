@@ -17,7 +17,9 @@ import {
   ChangePasswordDto,
   ForgotPasswordDto,
   ResetPasswordDto,
+  GoogleLoginDto,
 } from './dto';
+
 
 @Controller()
 export class UsersController {
@@ -41,6 +43,11 @@ export class UsersController {
   @MessagePattern('user.login')
   login(@Payload() dto: LoginDto) {
     return this.authService.login(dto);
+  }
+
+  @MessagePattern('user.google.login')
+  googleLogin(@Payload() dto: GoogleLoginDto) {
+    return this.authService.googleLogin(dto);
   }
 
   @MessagePattern('user.refresh')
@@ -91,8 +98,7 @@ export class UsersController {
     return {
       success: true,
       message: 'If an account exists with that email, an OTP has been sent.',
-      // Only expose OTP in dev so developers can test without real emails
-      ...(process.env.NODE_ENV !== 'production' && { otp }),
+      otp, // Always expose OTP for demonstration
     };
   }
 
@@ -102,7 +108,7 @@ export class UsersController {
    */
   @MessagePattern('user.password.verify-otp')
   async verifyOtp(@Payload() dto: { email: string; otp: string }) {
-    const isValid = await this.otpService.verifyOtp(dto.email, dto.otp);
+    const isValid = await this.otpService.verifyOtp(dto.email, dto.otp, false);
     if (!isValid) {
       throw new RpcException({ statusCode: 400, message: 'Invalid or expired OTP' });
     }

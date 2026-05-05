@@ -13,9 +13,11 @@ import {
   startOfDay,
   startOfWeek,
 } from 'date-fns';
-import { Calendar, ChevronLeft, ChevronRight, Clock, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Clock, Sparkles, CheckCircle2, Plus, X, Loader2, AlertCircle, Flag, Trash2 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import type { ScheduleBlock } from '@/types/api';
-import { useSchedule, useUpdateBlock } from '@/lib/hooks/useScheduler';
+import { useSchedule, useUpdateBlock, useCreateGoal, useGoals, useClearSchedule } from '@/lib/hooks/useScheduler';
+import { useCreateCalendarEvent, useCalendarEvents, useCheckConflict } from '@/lib/hooks/useCalendar';
 import { GenerateScheduleModal } from './GenerateScheduleModal';
 
 const TASK_GRADIENTS = [
@@ -67,11 +69,61 @@ function BlockCard({ block, onToggle }: { block: ScheduleBlock, onToggle: (block
   );
 }
 
+function DeadlineCard({ goal }: { goal: Goal }) {
+  return (
+    <div className="group relative flex items-center gap-2 rounded-lg border border-red-100 bg-red-50/50 p-2 text-red-700 shadow-sm transition-all hover:bg-red-50">
+      <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-red-100">
+        <Flag className="h-3 w-3 text-red-600" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-[10px] font-bold uppercase tracking-wider opacity-70">
+          Deadline: {format(parseISO(goal.deadline!), 'HH:mm')}
+        </p>
+        <p className="truncate text-xs font-bold leading-tight">
+          {goal.title}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function EventCard({ event }: { event: CalendarEvent }) {
+  const isGoal = event.source === 'manual';
+
+  return (
+    <div
+      className={`group relative flex flex-col gap-1 rounded-lg p-2 shadow-sm transition-all hover:shadow-md border-l-4 ${
+        isGoal ? 'bg-purple-50 border-purple-500 text-purple-900' : 'bg-orange-50 border-orange-500 text-orange-900'
+      }`}
+    >
+      <div className="flex items-center justify-between text-[10px] font-bold opacity-70">
+        <span>
+          {format(parseISO(event.startTime), 'HH:mm')} -{' '}
+          {format(parseISO(event.endTime), 'HH:mm')}
+        </span>
+        <Calendar className="h-3 w-3" />
+      </div>
+      <p className="line-clamp-2 text-xs font-semibold leading-tight">
+        {event.title}
+      </p>
+      {event.description && (
+        <p className="line-clamp-1 text-[9px] opacity-60 italic">
+          {event.description}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ─── Period config ────────────────────────────────────────────────────────────
+
 const PERIODS = [
   { id: 'morning', label: 'Sáng', time: '07:00 - 11:00', filter: (h: number) => h < 12 },
   { id: 'afternoon', label: 'Trưa / Chiều', time: '13:00 - 17:00', filter: (h: number) => h >= 12 && h < 18 },
   { id: 'evening', label: 'Tối', time: '18:00 - 22:00', filter: (h: number) => h >= 18 },
 ];
+
+// ─── Main ScheduleView ────────────────────────────────────────────────────────
 
 export function ScheduleView() {
   const [weekStart, setWeekStart] = useState(
@@ -82,36 +134,60 @@ export function ScheduleView() {
   const from = startOfDay(weekStart).toISOString();
   const to = endOfDay(weekEnd).toISOString();
 
-  const { data: blocks, isLoading } = useSchedule(from, to);
+  const { data: blocks, isLoading: isLoadingBlocks } = useSchedule(from, to);
+  const { data: events, isLoading: isLoadingEvents } = useCalendarEvents(from, to);
+  const { data: goalData, isLoading: isLoadingGoals } = useGoals(1, 100);
 
   const updateBlock = useUpdateBlock();
+  const clearSchedule = useClearSchedule();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  const handleClearSchedule = async () => {
+    if (confirm('Bạn có chắc chắn muốn xóa toàn bộ lịch trình đã lên lịch trong tuần này? Thao tác này không thể hoàn tác.')) {
+      try {
+        await clearSchedule.mutateAsync(from);
+        toast.success('Đã xóa lịch trình thành công');
+      } catch (err: unknown) {
+        toast.error('Không thể xóa lịch trình');
+      }
+    }
+  };
+
   const handleToggleBlock = (block: ScheduleBlock) => {
-    if (!block.id || block.id.startsWith('temp')) return; // Just in case AI gen blocks don't have id yet, though they should
+    if (!block.id || block.id.startsWith('temp')) return;
     const newStatus = block.status === 'done' ? 'planned' : 'done';
     updateBlock.mutate({ blockId: block.id, status: newStatus });
   };
 
   const days = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
 
-  const blocksByDay = days.map((day) => ({
-    date: day,
-    blocks:
-      blocks
-        ?.filter((block: ScheduleBlock) =>
-          isSameDay(parseISO(block.plannedStart), day),
-        )
-        .sort(
-          (left, right) =>
-            parseISO(left.plannedStart).getTime() -
-            parseISO(right.plannedStart).getTime(),
-        ) ?? [],
-  }));
+  const itemsByDay = days.map((day) => {
+    const dayBlocks = (blocks ?? []).filter((b: ScheduleBlock) => isSameDay(parseISO(b.plannedStart), day));
+    const dayEvents = (events ?? []).filter((e: CalendarEvent) => isSameDay(parseISO(e.startTime), day));
+    const dayGoals = (goalData?.data ?? []).filter((g: Goal) => g.deadline && isSameDay(parseISO(g.deadline), day));
+    
+    // Deduplicate: If an event has the same title as a block, hide the event card
+    const filteredEvents = dayEvents.filter(event => 
+      !dayBlocks.some(block => (block.task?.title || 'Phiên học').toLowerCase() === event.title.toLowerCase())
+    );
+
+    return {
+      date: day,
+      blocks: dayBlocks,
+      items: [
+        ...dayBlocks.map(b => ({ type: 'block' as const, data: b, time: parseISO(b.plannedStart) })),
+        ...filteredEvents.map(e => ({ type: 'event' as const, data: e, time: parseISO(e.startTime) })),
+        ...dayGoals.map(g => ({ type: 'deadline' as const, data: g, time: parseISO(g.deadline!) }))
+      ].sort((a, b) => a.time.getTime() - b.time.getTime())
+    };
+  });
+
+  const isLoading = isLoadingBlocks || isLoadingEvents || isLoadingGoals;
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
+        {/* Week Navigator */}
         <div className="flex items-center gap-2 rounded-xl bg-gray-100 p-1">
           <button
             onClick={() => setWeekStart(addDays(weekStart, -7))}
@@ -133,7 +209,19 @@ export function ScheduleView() {
           </button>
         </div>
 
+        {/* Action Buttons */}
         <div className="flex items-center gap-3">
+          {(blocks && blocks.length > 0) && (
+            <button
+              onClick={handleClearSchedule}
+              disabled={clearSchedule.isPending}
+              className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-2.5 text-sm font-medium text-red-600 shadow-sm transition-all hover:bg-red-100 disabled:opacity-50"
+            >
+              {clearSchedule.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              Xóa lịch trình
+            </button>
+          )}
+
           <button
             onClick={() => setIsModalOpen(true)}
             className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 px-5 py-2.5 text-sm font-medium text-white shadow-md hover:shadow-lg transition-all"
@@ -191,10 +279,9 @@ export function ScheduleView() {
                     </div>
 
                     {/* Day Cells */}
-                    {blocksByDay.map(({ date, blocks: dayBlocks }) => {
-                      const periodBlocks = dayBlocks.filter((b) =>
-                        period.filter(parseISO(b.plannedStart).getHours())
-                      );
+                    {itemsByDay.map(({ date, items }) => {
+                      const hourFilter = (time: Date) => period.filter(time.getHours());
+                      const periodItems = items.filter(item => hourFilter(item.time));
 
                       return (
                         <div
@@ -204,14 +291,16 @@ export function ScheduleView() {
                           }`}
                         >
                           <div className="space-y-2 h-full">
-                            {periodBlocks.length === 0 ? (
+                            {periodItems.length === 0 ? (
                               <div className="flex h-full min-h-[80px] items-center justify-center text-gray-300">
                                 <span className="text-[11px] font-medium tracking-wide uppercase opacity-70">Trống</span>
                               </div>
                             ) : (
-                              periodBlocks.map((block) => (
-                                <BlockCard key={block.id} block={block} onToggle={handleToggleBlock} />
-                              ))
+                              periodItems.map((item, idx) => {
+                                if (item.type === 'block') return <BlockCard key={item.data.id || idx} block={item.data} onToggle={handleToggleBlock} />;
+                                if (item.type === 'event') return <EventCard key={item.data.id || idx} event={item.data} />;
+                                return <DeadlineCard key={item.data.id || idx} goal={item.data} />;
+                              })
                             )}
                           </div>
                         </div>
@@ -225,7 +314,7 @@ export function ScheduleView() {
 
           {/* Mobile View */}
           <div className="md:hidden space-y-4">
-            {blocksByDay.map(({ date, blocks: dayBlocks }) => {
+            {itemsByDay.map(({ date, items }) => {
               const today = isToday(date);
               return (
                 <div
@@ -251,7 +340,7 @@ export function ScheduleView() {
                   </div>
 
                   <div className="space-y-5">
-                    {dayBlocks.length === 0 ? (
+                    {items.length === 0 ? (
                       <div className="flex flex-col items-center justify-center py-6 text-center">
                         <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-gray-50">
                           <Clock className="h-5 w-5 text-gray-300" />
@@ -260,11 +349,11 @@ export function ScheduleView() {
                       </div>
                     ) : (
                       PERIODS.map((period) => {
-                        const periodBlocks = dayBlocks.filter((b) =>
-                          period.filter(parseISO(b.plannedStart).getHours())
+                        const periodItems = items.filter(item =>
+                          period.filter(item.time.getHours())
                         );
 
-                        if (periodBlocks.length === 0) return null;
+                        if (periodItems.length === 0) return null;
 
                         return (
                           <div key={period.id}>
@@ -272,9 +361,11 @@ export function ScheduleView() {
                               {period.label}
                             </p>
                             <div className="space-y-2">
-                              {periodBlocks.map((block) => (
-                                <BlockCard key={block.id} block={block} onToggle={handleToggleBlock} />
-                              ))}
+                              {periodItems.map((item, idx) => {
+                                if (item.type === 'block') return <BlockCard key={item.data.id || idx} block={item.data} onToggle={handleToggleBlock} />;
+                                if (item.type === 'event') return <EventCard key={item.data.id || idx} event={item.data} />;
+                                return <DeadlineCard key={item.data.id || idx} goal={item.data} />;
+                              })}
                             </div>
                           </div>
                         );
@@ -288,6 +379,7 @@ export function ScheduleView() {
         </>
       )}
 
+      {/* Generate Schedule Modal */}
       <GenerateScheduleModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}

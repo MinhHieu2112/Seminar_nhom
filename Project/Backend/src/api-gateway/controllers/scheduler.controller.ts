@@ -27,13 +27,21 @@ export class SchedulerGatewayController {
   ) {}
 
   @Get('goals')
-  listGoals(@Headers('authorization') authHeader: string) {
+  listGoals(
+    @Headers('authorization') authHeader: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
     const userId = extractUserId(authHeader, this.jwtService);
     return safeSend(
       this.tcpClient,
       'scheduler-service',
       'scheduler.goal.list',
-      { userId },
+      { 
+        userId,
+        page: page ? parseInt(page, 10) : 1,
+        limit: limit ? parseInt(limit, 10) : 10,
+      },
     );
   }
 

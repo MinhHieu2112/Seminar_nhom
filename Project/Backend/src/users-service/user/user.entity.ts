@@ -19,8 +19,11 @@ export class User {
   @Column({ unique: true, length: 255 })
   email!: string;
 
-  @Column({ select: false })
-  password!: string;
+  /**
+   * nullable: true — users đăng nhập qua Google sẽ không có password
+   */
+  @Column({ type: 'varchar', select: false, nullable: true, default: null })
+  password!: string | null;
 
   @Column({ type: 'enum', enum: UserRole, default: UserRole.CLIENT })
   role!: UserRole;
@@ -33,6 +36,20 @@ export class User {
 
   @Column({ default: true })
   isActive!: boolean;
+
+  // ── Google OAuth fields ───────────────────────────────────────────────────
+
+  /** Google's unique user ID (sub field from Google token) */
+  @Column({ type: 'varchar', nullable: true, unique: true, length: 255 })
+  googleId!: string | null;
+
+  /** Display name from Google profile */
+  @Column({ type: 'varchar', nullable: true, length: 255 })
+  name!: string | null;
+
+  /** Avatar URL from Google profile */
+  @Column({ type: 'varchar', nullable: true, length: 2048 })
+  avatar!: string | null;
 
   @CreateDateColumn()
   createdAt!: Date;
