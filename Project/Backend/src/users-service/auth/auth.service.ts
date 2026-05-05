@@ -1,6 +1,4 @@
-import {
-  Injectable,
-} from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { RpcException } from '@nestjs/microservices';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -38,7 +36,10 @@ export class AuthService {
       where: { email: dto.email },
     });
     if (existing) {
-      throw new RpcException({ statusCode: 409, message: 'Email already in use' });
+      throw new RpcException({
+        statusCode: 409,
+        message: 'Email already in use',
+      });
     }
 
     const hashedPassword = await bcrypt.hash(dto.password, 12);
@@ -63,24 +64,34 @@ export class AuthService {
       .getOne();
 
     if (!user) {
-      throw new RpcException({ statusCode: 401, message: 'Invalid credentials' });
+      throw new RpcException({
+        statusCode: 401,
+        message: 'Invalid credentials',
+      });
     }
 
     if (!user.isActive) {
-      throw new RpcException({ statusCode: 401, message: 'Account is disabled' });
+      throw new RpcException({
+        statusCode: 401,
+        message: 'Account is disabled',
+      });
     }
 
     // User đăng ký qua Google không có password
     if (!user.password) {
       throw new RpcException({
         statusCode: 401,
-        message: 'This account uses Google sign-in. Please continue with Google.',
+        message:
+          'This account uses Google sign-in. Please continue with Google.',
       });
     }
 
     const isPasswordValid = await bcrypt.compare(dto.password, user.password);
     if (!isPasswordValid) {
-      throw new RpcException({ statusCode: 401, message: 'Invalid credentials' });
+      throw new RpcException({
+        statusCode: 401,
+        message: 'Invalid credentials',
+      });
     }
 
     const { accessToken, refreshToken } = await this.generateTokens(user);
@@ -138,7 +149,10 @@ export class AuthService {
     }
 
     if (!user.isActive) {
-      throw new RpcException({ statusCode: 401, message: 'Account is disabled' });
+      throw new RpcException({
+        statusCode: 401,
+        message: 'Account is disabled',
+      });
     }
 
     const { accessToken, refreshToken } = await this.generateTokens(user);
@@ -156,24 +170,36 @@ export class AuthService {
         secret: process.env.REFRESH_TOKEN_SECRET,
       });
     } catch {
-      throw new RpcException({ statusCode: 401, message: 'Invalid refresh token' });
+      throw new RpcException({
+        statusCode: 401,
+        message: 'Invalid refresh token',
+      });
     }
 
     const storedToken = await this.tokenService.getRefreshToken(decoded.sub);
     if (storedToken !== oldRefreshToken) {
-      throw new RpcException({ statusCode: 401, message: 'Refresh token mismatch' });
+      throw new RpcException({
+        statusCode: 401,
+        message: 'Refresh token mismatch',
+      });
     }
 
     const isBlacklisted = await this.tokenService.isBlacklisted(decoded.jti);
     if (isBlacklisted) {
-      throw new RpcException({ statusCode: 401, message: 'Token has been revoked' });
+      throw new RpcException({
+        statusCode: 401,
+        message: 'Token has been revoked',
+      });
     }
 
     await this.tokenService.blacklistToken(decoded.jti);
 
     const user = await this.userRepo.findOne({ where: { id: decoded.sub } });
     if (!user || !user.isActive) {
-      throw new RpcException({ statusCode: 401, message: 'User not found or disabled' });
+      throw new RpcException({
+        statusCode: 401,
+        message: 'User not found or disabled',
+      });
     }
 
     return this.generateTokens(user);

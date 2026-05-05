@@ -37,7 +37,7 @@ export class SchedulerGatewayController {
       this.tcpClient,
       'scheduler-service',
       'scheduler.goal.list',
-      { 
+      {
         userId,
         page: page ? parseInt(page, 10) : 1,
         limit: limit ? parseInt(limit, 10) : 10,

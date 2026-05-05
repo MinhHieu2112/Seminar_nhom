@@ -16,15 +16,13 @@ import {
 import { GoalList } from '@/components/scheduler/GoalList';
 import { useAnalyticsDashboard } from '@/lib/hooks/useAnalytics';
 import { useCreateGoal, useGoals } from '@/lib/hooks/useScheduler';
-import { useCreateCalendarEvent, useCalendarEvents, useCheckConflict } from '@/lib/hooks/useCalendar';
+import { useCreateCalendarEvent } from '@/lib/hooks/useCalendar';
 import { createGoalSchema } from '@/lib/schemas';
 import type { CreateGoalFormData } from '@/lib/schemas';
 
 function NewGoalModal({ onClose }: { onClose: () => void }) {
   const createGoal = useCreateGoal();
   const createEvent = useCreateCalendarEvent();
-  const checkConflict = useCheckConflict();
-  const { data: calendarData } = useCalendarEvents();
   const { data: goalData } = useGoals(1, 100);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSyncing, setIsSyncing] = useState(false);

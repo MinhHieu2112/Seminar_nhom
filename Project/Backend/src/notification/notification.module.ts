@@ -2,7 +2,6 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bull';
-import { NotificationController } from './notification.controller';
 import { NotificationService } from './notification.service';
 import { EmailProcessor } from './processors/email.processor';
 import { PushProcessor } from './processors/push.processor';
@@ -48,7 +47,7 @@ import { NotificationLogService } from './notification-log/notification-log.serv
       name: 'notification-jobs',
     }),
   ],
-  controllers: [NotificationController],
+  controllers: [],
   providers: [
     NotificationService,
     EmailProcessor,

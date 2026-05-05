@@ -35,13 +35,17 @@ export class CreateWorkingHoursDto {
 export class UpdateWorkingHoursDto {
   @IsString()
   @Length(5, 5)
-  @Matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, { message: 'Invalid time format. Use HH:mm' })
+  @Matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, {
+    message: 'Invalid time format. Use HH:mm',
+  })
   @IsOptional()
   startTime?: string;
 
   @IsString()
   @Length(5, 5)
-  @Matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, { message: 'Invalid time format. Use HH:mm' })
+  @Matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, {
+    message: 'Invalid time format. Use HH:mm',
+  })
   @IsOptional()
   endTime?: string;
 

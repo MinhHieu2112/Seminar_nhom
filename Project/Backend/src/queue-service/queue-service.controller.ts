@@ -12,15 +12,25 @@ export class QueueServiceController {
   @MessagePattern('queue.schedule.replace')
   replaceSchedule(
     @Payload()
-    data: { userId: string; items: ReplaceScheduleQueueItemInput[] },
+    data: {
+      userId: string;
+      items: ReplaceScheduleQueueItemInput[];
+    },
   ) {
-    return this.queueServiceService.replaceUserSchedule(data.userId, data.items);
+    return this.queueServiceService.replaceUserSchedule(
+      data.userId,
+      data.items,
+    );
   }
 
   @MessagePattern('queue.schedule.list')
   listSchedule(
     @Payload()
-    data: { userId: string; from?: string; to?: string },
+    data: {
+      userId: string;
+      from?: string;
+      to?: string;
+    },
   ) {
     return this.queueServiceService.listUserSchedule(
       data.userId,

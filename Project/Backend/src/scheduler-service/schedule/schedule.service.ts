@@ -1,4 +1,10 @@
-import { Injectable, Logger, Inject, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  Inject,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between } from 'typeorm';
 import { ClientProxy } from '@nestjs/microservices';
@@ -7,16 +13,8 @@ import { randomUUID } from 'crypto';
 import dayjs from 'dayjs';
 import { Goal, Task, ScheduleBlock } from '../entities';
 import { TaskService } from '../task/task.service';
-import {
-  FreeSlotDto,
-  ScheduleResultDto,
-  ScheduledBlockDto,
-} from '../dto';
-import {
-  splitTaskToPomodoro,
-  calculateTotalDurationWithBreaks,
-  getEffectiveConfig,
-} from './pomodoro.util';
+import { FreeSlotDto, ScheduleResultDto, ScheduledBlockDto } from '../dto';
+import { getEffectiveConfig } from './pomodoro.util';
 import { GenerateUnifiedDto } from '../dto';
 import type { SessionType } from '../dto/free-slot.dto';
 
@@ -127,17 +125,27 @@ export class ScheduleService {
 
     try {
       const rawTasks = Array.isArray(payload.tasks) ? payload.tasks : [];
-      const constraints = payload.constraints ?? { availableTime: [], busyTime: [] };
+      const constraints = payload.constraints ?? {
+        availableTime: [],
+        busyTime: [],
+      };
 
       if (rawTasks.length === 0) {
-        return { success: false, scheduled: [], overflow: [], message: 'No tasks provided in payload' };
+        return {
+          success: false,
+          scheduled: [],
+          overflow: [],
+          message: 'No tasks provided in payload',
+        };
       }
 
       const now = new Date();
 
       const normalizedTasks = rawTasks.map((rawTask, index) => {
         const deadline = this.parseDeadline(rawTask.deadline);
-        const taskDeadlineMs = deadline ? deadline.getTime() : dayjs(now).add(30, 'day').toDate().getTime();
+        const taskDeadlineMs = deadline
+          ? deadline.getTime()
+          : dayjs(now).add(30, 'day').toDate().getTime();
         const diffMs = taskDeadlineMs - now.getTime();
         const daysRemaining = Math.max(1, Math.ceil(diffMs / 86_400_000));
 
@@ -182,15 +190,24 @@ export class ScheduleService {
       // To get local time from UTC: localMs = utcMs - tzOffset * 60_000
       // e.g. UTC+7 → tzOffset=-420 → localMs = utcMs + 420*60000 (+7h)
       const existingBusySlots = existingBlocks.map((block) => {
-        const localStart = new Date(block.plannedStart.getTime() - tzOffset * 60_000);
-        const localEnd   = new Date(block.plannedEnd.getTime()   - tzOffset * 60_000);
+        const localStart = new Date(
+          block.plannedStart.getTime() - tzOffset * 60_000,
+        );
+        const localEnd = new Date(
+          block.plannedEnd.getTime() - tzOffset * 60_000,
+        );
         return {
-          day:   dayjs(localStart).format('YYYY-MM-DD'),
-          slots: [`${dayjs(localStart).format('HH:mm')}-${dayjs(localEnd).format('HH:mm')}`],
+          day: dayjs(localStart).format('YYYY-MM-DD'),
+          slots: [
+            `${dayjs(localStart).format('HH:mm')}-${dayjs(localEnd).format('HH:mm')}`,
+          ],
         };
       });
 
-      const mergedBusyTime = [...(constraints.busyTime ?? []), ...existingBusySlots];
+      const mergedBusyTime = [
+        ...(constraints.busyTime ?? []),
+        ...existingBusySlots,
+      ];
 
       // ── Step 4: Compute free slots across the full date range
       let freeSlots = this.calculateFreeSlots(
@@ -201,7 +218,9 @@ export class ScheduleService {
       );
 
       // Filter out slots that are already in the past
-      freeSlots = freeSlots.filter((slot) => slot.start.getTime() > now.getTime());
+      freeSlots = freeSlots.filter(
+        (slot) => slot.start.getTime() > now.getTime(),
+      );
 
       if (freeSlots.length === 0) {
         return {
@@ -221,12 +240,16 @@ export class ScheduleService {
 
       // ── Step 6: Sort and schedule
       const sortedTasks = this.sortTasksByPriorityAndDeadline(tasksToSchedule);
-      const result = await this.scheduleTasks(normalizedUserId, sortedTasks, freeSlots);
+      const result = await this.scheduleTasks(
+        normalizedUserId,
+        sortedTasks,
+        freeSlots,
+      );
 
       if (result.scheduled.length > 0) {
-        await this.taskService.markAsScheduled(
-          [...new Set(result.scheduled.map((b) => b.taskId))],
-        );
+        await this.taskService.markAsScheduled([
+          ...new Set(result.scheduled.map((b) => b.taskId)),
+        ]);
       }
 
       // ── Step 7: Publish full future queue
@@ -235,17 +258,19 @@ export class ScheduleService {
         now,
         dayjs(now).add(60, 'day').toDate(),
       );
-      const allScheduledBlocks: ScheduledBlockDto[] = allFutureBlocks.map((b, idx) => ({
-        id: b.id,
-        taskId: b.taskId,
-        taskTitle: b.task?.title ?? 'Unknown Task',
-        plannedStart: b.plannedStart,
-        plannedEnd: b.plannedEnd,
-        pomodoroIndex: b.pomodoroIndex,
-        sessionType: this.inferSessionType(b.plannedStart),
-        queueOrder: idx + 1,
-        status: b.status,
-      }));
+      const allScheduledBlocks: ScheduledBlockDto[] = allFutureBlocks.map(
+        (b, idx) => ({
+          id: b.id,
+          taskId: b.taskId,
+          taskTitle: b.task?.title ?? 'Unknown Task',
+          plannedStart: b.plannedStart,
+          plannedEnd: b.plannedEnd,
+          pomodoroIndex: b.pomodoroIndex,
+          sessionType: this.inferSessionType(b.plannedStart),
+          queueOrder: idx + 1,
+          status: b.status,
+        }),
+      );
       await this.publishQueue(normalizedUserId, allScheduledBlocks);
 
       return {
@@ -269,7 +294,9 @@ export class ScheduleService {
     goalTitle: string | undefined,
   ): Promise<void> {
     const finalTitle = goalTitle || ScheduleService.UNIFIED_GOAL_TITLE;
-    const goal = await this.goalRepo.findOne({ where: { userId, title: finalTitle } });
+    const goal = await this.goalRepo.findOne({
+      where: { userId, title: finalTitle },
+    });
     if (!goal) return;
     // Delete tasks → schedule_blocks cascade-deleted automatically
     await this.taskRepo.delete({ userId, goalId: goal.id });
@@ -286,9 +313,8 @@ export class ScheduleService {
     const busyMap = this.buildDaySlotMap(busyTime);
 
     // If allDays provided (full range), use those as base; otherwise fall back to union of constraint days
-    const baseDays = allDays && allDays.length > 0
-      ? allDays
-      : [...availableMap.keys()];
+    const baseDays =
+      allDays && allDays.length > 0 ? allDays : [...availableMap.keys()];
     const orderedDays = [...new Set([...baseDays, ...busyMap.keys()])].sort();
 
     for (const day of orderedDays) {
@@ -304,7 +330,9 @@ export class ScheduleService {
           dayAvailable.length > 0
             ? dayAvailable
                 .map((slot) => this.intersectRanges(slot, sessionRange))
-                .filter((slot): slot is { start: number; end: number } => !!slot)
+                .filter(
+                  (slot): slot is { start: number; end: number } => !!slot,
+                )
             : [sessionRange];
 
         const sessionFree = this.subtractBusyRanges(sessionAvailable, dayBusy);
@@ -312,7 +340,11 @@ export class ScheduleService {
         for (const slot of sessionFree) {
           if (slot.end <= slot.start) continue;
           freeSlots.push({
-            start: this.createDateForUser(day, slot.start, timezoneOffsetMinutes),
+            start: this.createDateForUser(
+              day,
+              slot.start,
+              timezoneOffsetMinutes,
+            ),
             end: this.createDateForUser(day, slot.end, timezoneOffsetMinutes),
             durationMin: slot.end - slot.start,
             sessionType: session.sessionType,
@@ -328,7 +360,9 @@ export class ScheduleService {
     userId: string,
     customSlots: Array<{ start: string; end: string }>,
   ): Promise<ScheduleResultDto> {
-    this.logger.log(`Generating schedule for user ${userId} using ${customSlots.length} custom slots`);
+    this.logger.log(
+      `Generating schedule for user ${userId} using ${customSlots.length} custom slots`,
+    );
 
     try {
       const pendingTasks = await this.taskService.findByUser(userId, 'pending');
@@ -351,7 +385,7 @@ export class ScheduleService {
         };
       }
 
-      const freeSlots: FreeSlotDto[] = customSlots.map(s => ({
+      const freeSlots: FreeSlotDto[] = customSlots.map((s) => ({
         start: new Date(s.start),
         end: new Date(s.end),
         durationMin: dayjs(s.end).diff(dayjs(s.start), 'minute'),
@@ -364,9 +398,9 @@ export class ScheduleService {
       const result = await this.scheduleTasks(userId, sortedTasks, freeSlots);
 
       if (result.scheduled.length > 0) {
-        await this.taskService.markAsScheduled(
-          [...new Set(result.scheduled.map((b) => b.taskId))],
-        );
+        await this.taskService.markAsScheduled([
+          ...new Set(result.scheduled.map((b) => b.taskId)),
+        ]);
       }
 
       await this.publishQueue(userId, result.scheduled);
@@ -480,25 +514,15 @@ export class ScheduleService {
     let deadlineScore = 0;
     if (task.deadline) {
       const daysLeft = (task.deadline.getTime() - now.getTime()) / 86_400_000;
-      if (daysLeft < 0)       deadlineScore = 12;
-      else if (daysLeft < 3)  deadlineScore = 10;
-      else if (daysLeft < 7)  deadlineScore = 7;
+      if (daysLeft < 0) deadlineScore = 12;
+      else if (daysLeft < 3) deadlineScore = 10;
+      else if (daysLeft < 7) deadlineScore = 7;
       else if (daysLeft < 14) deadlineScore = 4;
-      else                    deadlineScore = 1;
+      else deadlineScore = 1;
     }
 
     const remainingRatio = totalBlocks > 0 ? remainingBlocks / totalBlocks : 0;
     return task.priority * 2 + deadlineScore + remainingRatio * 3;
-  }
-
-  private recentlyScheduled(
-    subject: string,
-    placedBlocks: ScheduledBlockDto[],
-    lookback: number,
-  ): boolean {
-    if (placedBlocks.length === 0) return false;
-    const recent = placedBlocks.slice(-Math.min(lookback, placedBlocks.length));
-    return recent.some((b) => (b as any)._subject === subject);
   }
 
   // ─── Core scheduling algorithm ─────────────────────────────────────────────
@@ -553,7 +577,7 @@ export class ScheduleService {
     }
 
     // Clone freeSlots because we will mutate them as we consume time
-    const availableSlots = freeSlots.map(s => ({
+    const availableSlots = freeSlots.map((s) => ({
       start: new Date(s.start),
       end: new Date(s.end),
       durationMin: s.durationMin,
@@ -562,7 +586,9 @@ export class ScheduleService {
 
     const now = availableSlots[0].start; // Use first free slot start as "now"
     const startDate = dayjs(now).startOf('day');
-    const endDate = dayjs(availableSlots[availableSlots.length - 1].start).endOf('day');
+    const endDate = dayjs(
+      availableSlots[availableSlots.length - 1].start,
+    ).endOf('day');
 
     let currentDay = startDate;
 
@@ -576,19 +602,28 @@ export class ScheduleService {
       // Calculate dynamic target blocks for today to ensure even distribution
       let targetBlocksThisDay = 0;
       const targetBySubject = new Map<string, number>();
-      
-      const pendingByTask = new Map<string, { count: number; deadline: Date | null, title: string }>();
+
+      const pendingByTask = new Map<
+        string,
+        { count: number; deadline: Date | null; title: string }
+      >();
       for (const u of pending) {
         const existing = pendingByTask.get(u.subject);
         if (existing) {
           existing.count++;
         } else {
-          pendingByTask.set(u.subject, { count: 1, deadline: u.deadline, title: u.subject });
+          pendingByTask.set(u.subject, {
+            count: 1,
+            deadline: u.deadline,
+            title: u.subject,
+          });
         }
       }
 
       for (const [subject, data] of pendingByTask.entries()) {
-        const taskDeadlineMs = data.deadline ? data.deadline.getTime() : endDate.valueOf();
+        const taskDeadlineMs = data.deadline
+          ? data.deadline.getTime()
+          : endDate.valueOf();
         // Convert ms diff to days (using currentDay at start of day)
         const diffMs = taskDeadlineMs - currentDay.valueOf();
         const daysRemaining = Math.max(1, Math.ceil(diffMs / 86_400_000));
@@ -604,7 +639,9 @@ export class ScheduleService {
 
       // Extract remaining slots for this specific day
       const daySlots = availableSlots.filter(
-        (s) => dayjs(s.start).format('YYYY-MM-DD') === dayStr && s.durationMin >= pomodoroMin
+        (s) =>
+          dayjs(s.start).format('YYYY-MM-DD') === dayStr &&
+          s.durationMin >= pomodoroMin,
       );
 
       // Group units by subject to place them consecutively (Grouping instead of Interleaving)
@@ -624,18 +661,24 @@ export class ScheduleService {
       }
 
       // Sort subjects by urgency
-      const sortedSubjects = Array.from(pendingGrouped.entries()).sort(([, unitsA], [, unitsB]) => {
-        const a = unitsA[0];
-        const b = unitsB[0];
-        const totalA = workUnits.filter((u) => u.subject === a.subject).length;
-        const totalB = workUnits.filter((u) => u.subject === b.subject).length;
-        const remA = unitsA.length;
-        const remB = unitsB.length;
-        return (
-          this.urgencyScore(b, remB, totalB, now) -
-          this.urgencyScore(a, remA, totalA, now)
-        );
-      });
+      const sortedSubjects = Array.from(pendingGrouped.entries()).sort(
+        ([, unitsA], [, unitsB]) => {
+          const a = unitsA[0];
+          const b = unitsB[0];
+          const totalA = workUnits.filter(
+            (u) => u.subject === a.subject,
+          ).length;
+          const totalB = workUnits.filter(
+            (u) => u.subject === b.subject,
+          ).length;
+          const remA = unitsA.length;
+          const remB = unitsB.length;
+          return (
+            this.urgencyScore(b, remB, totalB, now) -
+            this.urgencyScore(a, remA, totalA, now)
+          );
+        },
+      );
 
       for (const [subject, units] of sortedSubjects) {
         if (blocksThisDay >= targetBlocksThisDay) break;
@@ -662,7 +705,9 @@ export class ScheduleService {
 
             // Place block
             const blockStart = new Date(slot.start);
-            const blockEnd = new Date(slot.start.getTime() + pomodoroMin * 60_000);
+            const blockEnd = new Date(
+              slot.start.getTime() + pomodoroMin * 60_000,
+            );
 
             const scheduleBlock = this.blockRepo.create({
               userId: normalizedUserId,
@@ -684,7 +729,7 @@ export class ScheduleService {
               sessionType: slot.sessionType,
               queueOrder: queueOrder++,
               status: 'planned',
-              ...{ _subject: unit.subject }
+              ...{ _subject: unit.subject },
             });
 
             unit.placed = true;
@@ -694,9 +739,11 @@ export class ScheduleService {
 
             // Shrink slot to account for pomodoro + gap
             const timeConsumedMin = pomodoroMin + minBlockGapMin;
-            slot.start = new Date(slot.start.getTime() + timeConsumedMin * 60_000);
+            slot.start = new Date(
+              slot.start.getTime() + timeConsumedMin * 60_000,
+            );
             slot.durationMin -= timeConsumedMin;
-            
+
             // If slot is now too small, remove it
             if (slot.durationMin < pomodoroMin) {
               daySlots.splice(i, 1);
@@ -767,9 +814,9 @@ export class ScheduleService {
     }
 
     await query.execute();
-    await this.taskService.markAsPending(
-      [...new Set(affectedBlocks.map((block) => block.taskId))],
-    );
+    await this.taskService.markAsPending([
+      ...new Set(affectedBlocks.map((block) => block.taskId)),
+    ]);
     await this.clearQueue(userId, from);
   }
 
@@ -799,8 +846,10 @@ export class ScheduleService {
         where: { taskId: block.taskId },
       });
 
-      const allDone = allTaskBlocks.length > 0 && allTaskBlocks.every((b) => b.status === 'done');
-      
+      const allDone =
+        allTaskBlocks.length > 0 &&
+        allTaskBlocks.every((b) => b.status === 'done');
+
       if (allDone && block.task?.status !== 'done') {
         // Mark task as done
         await this.taskService.markAsDone([block.taskId]);
@@ -839,9 +888,10 @@ export class ScheduleService {
         this.goalRepo.create({
           userId,
           title: finalTitle,
-          description: finalTitle === ScheduleService.UNIFIED_GOAL_TITLE
-            ? ScheduleService.UNIFIED_GOAL_DESCRIPTION
-            : 'Generated from AI Scheduler',
+          description:
+            finalTitle === ScheduleService.UNIFIED_GOAL_TITLE
+              ? ScheduleService.UNIFIED_GOAL_DESCRIPTION
+              : 'Generated from AI Scheduler',
           deadline: null,
           status: 'active',
         }),

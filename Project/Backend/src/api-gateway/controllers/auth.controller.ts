@@ -106,8 +106,7 @@ export class AuthGatewayController {
     @Req() req: Request & { user: GoogleProfile },
     @Res() res: Response,
   ) {
-    const frontendUrl =
-      process.env.FRONTEND_URL || 'http://localhost:3000';
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
 
     try {
       const result = await safeSend<{

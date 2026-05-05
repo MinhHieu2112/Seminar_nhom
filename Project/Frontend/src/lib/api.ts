@@ -146,65 +146,11 @@ export const calendarApi = {
   deleteEvent: (id: string) =>
     apiClient.delete<{ success: boolean }>(`/calendar/events/${id}`),
 
-  getFreeSlots: (from: string, to: string, minDurationMin?: number) =>
-    apiClient.get<FreeSlot[]>('/calendar/free-slots', {
-      params: { from, to, minDurationMin },
-    }),
-
-  checkConflict: (startTime: string, endTime: string, excludeEventId?: string) =>
-    apiClient.post<{ hasConflict: boolean; conflicts: CalendarEvent[] }>(
-      '/calendar/conflicts/check',
-      { startTime, endTime, excludeEventId },
-    ),
 };
 
 // ─── AI ───────────────────────────────────────────────────────────────────────
 
 export const aiApi = {
-  /**
-   * Decompose một goal đã tồn tại thành tasks bằng AI pipeline.
-   * Backend sẽ: lấy goal info → AI decompose → lưu tasks vào DB → trả về.
-   */
-  decomposeGoal: (goalId: string) =>
-    apiClient.post<{
-      success: boolean;
-      goalId: string;
-      totalTasks: number;
-      tasks: unknown[];
-    }>(`/ai/decompose/${goalId}`),
-
-  /**
-   * Quick preview — không lưu DB, dùng để demo/test.
-   */
-  generatePreview: (goal: string, availableSlots: Array<{ start: string; end: string }>) =>
-    apiClient.post<{
-      success: boolean;
-      totalBlocks: number;
-      schedule: Array<{
-        taskName: string;
-        type: string;
-        priority: number;
-        endTime: string;
-      }>;
-    }>('/ai/generate', { goal, availableSlots }),
-
-  /**
-   * New Workflow: Generate Schedule
-   * Nhận form data (subject, date range, preferences) và upload file CSV (optional)
-   */
-  generateSchedule: (formData: FormData) =>
-    apiClient.post<{
-      success: boolean;
-      message: string;
-      goal: Record<string, unknown>;
-      tasks: Array<Record<string, unknown>>;
-      schedule: Record<string, unknown>;
-      aiSummary: string;
-    }>('/ai/generate-schedule', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    }),
 
   /**
    * Phase 1: Normalize input (CSV or manual text) → Unified JSON

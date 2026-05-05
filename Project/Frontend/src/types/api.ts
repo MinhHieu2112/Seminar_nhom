@@ -177,22 +177,6 @@ export interface CreateEventRequest {
   queueOrder?: number;
 }
 
-export interface FreeSlot {
-  start: string;
-  end: string;
-  durationMin: number;
-}
-
-export interface WorkingHoursConfig {
-  id: string;
-  userId: string;
-  dayOfWeek: number;
-  startTime: string;
-  endTime: string;
-  isWorkingDay: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
 
 // ─── Analytics ───────────────────────────────────────────────────────────────
 

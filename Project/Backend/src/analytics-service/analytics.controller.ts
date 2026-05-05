@@ -2,7 +2,10 @@ import { Controller } from '@nestjs/common';
 import { MessagePattern, Payload } from '@nestjs/microservices';
 import { AnalyticsService } from './analytics.service';
 import { GetInsightsDto } from './dto/analytics-request.dto';
-import { AnalyticsDashboardResponseDto, StudyInsightsResponseDto } from './dto/analytics-response.dto';
+import {
+  AnalyticsDashboardResponseDto,
+  StudyInsightsResponseDto,
+} from './dto/analytics-response.dto';
 
 @Controller()
 export class AnalyticsController {
@@ -36,9 +39,16 @@ export class AnalyticsController {
 
   @MessagePattern('analytics.history.get')
   async getHistory(
-    @Payload() data: { userId: string; period: 'weekly' | 'monthly' | 'yearly' },
+    @Payload()
+    data: {
+      userId: string;
+      period: 'weekly' | 'monthly' | 'yearly';
+    },
   ): Promise<{ success: boolean; data: any }> {
-    const result = await this.analyticsService.getHistory(data.userId, data.period);
+    const result = await this.analyticsService.getHistory(
+      data.userId,
+      data.period,
+    );
     return {
       success: true,
       data: result,

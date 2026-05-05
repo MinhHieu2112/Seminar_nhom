@@ -3,7 +3,12 @@ import { MessagePattern, Payload } from '@nestjs/microservices';
 import { GoalService } from './goal/goal.service';
 import { TaskService } from './task/task.service';
 import { ScheduleService } from './schedule/schedule.service';
-import { CreateGoalDto, CreateTaskDto, GenerateScheduleDto, GenerateUnifiedDto } from './dto';
+import {
+  CreateGoalDto,
+  CreateTaskDto,
+  GenerateScheduleDto,
+  GenerateUnifiedDto,
+} from './dto';
 
 type GoalPayload = {
   userId: string;
@@ -81,7 +86,9 @@ export class SchedulerController {
   }
 
   @MessagePattern('scheduler.goal.list')
-  async listGoals(@Payload() data: { userId: string; page?: number; limit?: number }) {
+  async listGoals(
+    @Payload() data: { userId: string; page?: number; limit?: number },
+  ) {
     return this.goalService.findByUser(data.userId, data.page, data.limit);
   }
 
@@ -118,7 +125,11 @@ export class SchedulerController {
       'type',
       'source',
     ]);
-    return this.taskService.create(data.goalId, data.userId, dto as CreateTaskDto);
+    return this.taskService.create(
+      data.goalId,
+      data.userId,
+      dto as CreateTaskDto,
+    );
   }
 
   @MessagePattern('scheduler.task.list')
@@ -163,7 +174,11 @@ export class SchedulerController {
 
   @MessagePattern('scheduler.schedule.generateCustom')
   async generateScheduleCustom(
-    @Payload() data: { userId: string; customSlots: Array<{ start: string; end: string }> },
+    @Payload()
+    data: {
+      userId: string;
+      customSlots: Array<{ start: string; end: string }>;
+    },
   ) {
     return this.scheduleService.generateScheduleWithCustomSlots(
       data.userId,

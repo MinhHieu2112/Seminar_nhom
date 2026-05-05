@@ -20,7 +20,6 @@ import {
   GoogleLoginDto,
 } from './dto';
 
-
 @Controller()
 export class UsersController {
   private readonly logger = new Logger(UsersController.name);
@@ -110,7 +109,10 @@ export class UsersController {
   async verifyOtp(@Payload() dto: { email: string; otp: string }) {
     const isValid = await this.otpService.verifyOtp(dto.email, dto.otp, false);
     if (!isValid) {
-      throw new RpcException({ statusCode: 400, message: 'Invalid or expired OTP' });
+      throw new RpcException({
+        statusCode: 400,
+        message: 'Invalid or expired OTP',
+      });
     }
     return { success: true };
   }
@@ -119,7 +121,10 @@ export class UsersController {
   async resetPassword(@Payload() dto: ResetPasswordDto) {
     const isValid = await this.otpService.verifyOtp(dto.email, dto.otp);
     if (!isValid) {
-      throw new RpcException({ statusCode: 400, message: 'Invalid or expired OTP' });
+      throw new RpcException({
+        statusCode: 400,
+        message: 'Invalid or expired OTP',
+      });
     }
 
     const user = await this.userRepo.findOne({ where: { email: dto.email } });

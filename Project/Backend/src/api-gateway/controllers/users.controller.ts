@@ -51,21 +51,4 @@ export class UsersGatewayController {
       ...dto,
     });
   }
-
-  @Post('password/forgot')
-  @HttpCode(HttpStatus.OK)
-  forgotPassword(@Body() dto: { email: string }) {
-    return safeSend(
-      this.tcpClient,
-      'user-service',
-      'user.password.forgot',
-      dto,
-    );
-  }
-
-  @Post('password/reset')
-  @HttpCode(HttpStatus.OK)
-  resetPassword(@Body() dto: any) {
-    return safeSend(this.tcpClient, 'user-service', 'user.password.reset', dto);
-  }
 }

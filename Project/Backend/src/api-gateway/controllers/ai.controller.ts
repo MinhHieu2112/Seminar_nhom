@@ -50,70 +50,6 @@ export class AiGatewayController {
     });
   }
 
-  @Post('decompose/:goalId')
-  @HttpCode(HttpStatus.CREATED)
-  async decomposeGoal(
-    @Headers('authorization') authHeader: string,
-    @Param('goalId') goalId: string,
-  ) {
-    const userId = extractUserId(authHeader, this.jwtService);
-
-    let goal: any = null;
-    try {
-      goal = await safeSend(
-        this.tcpClient,
-        'scheduler-service',
-        'scheduler.goal.get',
-        { id: goalId, userId },
-      );
-    } catch {
-      throw new NotFoundException(`Goal ${goalId} not found`);
-    }
-
-    if (!goal) throw new NotFoundException(`Goal ${goalId} not found`);
-
-    const llmTasks: any[] = await safeSend(
-      this.tcpClient,
-      'ai-service',
-      'ai.decompose-goal',
-      {
-        goalTitle: goal.title,
-        deadline: goal.deadline,
-      },
-    );
-
-    const savedTasks: unknown[] = [];
-    for (const task of llmTasks) {
-      try {
-        const saved = await safeSend(
-          this.tcpClient,
-          'scheduler-service',
-          'scheduler.task.create',
-          {
-            goalId,
-            userId,
-            title: task.title,
-            durationMin: task.durationMin,
-            priority: task.priority,
-            type: task.type,
-            source: 'ai',
-          },
-        );
-        savedTasks.push(saved);
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : 'unknown';
-        console.warn(`Could not save task "${task.title}": ${msg}`);
-      }
-    }
-
-    return {
-      success: true,
-      goalId,
-      totalTasks: savedTasks.length,
-      tasks: savedTasks,
-    };
-  }
-
   @Post('generate-schedule')
   @UseInterceptors(FileInterceptor('csvFile'))
   @HttpCode(HttpStatus.CREATED)
@@ -233,11 +169,5 @@ export class AiGatewayController {
       schedule: scheduleBlocks,
       aiSummary: aiResult.summary,
     };
-  }
-
-  @Post('generate')
-  @HttpCode(HttpStatus.OK)
-  generatePreview() {
-    throw new BadRequestException('Use /generate-schedule instead');
   }
 }

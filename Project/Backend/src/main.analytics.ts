@@ -9,7 +9,12 @@ async function bootstrap() {
       transport: Transport.TCP,
       options: {
         host: '0.0.0.0',
-        port: parseInt(process.env.ANALYTICS_SERVICE_PORT || process.env.ANALYTICS_TCP_PORT || '8006', 10),
+        port: parseInt(
+          process.env.ANALYTICS_SERVICE_PORT ||
+            process.env.ANALYTICS_TCP_PORT ||
+            '8006',
+          10,
+        ),
       },
     },
   );

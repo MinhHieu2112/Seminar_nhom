@@ -22,7 +22,9 @@ export class AnalyticsService {
     private readonly goalRepo: Repository<Goal>,
   ) {}
 
-  async getUserDashboard(userId: string): Promise<AnalyticsDashboardResponseDto> {
+  async getUserDashboard(
+    userId: string,
+  ): Promise<AnalyticsDashboardResponseDto> {
     this.logger.log(`Fetching analytics dashboard for user ${userId}`);
 
     const now = new Date();
@@ -49,23 +51,32 @@ export class AnalyticsService {
     const plannedBlocks = allBlocks.length;
     const doneBlocks = allBlocks.filter((block) => block.status === 'done');
     const completedBlocks = doneBlocks.length;
-    
+
     // Overdue tasks should only be counted from past blocks
     const overdueTasks = allPastBlocks.filter(
-      (block) => block.status !== 'done' && block.status !== 'shifted'
+      (block) => block.status !== 'done' && block.status !== 'shifted',
     ).length;
 
-    const completedTasks = tasks.filter((task) => task.status === 'done').length;
-    
+    const completedTasks = tasks.filter(
+      (task) => task.status === 'done',
+    ).length;
+
     const pendingTasks = Math.max(tasks.length - completedTasks, 0);
 
     // Completion rate based on blocks instead of tasks
-    const completionRate = plannedBlocks === 0 ? 0 : Math.round((completedBlocks / plannedBlocks) * 100);
-    
+    const completionRate =
+      plannedBlocks === 0
+        ? 0
+        : Math.round((completedBlocks / plannedBlocks) * 100);
+
     // Productivity Score calculation
     const avgFocusScore = 4; // Placeholder for now
-    const streakDays = 0;    // Placeholder for now
-    const productivityScore = this.calculateProductivityScore(completionRate, avgFocusScore, streakDays);
+    const streakDays = 0; // Placeholder for now
+    const productivityScore = this.calculateProductivityScore(
+      completionRate,
+      avgFocusScore,
+      streakDays,
+    );
 
     const dbSessions = doneBlocks.map((block) => ({
       startTime: block.plannedStart,
@@ -73,7 +84,7 @@ export class AnalyticsService {
         (block.plannedEnd.getTime() - block.plannedStart.getTime()) / 60000,
       ),
     }));
-    
+
     const timeDistribution = this.analyzeTimeDistribution(dbSessions);
     const suggestions = this.generateSuggestions(timeDistribution);
 
@@ -104,7 +115,8 @@ export class AnalyticsService {
     );
     const weeklyMinutes = currentWeekBlocks.reduce(
       (total, block) =>
-        total + (block.plannedEnd.getTime() - block.plannedStart.getTime()) / 60000,
+        total +
+        (block.plannedEnd.getTime() - block.plannedStart.getTime()) / 60000,
       0,
     );
 
@@ -184,7 +196,16 @@ export class AnalyticsService {
   async getHistory(
     userId: string,
     period: 'weekly' | 'monthly' | 'yearly',
-  ): Promise<Array<{ date: string; planned: number; actual: number; tasksCompleted: number; tasksPending: number; tasksOverdue: number }>> {
+  ): Promise<
+    Array<{
+      date: string;
+      planned: number;
+      actual: number;
+      tasksCompleted: number;
+      tasksPending: number;
+      tasksOverdue: number;
+    }>
+  > {
     const now = new Date();
     const from = new Date(now);
 
@@ -220,7 +241,16 @@ export class AnalyticsService {
       }),
     ]);
 
-    const grouped = new Map<string, { planned: number; actual: number; tasksCompleted: number; tasksPending: number; tasksOverdue: number }>();
+    const grouped = new Map<
+      string,
+      {
+        planned: number;
+        actual: number;
+        tasksCompleted: number;
+        tasksPending: number;
+        tasksOverdue: number;
+      }
+    >();
 
     blocks.forEach((block) => {
       const day = this.formatDateKey(block.plannedStart);
@@ -228,7 +258,13 @@ export class AnalyticsService {
         (block.plannedEnd.getTime() - block.plannedStart.getTime()) / 3600000;
 
       if (!grouped.has(day)) {
-        grouped.set(day, { planned: 0, actual: 0, tasksCompleted: 0, tasksPending: 0, tasksOverdue: 0 });
+        grouped.set(day, {
+          planned: 0,
+          actual: 0,
+          tasksCompleted: 0,
+          tasksPending: 0,
+          tasksOverdue: 0,
+        });
       }
 
       const stats = grouped.get(day)!;
@@ -241,7 +277,13 @@ export class AnalyticsService {
     tasks.forEach((task) => {
       const day = this.formatDateKey(task.createdAt);
       if (!grouped.has(day)) {
-        grouped.set(day, { planned: 0, actual: 0, tasksCompleted: 0, tasksPending: 0, tasksOverdue: 0 });
+        grouped.set(day, {
+          planned: 0,
+          actual: 0,
+          tasksCompleted: 0,
+          tasksPending: 0,
+          tasksOverdue: 0,
+        });
       }
 
       const stats = grouped.get(day)!;
@@ -283,7 +325,9 @@ export class AnalyticsService {
     return Math.min(totalScore, 100);
   }
 
-  private analyzeTimeDistribution(sessions: Array<{ startTime: Date; durationMin: number }>) {
+  private analyzeTimeDistribution(
+    sessions: Array<{ startTime: Date; durationMin: number }>,
+  ) {
     let morningMin = 0;
     let afternoonMin = 0;
     let eveningMin = 0;
@@ -311,7 +355,11 @@ export class AnalyticsService {
     };
   }
 
-  private generateSuggestions(distribution: { morning: number; afternoon: number; evening: number }): string[] {
+  private generateSuggestions(distribution: {
+    morning: number;
+    afternoon: number;
+    evening: number;
+  }): string[] {
     const suggestions: string[] = [];
 
     let peakTime = 'sáng';
@@ -327,15 +375,21 @@ export class AnalyticsService {
     }
 
     if (maxPct > 0) {
-      suggestions.push(`Bạn có xu hướng tập trung tốt nhất vào buổi ${peakTime}. Hãy sắp xếp các việc khó vào thời gian này.`);
+      suggestions.push(
+        `Bạn có xu hướng tập trung tốt nhất vào buổi ${peakTime}. Hãy sắp xếp các việc khó vào thời gian này.`,
+      );
     }
 
     if (distribution.evening > 50) {
-      suggestions.push('Bạn đang học khá nhiều vào buổi tối muộn. Hãy cố gắng chuyển bớt sang buổi sáng để đảm bảo giấc ngủ.');
+      suggestions.push(
+        'Bạn đang học khá nhiều vào buổi tối muộn. Hãy cố gắng chuyển bớt sang buổi sáng để đảm bảo giấc ngủ.',
+      );
     }
 
     if (suggestions.length === 0) {
-      suggestions.push('Hãy bắt đầu ghi nhận thời gian học để nhận được các gợi ý lịch học phù hợp.');
+      suggestions.push(
+        'Hãy bắt đầu ghi nhận thời gian học để nhận được các gợi ý lịch học phù hợp.',
+      );
     }
 
     return suggestions;

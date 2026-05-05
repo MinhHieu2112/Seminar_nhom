@@ -44,19 +44,4 @@ export function useDeleteCalendarEvent() {
   });
 }
 
-export function useCheckConflict() {
-  return useMutation({
-    mutationFn: async ({
-      startTime,
-      endTime,
-      excludeEventId,
-    }: {
-      startTime: string;
-      endTime: string;
-      excludeEventId?: string;
-    }) => {
-      const response = await calendarApi.checkConflict(startTime, endTime, excludeEventId);
-      return response.data;
-    },
-  });
-}
+
