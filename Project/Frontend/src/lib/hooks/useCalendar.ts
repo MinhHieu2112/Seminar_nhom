@@ -3,6 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { calendarApi } from '@/lib/api';
 import type { CreateEventRequest } from '@/types/api';
+import { ANALYTICS_QUERY_KEY } from './useAnalytics';
 
 export const CALENDAR_QUERY_KEY = ['calendar-events'];
 
@@ -26,6 +27,9 @@ export function useCreateCalendarEvent() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: CALENDAR_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: ['goals'] });
+      queryClient.invalidateQueries({ queryKey: ['schedule'] });
+      queryClient.invalidateQueries({ queryKey: ANALYTICS_QUERY_KEY });
     },
   });
 }
@@ -40,6 +44,9 @@ export function useDeleteCalendarEvent() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: CALENDAR_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: ['goals'] });
+      queryClient.invalidateQueries({ queryKey: ['schedule'] });
+      queryClient.invalidateQueries({ queryKey: ANALYTICS_QUERY_KEY });
     },
   });
 }

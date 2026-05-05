@@ -3,6 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { goalApi, taskApi, scheduleApi, aiApi } from '@/lib/api';
 import { ANALYTICS_QUERY_KEY } from '@/lib/hooks/useAnalytics';
+import { CALENDAR_QUERY_KEY } from '@/lib/hooks/useCalendar';
 import type {
   CreateGoalRequest,
   CreateTaskRequest,
@@ -43,6 +44,7 @@ export function useCreateGoal() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: GOALS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: CALENDAR_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: ANALYTICS_QUERY_KEY });
     },
   });
@@ -82,6 +84,7 @@ export function useDeleteGoal() {
       queryClient.invalidateQueries({ queryKey: GOALS_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: TASKS_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: SCHEDULE_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: CALENDAR_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: ANALYTICS_QUERY_KEY });
     },
   });

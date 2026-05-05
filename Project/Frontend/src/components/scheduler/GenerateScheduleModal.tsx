@@ -231,7 +231,15 @@ export function GenerateScheduleModal({ isOpen, onClose, defaultFromDate, defaul
       }
 
       await aiApi.generateFromUnified(payload);
-      await queryClient.invalidateQueries({ queryKey: ['schedule'] });
+      
+      // Invalidate all related queries to ensure UI updates without reload
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['schedule'] }),
+        queryClient.invalidateQueries({ queryKey: ['goals'] }),
+        queryClient.invalidateQueries({ queryKey: ['calendar-events'] }),
+        queryClient.invalidateQueries({ queryKey: ['analytics-dashboard'] }),
+      ]);
+      
       setStep('done');
     } catch (err: unknown) {
       setError(getErrorMessage(err, 'Tạo lịch trình thất bại. Vui lòng thử lại.'));

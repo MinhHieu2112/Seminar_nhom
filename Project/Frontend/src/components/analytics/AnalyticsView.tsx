@@ -144,10 +144,17 @@ export function AnalyticsView() {
                   <XAxis
                     dataKey="date"
                     tickFormatter={(value) => {
-                      const date = new Date(value);
-                      return period === 'yearly'
-                        ? date.toLocaleString('default', { month: 'short' })
-                        : date.getDate().toString();
+                      if (period === 'monthly' || period === 'yearly') return value;
+                      
+                      try {
+                        const date = new Date(value);
+                        if (isNaN(date.getTime())) return value;
+                        const day = date.getDay();
+                        const labels = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+                        return labels[day];
+                      } catch {
+                        return value;
+                      }
                     }}
                   />
                   <YAxis />

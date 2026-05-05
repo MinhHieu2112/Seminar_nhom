@@ -207,31 +207,26 @@ export class AnalyticsService {
     }>
   > {
     const now = new Date();
-    const from = new Date(now);
+    let from: Date;
+    let to: Date;
 
     if (period === 'weekly') {
-      from.setDate(now.getDate() - 7);
+      const range = this.getCurrentWeekRange(now);
+      from = range.start;
+      to = range.end;
     } else if (period === 'monthly') {
-      from.setMonth(now.getMonth() - 1);
+      from = new Date(now.getFullYear(), now.getMonth(), 1);
+      to = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
     } else {
-      from.setFullYear(now.getFullYear() - 1);
-    }
-
-    const periodEnd = new Date();
-    const futureEnd = new Date(periodEnd);
-    if (period === 'weekly') {
-      futureEnd.setDate(futureEnd.getDate() + 7);
-    } else if (period === 'monthly') {
-      futureEnd.setMonth(futureEnd.getMonth() + 1);
-    } else {
-      futureEnd.setFullYear(futureEnd.getFullYear() + 1);
+      from = new Date(now.getFullYear(), 0, 1);
+      to = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
     }
 
     const [blocks, tasks] = await Promise.all([
       this.blockRepo.find({
         where: {
           userId,
-          plannedStart: Between(from, futureEnd),
+          plannedStart: Between(from, to),
         },
         order: { plannedStart: 'ASC' },
       }),
@@ -252,13 +247,44 @@ export class AnalyticsService {
       }
     >();
 
+    // Helper to generate group key
+    const getGroupKey = (date: Date): string => {
+      if (period === 'weekly') {
+        return this.formatDateKey(date);
+      } else if (period === 'monthly') {
+        // Tuần 1, Tuần 2, ... của tháng
+        const startOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
+        const dayOfMonth = date.getDate();
+        const weekNum = Math.ceil((dayOfMonth + startOfMonth.getDay()) / 7);
+        return `Tuần ${weekNum}`;
+      } else {
+        // Tháng 1, Tháng 2, ...
+        return `Tháng ${date.getMonth() + 1}`;
+      }
+    };
+
+    // Initialize labels for Weekly (ensure all 7 days are present)
+    if (period === 'weekly') {
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(from);
+        d.setDate(d.getDate() + i);
+        grouped.set(this.formatDateKey(d), {
+          planned: 0,
+          actual: 0,
+          tasksCompleted: 0,
+          tasksPending: 0,
+          tasksOverdue: 0,
+        });
+      }
+    }
+
     blocks.forEach((block) => {
-      const day = this.formatDateKey(block.plannedStart);
+      const key = getGroupKey(block.plannedStart);
       const durationHours =
         (block.plannedEnd.getTime() - block.plannedStart.getTime()) / 3600000;
 
-      if (!grouped.has(day)) {
-        grouped.set(day, {
+      if (!grouped.has(key)) {
+        grouped.set(key, {
           planned: 0,
           actual: 0,
           tasksCompleted: 0,
@@ -267,48 +293,72 @@ export class AnalyticsService {
         });
       }
 
-      const stats = grouped.get(day)!;
+      const stats = grouped.get(key)!;
       stats.planned += durationHours;
       if (block.status === 'done') {
         stats.actual += durationHours;
       }
     });
 
-    tasks.forEach((task) => {
-      const day = this.formatDateKey(task.createdAt);
-      if (!grouped.has(day)) {
-        grouped.set(day, {
-          planned: 0,
-          actual: 0,
-          tasksCompleted: 0,
-          tasksPending: 0,
-          tasksOverdue: 0,
-        });
-      }
+    // Add tasks completed within range
+    tasks
+      .filter((task) => task.createdAt >= from && task.createdAt <= to)
+      .forEach((task) => {
+        const key = getGroupKey(task.createdAt);
+        if (!grouped.has(key)) {
+          grouped.set(key, {
+            planned: 0,
+            actual: 0,
+            tasksCompleted: 0,
+            tasksPending: 0,
+            tasksOverdue: 0,
+          });
+        }
 
-      const stats = grouped.get(day)!;
-      if (task.status === 'done') {
-        stats.tasksCompleted++;
-      } else if (this.isTaskOverdue(task, now)) {
-        stats.tasksOverdue++;
-      } else {
-        stats.tasksPending++;
-      }
-    });
+        const stats = grouped.get(key)!;
+        if (task.status === 'done') {
+          stats.tasksCompleted++;
+        } else if (this.isTaskOverdue(task, now)) {
+          stats.tasksOverdue++;
+        } else {
+          stats.tasksPending++;
+        }
+      });
 
-    const sortedDates = Array.from(grouped.keys()).sort();
+    // Final mapping
+    let result = Array.from(grouped.entries()).map(([label, stats]) => ({
+      label,
+      planned: Math.round(stats.planned * 10) / 10,
+      actual: Math.round(stats.actual * 10) / 10,
+      tasksCompleted: stats.tasksCompleted,
+      tasksPending: stats.tasksPending,
+      tasksOverdue: stats.tasksOverdue,
+    }));
 
-    return sortedDates.map((date) => {
-      const stats = grouped.get(date)!;
-      return {
-        date,
-        planned: Math.round(stats.planned * 10) / 10,
-        actual: Math.round(stats.actual * 10) / 10,
-        tasksCompleted: stats.tasksCompleted,
-        tasksPending: stats.tasksPending,
-        tasksOverdue: stats.tasksOverdue,
-      };
-    });
+    // Sort result
+    if (period === 'weekly') {
+      result.sort((a, b) => a.label.localeCompare(b.label));
+    } else if (period === 'monthly') {
+      result.sort((a, b) => a.label.localeCompare(b.label));
+    } else if (period === 'yearly') {
+      // Sort by month number extracted from label
+      result.sort((a, b) => {
+        const mA = parseInt(a.label.split(' ')[1]);
+        const mB = parseInt(b.label.split(' ')[1]);
+        return mA - mB;
+      });
+      // Filter empty months for yearly as requested
+      result = result.filter((r) => r.planned > 0 || r.actual > 0);
+    }
+
+    return result.map((r) => ({
+      date: r.label, // keep property name as 'date' for frontend compatibility
+      planned: r.planned,
+      actual: r.actual,
+      tasksCompleted: r.tasksCompleted,
+      tasksPending: r.tasksPending,
+      tasksOverdue: r.tasksOverdue,
+    }));
   }
 
   // --- Helper Methods ---

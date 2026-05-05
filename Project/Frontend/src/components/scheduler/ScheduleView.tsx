@@ -141,15 +141,22 @@ export function ScheduleView() {
   const updateBlock = useUpdateBlock();
   const clearSchedule = useClearSchedule();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isConfirmClearOpen, setIsConfirmClearOpen] = useState(false);
+
+  const isPastWeek = weekEnd < new Date();
+  const canClear = blocks && blocks.length > 0 && !isPastWeek;
 
   const handleClearSchedule = async () => {
-    if (confirm('Bạn có chắc chắn muốn xóa toàn bộ lịch trình đã lên lịch trong tuần này? Thao tác này không thể hoàn tác.')) {
-      try {
-        await clearSchedule.mutateAsync(from);
-        toast.success('Đã xóa lịch trình thành công');
-      } catch (err: unknown) {
-        toast.error('Không thể xóa lịch trình');
-      }
+    try {
+      // Nếu tuần bắt đầu từ quá khứ, chỉ xóa từ thời điểm hiện tại trở đi
+      const now = new Date();
+      const clearFrom = weekStart < now ? now.toISOString() : from;
+      
+      await clearSchedule.mutateAsync(clearFrom);
+      toast.success('Đã xóa lịch trình thành công');
+      setIsConfirmClearOpen(false);
+    } catch (err: unknown) {
+      toast.error('Không thể xóa lịch trình');
     }
   };
 
@@ -211,15 +218,22 @@ export function ScheduleView() {
 
         {/* Action Buttons */}
         <div className="flex items-center gap-3">
-          {(blocks && blocks.length > 0) && (
+          {canClear && (
             <button
-              onClick={handleClearSchedule}
+              onClick={() => setIsConfirmClearOpen(true)}
               disabled={clearSchedule.isPending}
               className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-2.5 text-sm font-medium text-red-600 shadow-sm transition-all hover:bg-red-100 disabled:opacity-50"
             >
               {clearSchedule.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
               Xóa lịch trình
             </button>
+          )}
+
+          {isPastWeek && blocks && blocks.length > 0 && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-gray-400 text-xs">
+              <AlertCircle className="h-3.5 w-3.5" />
+              Lịch trình quá hạn
+            </div>
           )}
 
           <button
@@ -386,6 +400,38 @@ export function ScheduleView() {
         defaultFromDate={startOfDay(new Date()).toISOString()}
         defaultToDate={to}
       />
+
+      {/* Custom Confirmation Modal */}
+      {isConfirmClearOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl border border-gray-100 animate-in zoom-in-95 duration-200">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-50 mb-4">
+              <AlertCircle className="h-6 w-6 text-red-600" />
+            </div>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Xác nhận xóa lịch trình</h3>
+            <p className="text-sm text-gray-500 mb-6">
+              Bạn có chắc chắn muốn xóa các lịch trình sắp tới trong tuần này? 
+              <span className="block mt-2 font-medium text-red-600">Lưu ý: Các lịch trình đã diễn ra sẽ không bị xóa.</span>
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={handleClearSchedule}
+                disabled={clearSchedule.isPending}
+                className="flex-1 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {clearSchedule.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                Xóa ngay
+              </button>
+              <button
+                onClick={() => setIsConfirmClearOpen(false)}
+                className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Hủy
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

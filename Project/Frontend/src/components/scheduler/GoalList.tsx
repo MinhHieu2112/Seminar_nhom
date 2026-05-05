@@ -38,10 +38,12 @@ function priorityLabel(priority: number) {
 
 export function GoalList() {
   const [page, setPage] = useState(1);
-  const limit = 10;
+  const limit = 10; // Number of items per page in the UI
+  const fetchLimit = 100; // Fetch more goals for better client-side filtering
   const [selectedGoalIdForTasks, setSelectedGoalIdForTasks] = useState<string | null>(null);
+  const [filterDate, setFilterDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
-  const { data: goalData, isLoading: goalsLoading } = useGoals(page, limit);
+  const { data: goalData, isLoading: goalsLoading } = useGoals(1, fetchLimit);
   const { data: calendarEvents, isLoading: eventsLoading } = useCalendarEvents();
   const deleteGoal = useDeleteGoal();
   const deleteEvent = useDeleteCalendarEvent();
@@ -52,15 +54,27 @@ export function GoalList() {
   const combinedItems = [
     ...goals.map(g => ({ ...g, itemType: 'goal' as const })),
     ...calendarItems.map(e => ({ ...e, itemType: 'event' as const }))
-  ].sort((a, b) => {
+  ].filter(item => {
+    if (!filterDate) return true;
+    const itemDate = new Date('deadline' in item ? (item.deadline || 0) : item.endTime);
+    const filterD = new Date(filterDate);
+    return (
+      itemDate.getDate() === filterD.getDate() &&
+      itemDate.getMonth() === filterD.getMonth() &&
+      itemDate.getFullYear() === filterD.getFullYear()
+    );
+  }).sort((a, b) => {
     const dateA = new Date('deadline' in a ? (a.deadline || 0) : a.endTime).getTime();
     const dateB = new Date('deadline' in b ? (b.deadline || 0) : b.endTime).getTime();
-    return dateB - dateA;
+    return dateA - dateB;
   });
 
-  const totalItems = (goalData?.total || 0) + calendarItems.length;
+  const totalItems = combinedItems.length;
   const totalPages = Math.ceil(totalItems / limit) || 1;
   const isLoading = goalsLoading || eventsLoading;
+
+  // Paginate the combined and filtered items
+  const displayedItems = combinedItems.slice((page - 1) * limit, page * limit);
 
   const selectedGoal = goals.find(g => g.id === selectedGoalIdForTasks);
 
@@ -78,15 +92,47 @@ export function GoalList() {
   return (
     <div className="mt-8 flex flex-col bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm relative">
       {/* Table Header / Toolbar */}
-      <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 bg-white">
+      <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-gray-100 px-6 py-4 bg-white gap-4">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2.5 rounded-lg bg-gray-50 border border-gray-200/60 px-3.5 py-1.5 text-sm font-semibold text-gray-700 shadow-sm transition-all hover:bg-gray-100/80">
             <Target className="h-4 w-4 text-blue-600" />
             <span>Tất cả mục tiêu & Lịch trình</span>
           </div>
           <span className="text-sm font-medium text-gray-400">
-            {totalItems} mục mục
+            {combinedItems.length} kết quả
           </span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-50 border border-gray-200">
+            <Calendar className="h-4 w-4 text-gray-400" />
+            <input 
+              type="date" 
+              value={filterDate}
+              onChange={(e) => setFilterDate(e.target.value)}
+              className="bg-transparent border-none text-xs font-medium focus:ring-0 text-gray-600 p-0"
+            />
+          </div>
+          <button
+            onClick={() => setFilterDate(new Date().toISOString().split('T')[0])}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              filterDate === new Date().toISOString().split('T')[0]
+                ? 'bg-blue-600 text-white'
+                : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            Hôm nay
+          </button>
+          <button
+            onClick={() => setFilterDate('')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              !filterDate
+                ? 'bg-blue-600 text-white'
+                : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            Tất cả
+          </button>
         </div>
       </div>
 
@@ -105,19 +151,21 @@ export function GoalList() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
-            {combinedItems.length === 0 ? (
+            {displayedItems.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-6 py-20 text-center">
                   <div className="flex flex-col items-center justify-center gap-3">
                     <div className="h-12 w-12 rounded-full bg-gray-50 flex items-center justify-center">
                       <FileText className="h-6 w-6 text-gray-300" />
                     </div>
-                    <p className="text-gray-400 font-medium">Chưa có mục tiêu nào được tạo</p>
+                    <p className="text-gray-400 font-medium">
+                      {filterDate ? `Không có mục tiêu nào trong ngày ${new Date(filterDate).toLocaleDateString('vi-VN')}` : 'Chưa có mục tiêu nào được tạo'}
+                    </p>
                   </div>
                 </td>
               </tr>
             ) : (
-              combinedItems.map((item) => {
+              displayedItems.map((item) => {
                 const isGoal = item.itemType === 'goal';
                 const id = item.id;
                 const title = item.title;
