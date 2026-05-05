@@ -223,9 +223,11 @@ export function useGenerateSchedule() {
       return response.data;
     },
     onSuccess: () => {
+      queryClient.removeQueries({ queryKey: SCHEDULE_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: SCHEDULE_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: TASKS_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: GOALS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: CALENDAR_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: ANALYTICS_QUERY_KEY });
     },
   });
@@ -240,9 +242,11 @@ export function useClearSchedule() {
       return response.data;
     },
     onSuccess: () => {
+      queryClient.removeQueries({ queryKey: SCHEDULE_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: SCHEDULE_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: TASKS_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: GOALS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: CALENDAR_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: ANALYTICS_QUERY_KEY });
     },
   });
