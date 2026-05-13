@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { X, Target, UploadCloud, FileText, Calendar, Clock, Plus, Trash2, AlertCircle, CheckCircle2, ChevronRight, Loader2 } from 'lucide-react';
+import { X, Target, UploadCloud, FileText, Calendar, Clock, Plus, Trash2, AlertCircle, CheckCircle2, ChevronRight, Loader2, Sparkles } from 'lucide-react';
 import { aiApi } from '@/lib/api';
 import { useQueryClient } from '@tanstack/react-query';
 import { useGoals } from '@/lib/hooks/useScheduler';
@@ -49,7 +49,7 @@ interface UnifiedPreviewData {
 }
 
 type Step = 'input' | 'preview' | 'done';
-type InputMode = 'manual' | 'csv';
+type InputMode = 'manual' | 'csv' | 'ai';
 
 function formatLocalDateInput(date: Date) {
   const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
@@ -97,6 +97,9 @@ export function GenerateScheduleModal({ isOpen, onClose, defaultFromDate, defaul
     { id: '1', title: '', duration: 60, priority: 3, deadline: defaultToDate.split('T')[0] }
   ]);
   const [busySlots, setBusySlots] = useState<BusySlot[]>([]);
+
+  // AI mode state
+  const [aiPrompt, setAiPrompt] = useState('');
 
   // CSV mode state
   const [csvFile, setCsvFile] = useState<File | null>(null);
@@ -161,6 +164,65 @@ export function GenerateScheduleModal({ isOpen, onClose, defaultFromDate, defaul
     setCsvFile(file);
     const text = await file.text();
     setCsvPreview(text.split('\n').slice(0, 6).join('\n'));
+  };
+
+  // ── AI: Generate from prompt ───────────────────────────────────────────────
+
+  const handleAiGenerate = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const result = await aiApi.generateFromPrompt(aiPrompt);
+      const aiData = result.data?.data || (result as any).data;
+
+      // Map AI output to UnifiedPreviewData for the existing preview step
+      const unified: UnifiedPreviewData = {
+        tasks: (aiData.tasks || []).map((t: any, idx: number) => ({
+          id: t.id || String(idx + 1),
+          title: t.title,
+          duration: t.duration || 60,
+          priority: t.priority || 3,
+          deadline: t.deadline,
+        })),
+        constraints: {
+          availableTime: [],
+          busyTime: (aiData.busySlots || []).map((b: any) => ({
+            day: b.day,
+            slots: b.slots,
+          })),
+        },
+      };
+
+      // Set goal title from AI
+      if (aiData.goalTitle) setGoalTitle(aiData.goalTitle);
+
+      // Generate availableTime from AI date range + preferred times
+      const from = aiData.fromDate || minAllowedDate;
+      const to = aiData.toDate || defaultToDate.split('T')[0];
+      const prefs: string[] = aiData.preferredTimes || ['morning', 'afternoon', 'evening'];
+      const timeRanges: Record<string, string> = {
+        morning: '07:00-11:00',
+        afternoon: '13:00-17:00',
+        evening: '18:00-22:00',
+      };
+      const cur = new Date(from);
+      const end = new Date(to);
+      while (cur <= end) {
+        const dayStr = cur.toISOString().split('T')[0];
+        unified.constraints.availableTime.push({
+          day: dayStr,
+          slots: prefs.map(p => timeRanges[p]).filter(Boolean),
+        });
+        cur.setDate(cur.getDate() + 1);
+      }
+
+      setUnifiedData(unified);
+      setStep('preview');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'AI không thể phân tích yêu cầu. Vui lòng thử mô tả chi tiết hơn.'));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // ── Phase 1: Normalize ────────────────────────────────────────────────────
@@ -255,6 +317,7 @@ export function GenerateScheduleModal({ isOpen, onClose, defaultFromDate, defaul
     setCsvFile(null);
     setCsvPreview('');
     setGoalTitle('');
+    setAiPrompt('');
     setTasks([{ id: '1', title: '', duration: 60, priority: 3, deadline: defaultToDate.split('T')[0] }]);
     setBusySlots([]);
     onClose();
@@ -313,17 +376,24 @@ export function GenerateScheduleModal({ isOpen, onClose, defaultFromDate, defaul
               <div className="flex rounded-xl border border-gray-200 bg-gray-50 p-1 gap-1">
                 <button
                   type="button"
+                  onClick={() => setMode('ai')}
+                  className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium transition-all ${mode === 'ai' ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                >
+                  <Sparkles className="h-4 w-4" /> AI nhập liệu
+                </button>
+                <button
+                  type="button"
                   onClick={() => setMode('manual')}
                   className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium transition-all ${mode === 'manual' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                 >
-                  <FileText className="h-4 w-4" /> Nhập thủ công
+                  <FileText className="h-4 w-4" /> Thủ công
                 </button>
                 <button
                   type="button"
                   onClick={() => setMode('csv')}
                   className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium transition-all ${mode === 'csv' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                 >
-                  <UploadCloud className="h-4 w-4" /> Tải lên CSV
+                  <UploadCloud className="h-4 w-4" /> CSV
                 </button>
               </div>
 
@@ -496,6 +566,31 @@ Làm bài tập,60,2,2026-04-28
                   </div>
                 </div>
               )}
+
+              {/* AI Mode */}
+              {mode === 'ai' && (
+                <div className="space-y-4">
+                  <div className="rounded-xl border border-purple-100 bg-gradient-to-br from-purple-50 to-pink-50 p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Sparkles className="h-4 w-4 text-purple-500" />
+                      <p className="text-xs font-semibold text-purple-700">Mô tả lịch học bằng ngôn ngữ tự nhiên</p>
+                    </div>
+                    <p className="text-xs text-purple-600 mb-1">AI sẽ tự động phân tích và tạo lịch học cho bạn. Ví dụ:</p>
+                    <ul className="text-xs text-purple-500 space-y-0.5 list-disc list-inside">
+                      <li>"Tôi cần ôn thi Toán cao cấp và Vật lý trong 2 tuần, mỗi môn 90 phút/ngày"</li>
+                      <li>"Lên lịch học IELTS mỗi ngày 2 tiếng buổi tối, thi ngày 30/6"</li>
+                      <li>"Ôn 3 môn: Toán (ưu tiên cao, thi 20/5), Lý (thi 25/5), Hóa (thi 28/5). Thứ 2 bận 8h-10h"</li>
+                    </ul>
+                  </div>
+                  <textarea
+                    value={aiPrompt}
+                    onChange={e => setAiPrompt(e.target.value)}
+                    placeholder="Nhập yêu cầu của bạn tại đây..."
+                    rows={5}
+                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm focus:border-purple-400 focus:outline-none focus:ring-1 focus:ring-purple-400 resize-none placeholder:text-gray-400"
+                  />
+                </div>
+              )}
             </div>
           )}
 
@@ -590,7 +685,18 @@ Làm bài tập,60,2,2026-04-28
             {step === 'input' ? 'Hủy' : '← Quay lại'}
           </button>
 
-          {step === 'input' && (
+          {step === 'input' && mode === 'ai' && (
+            <button
+              type="button"
+              onClick={handleAiGenerate}
+              disabled={isLoading || !aiPrompt.trim()}
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 px-6 py-2 text-sm font-medium text-white shadow-sm transition-all hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isLoading ? <><Loader2 className="h-4 w-4 animate-spin" /> AI đang phân tích...</> : <><Sparkles className="h-4 w-4" /> AI phân tích <ChevronRight className="h-4 w-4" /></>}
+            </button>
+          )}
+
+          {step === 'input' && mode !== 'ai' && (
             <button
               type="button"
               onClick={handleNormalize}

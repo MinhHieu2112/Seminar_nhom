@@ -170,4 +170,37 @@ export class AiGatewayController {
       aiSummary: aiResult.summary,
     };
   }
+
+  /**
+   * POST /api/v1/ai/generate-from-prompt
+   * Nhận prompt tự nhiên → AI phân tích → trả về JSON để người dùng xem trước
+   * Chưa lưu vào DB, chỉ trả preview data.
+   */
+  @Post('generate-from-prompt')
+  @HttpCode(HttpStatus.OK)
+  async generateFromPrompt(
+    @Headers('authorization') authHeader: string,
+    @Body() body: { prompt: string },
+  ) {
+    const userId = extractUserId(authHeader, this.jwtService);
+
+    if (!body.prompt || body.prompt.trim().length === 0) {
+      throw new BadRequestException('Prompt không được để trống.');
+    }
+
+    const result: any = await safeSend(
+      this.tcpClient,
+      'ai-service',
+      'ai.generate-from-prompt',
+      { prompt: body.prompt, userId },
+    );
+
+    if (!result.success) {
+      throw new BadRequestException(
+        result.message || 'AI không thể phân tích yêu cầu của bạn.',
+      );
+    }
+
+    return result;
+  }
 }

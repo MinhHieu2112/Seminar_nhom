@@ -165,6 +165,7 @@ services:
     environment:
       NODE_ENV: production
       TCP_PORT: 8005
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
     networks:
       - user-service-network
     restart: unless-stopped

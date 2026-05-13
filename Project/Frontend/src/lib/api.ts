@@ -192,6 +192,32 @@ export const aiApi = {
       overflow: string[];
       message: string;
     }>('/scheduler/schedule/generate-unified', unifiedData),
+
+  /**
+   * AI Prompt: Generate schedule from natural language
+   * Returns structured data for user preview (NOT saved yet)
+   */
+  generateFromPrompt: (prompt: string) =>
+    apiClient.post<{
+      success: boolean;
+      data: {
+        goalTitle: string;
+        tasks: Array<{
+          id?: string;
+          title: string;
+          duration: number;
+          priority: number;
+          deadline?: string;
+        }>;
+        busySlots: Array<{
+          day: string;
+          slots: string[];
+        }>;
+        fromDate: string;
+        toDate: string;
+        preferredTimes: string[];
+      };
+    }>('/ai/generate-from-prompt', { prompt }),
 };
 
 
