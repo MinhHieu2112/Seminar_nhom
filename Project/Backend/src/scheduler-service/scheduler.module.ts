@@ -1,49 +1,14 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { ClientsModule, Transport } from '@nestjs/microservices';
-import { Goal, Task, ScheduleBlock } from './entities';
+import { HttpModule } from '@nestjs/axios';
+import { ConfigModule } from '@nestjs/config';
 import { SchedulerController } from './scheduler.controller';
-import { GoalService } from './goal/goal.service';
-import { TaskService } from './task/task.service';
-import { ScheduleService } from './schedule/schedule.service';
+import { SchedulerService } from './scheduler.service';
+import { PrismaService } from './prisma/prisma.service';
 
 @Module({
-  imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
-    TypeOrmModule.forRootAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        type: 'postgres',
-        url: configService.get('DATABASE_URL'),
-        autoLoadEntities: true,
-        synchronize: true,
-        retryAttempts: 10,
-        retryDelay: 3000,
-      }),
-    }),
-    TypeOrmModule.forFeature([Goal, Task, ScheduleBlock]),
-    ClientsModule.register([
-      {
-        name: 'CALENDAR_SERVICE',
-        transport: Transport.TCP,
-        options: {
-          host: process.env.CALENDAR_SERVICE_HOST ?? 'localhost',
-          port: parseInt(process.env.CALENDAR_SERVICE_PORT ?? '3004', 10),
-        },
-      },
-      {
-        name: 'QUEUE_SERVICE',
-        transport: Transport.TCP,
-        options: {
-          host: process.env.QUEUE_SERVICE_HOST ?? 'localhost',
-          port: parseInt(process.env.QUEUE_SERVICE_PORT ?? '8007', 10),
-        },
-      },
-    ]),
-  ],
+  imports: [HttpModule, ConfigModule.forRoot({ isGlobal: true })],
   controllers: [SchedulerController],
-  providers: [GoalService, TaskService, ScheduleService],
+  providers: [SchedulerService, PrismaService],
+  exports: [SchedulerService],
 })
 export class SchedulerModule {}

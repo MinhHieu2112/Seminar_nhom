@@ -13,13 +13,33 @@ export interface User {
   timezone: string;
   preferences: Record<string, unknown>;
   isActive: boolean;
+  name: string | null;
+  avatar: string | null;
+  country: string | null;
+  city: string | null;
+  postalCode: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  dob: string | null;
+  phone: string | null;
+  coverPhoto: string | null;
+  bio: string | null;
   createdAt: string;
   updatedAt: string;
+  googleId?: string | null;
+  githubId?: string | null;
+  facebookId?: string | null;
+  linkedinId?: string | null;
 }
 
 // ─── Auth DTOs ────────────────────────────────────────────────────────────────
 
-export interface RegisterRequest { email: string; password: string; }
+export interface RegisterRequest {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+}
 export interface LoginRequest { email: string; password: string; }
 export interface RefreshRequest { refreshToken: string; }
 export interface AuthResponse { accessToken: string; refreshToken: string; user: User; }
@@ -30,6 +50,16 @@ export interface LogoutRequest { userId: string; jti: string; }
 export interface UpdateProfileRequest {
   timezone?: string;
   preferences?: Record<string, unknown>;
+  country?: string;
+  city?: string;
+  postalCode?: string;
+  firstName?: string;
+  lastName?: string;
+  dob?: string;
+  phone?: string;
+  avatar?: string;
+  coverPhoto?: string;
+  bio?: string;
 }
 
 // ─── Password DTOs ────────────────────────────────────────────────────────────
@@ -74,27 +104,38 @@ export interface Goal {
   id: string;
   userId: string;
   title: string;
-  description: string | null;
-  deadline: string | null;
+  description?: string | null;
+  deadline?: string | null;
   status: GoalStatus;
   createdAt: string;
+  updatedAt: string;
+}
+
+export interface Category {
+  id: string;
+  name: string;
+  color?: string;
+  subjects?: Subject[];
+}
+
+export interface Subject {
+  id: string;
+  name: string;
+  categoryId: string;
+  category?: Category;
   tasks?: Task[];
 }
 
 export interface Task {
   id: string;
-  goalId: string;
-  userId: string;
   title: string;
-  durationMin: number;
-  priority: number;
-  deadline?: string | null;
-  type: TaskType;
+  description?: string | null;
+  dueTime?: string | null;
+  subjectId?: string | null;
+  priority?: number;
   status: TaskStatus;
-  source: TaskSource;
   createdAt: string;
-  goal?: Pick<Goal, 'id' | 'title' | 'deadline' | 'status'>;
-  scheduleBlocks?: ScheduleBlock[];
+  subject?: Pick<Subject, 'id' | 'name' | 'categoryId'>;
 }
 
 export interface ScheduleBlock {
@@ -108,7 +149,14 @@ export interface ScheduleBlock {
   queueOrder?: number | null;
   status: BlockStatus;
   createdAt: string;
-  task?: Pick<Task, 'id' | 'title' | 'durationMin' | 'priority' | 'type'>;
+  task?: Pick<Task, 'id' | 'title' | 'priority'>;
+}
+
+export interface Allocation {
+  id: string;
+  startTime: string;
+  durationMinutes?: number;
+  task?: Pick<Task, 'id' | 'title'>;
 }
 
 export interface CreateGoalRequest { title: string; description?: string; deadline?: string; }
@@ -175,6 +223,12 @@ export interface CreateEventRequest {
   pomodoroIndex?: number;
   sessionType?: 'morning' | 'afternoon' | 'evening';
   queueOrder?: number;
+}
+
+export interface FreeSlot {
+  start: string;
+  end: string;
+  durationMin: number;
 }
 
 

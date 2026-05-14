@@ -1,269 +1,175 @@
-import { Controller } from '@nestjs/common';
-import { MessagePattern, Payload } from '@nestjs/microservices';
-import { GoalService } from './goal/goal.service';
-import { TaskService } from './task/task.service';
-import { ScheduleService } from './schedule/schedule.service';
 import {
-  CreateGoalDto,
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  Query,
+  Headers,
+} from '@nestjs/common';
+import { SchedulerService } from './scheduler.service';
+import {
+  CreateCategoryDto,
+  CreateSubjectDto,
+  CreateScheduleDto,
   CreateTaskDto,
-  GenerateScheduleDto,
-  GenerateUnifiedDto,
-} from './dto';
+  CreateTaskAllocationDto,
+  UpdateUserPreferenceDto,
+  UpdateCategoryDto,
+  UpdateSubjectDto,
+} from './dto/scheduler.dto';
 
-type GoalPayload = {
-  userId: string;
-  title?: string;
-  description?: string;
-  deadline?: string;
-  dto?: CreateGoalDto;
-};
-
-type GoalUpdatePayload = {
-  id: string;
-  userId: string;
-  title?: string;
-  description?: string;
-  deadline?: string;
-  dto?: Partial<CreateGoalDto>;
-};
-
-type TaskPayload = {
-  goalId: string;
-  userId: string;
-  title?: string;
-  durationMin?: number;
-  priority?: number;
-  type?: 'theory' | 'practice' | 'review';
-  source?: 'ai' | 'manual';
-  dto?: CreateTaskDto;
-};
-
-type TaskUpdatePayload = {
-  id: string;
-  userId: string;
-  title?: string;
-  durationMin?: number;
-  priority?: number;
-  status?: 'pending' | 'scheduled' | 'done' | 'skipped';
-  dto?: Partial<CreateTaskDto> & {
-    status?: 'pending' | 'scheduled' | 'done' | 'skipped';
-  };
-};
-
-function normalizePayload<T extends Record<string, unknown>>(
-  data: T & { dto?: Partial<T> },
-  keys: Array<keyof T>,
-): Partial<T> {
-  if (data.dto) {
-    return data.dto;
-  }
-
-  return keys.reduce<Partial<T>>((acc, key) => {
-    if (data[key] !== undefined) {
-      acc[key] = data[key];
-    }
-    return acc;
-  }, {});
-}
-
-@Controller()
+// Use a simple header for demo purposes since the gateway handles Auth
+// In a real microservice, we might use a shared JWT secret or internal API keys.
+@Controller('api/v1/scheduler')
 export class SchedulerController {
-  constructor(
-    private readonly goalService: GoalService,
-    private readonly taskService: TaskService,
-    private readonly scheduleService: ScheduleService,
-  ) {}
+  constructor(private readonly schedulerService: SchedulerService) {}
 
-  // ============ Goal Management ============
+  private getUserId(headers: any): string {
+    // In our architecture, the gateway extracts userId and passes it
+    // For internal HTTP, we can pass it in a custom header x-user-id
+    return headers['x-user-id'];
+  }
 
-  @MessagePattern('scheduler.goal.create')
-  async createGoal(
-    @Payload()
-    data: GoalPayload,
+  // --- Categories ---
+  @Post('categories')
+  createCategory(@Headers() headers, @Body() dto: CreateCategoryDto) {
+    return this.schedulerService.createCategory(this.getUserId(headers), dto);
+  }
+
+  @Get('categories')
+  getCategories(@Headers() headers) {
+    return this.schedulerService.getCategories(this.getUserId(headers));
+  }
+
+  @Put('categories/:id')
+  updateCategory(
+    @Headers() headers,
+    @Param('id') id: string,
+    @Body() dto: UpdateCategoryDto,
   ) {
-    const dto = normalizePayload(data, ['title', 'description', 'deadline']);
-    return this.goalService.create(data.userId, dto as CreateGoalDto);
-  }
-
-  @MessagePattern('scheduler.goal.list')
-  async listGoals(
-    @Payload() data: { userId: string; page?: number; limit?: number },
-  ) {
-    return this.goalService.findByUser(data.userId, data.page, data.limit);
-  }
-
-  @MessagePattern('scheduler.goal.get')
-  async getGoal(@Payload() data: { id: string; userId: string }) {
-    return this.goalService.findOne(data.id, data.userId);
-  }
-
-  @MessagePattern('scheduler.goal.update')
-  async updateGoal(
-    @Payload()
-    data: GoalUpdatePayload,
-  ) {
-    const dto = normalizePayload(data, ['title', 'description', 'deadline']);
-    return this.goalService.update(data.id, data.userId, dto);
-  }
-
-  @MessagePattern('scheduler.goal.delete')
-  async deleteGoal(@Payload() data: { id: string; userId: string }) {
-    return this.goalService.delete(data.id, data.userId);
-  }
-
-  // ============ Task Management ============
-
-  @MessagePattern('scheduler.task.create')
-  async createTask(
-    @Payload()
-    data: TaskPayload,
-  ) {
-    const dto = normalizePayload(data, [
-      'title',
-      'durationMin',
-      'priority',
-      'type',
-      'source',
-    ]);
-    return this.taskService.create(
-      data.goalId,
-      data.userId,
-      dto as CreateTaskDto,
+    return this.schedulerService.updateCategory(
+      this.getUserId(headers),
+      id,
+      dto,
     );
   }
 
-  @MessagePattern('scheduler.task.list')
-  async listTasks(@Payload() data: { goalId: string; userId: string }) {
-    return this.taskService.findByGoal(data.goalId, data.userId);
+  @Delete('categories/:id')
+  deleteCategory(@Headers() headers, @Param('id') id: string) {
+    return this.schedulerService.deleteCategory(this.getUserId(headers), id);
   }
 
-  @MessagePattern('scheduler.task.get')
-  async getTask(@Payload() data: { id: string; userId: string }) {
-    return this.taskService.findOne(data.id, data.userId);
+  // --- Subjects ---
+  @Post('subjects')
+  createSubject(@Headers() headers, @Body() dto: CreateSubjectDto) {
+    return this.schedulerService.createSubject(this.getUserId(headers), dto);
   }
 
-  @MessagePattern('scheduler.task.update')
-  async updateTask(
-    @Payload()
-    data: TaskUpdatePayload,
+  @Get('subjects')
+  getSubjects(@Headers() headers) {
+    return this.schedulerService.getSubjects(this.getUserId(headers));
+  }
+
+  @Put('subjects/:id')
+  updateSubject(
+    @Headers() headers,
+    @Param('id') id: string,
+    @Body() dto: UpdateSubjectDto,
   ) {
-    const dto = normalizePayload(data, [
-      'title',
-      'durationMin',
-      'priority',
-      'status',
-    ]);
-    return this.taskService.update(data.id, data.userId, dto);
-  }
-
-  @MessagePattern('scheduler.task.delete')
-  async deleteTask(@Payload() data: { id: string; userId: string }) {
-    return this.taskService.delete(data.id, data.userId);
-  }
-
-  // ============ Schedule Management ============
-
-  @MessagePattern('scheduler.schedule.generate')
-  async generateSchedule(@Payload() dto: GenerateScheduleDto) {
-    return this.scheduleService.generateSchedule(
-      dto.userId,
-      dto.fromDate ? new Date(dto.fromDate) : undefined,
-      dto.toDate ? new Date(dto.toDate) : undefined,
+    return this.schedulerService.updateSubject(
+      this.getUserId(headers),
+      id,
+      dto,
     );
   }
 
-  @MessagePattern('scheduler.schedule.generateCustom')
-  async generateScheduleCustom(
-    @Payload()
-    data: {
-      userId: string;
-      customSlots: Array<{ start: string; end: string }>;
-    },
+  @Delete('subjects/:id')
+  deleteSubject(@Headers() headers, @Param('id') id: string) {
+    return this.schedulerService.deleteSubject(this.getUserId(headers), id);
+  }
+
+  // --- Schedules ---
+  @Post('schedules')
+  createSchedule(@Headers() headers, @Body() dto: CreateScheduleDto) {
+    return this.schedulerService.createSchedule(this.getUserId(headers), dto);
+  }
+
+  @Get('schedules')
+  getSchedules(@Headers() headers) {
+    return this.schedulerService.getSchedules(this.getUserId(headers));
+  }
+
+  // --- Tasks ---
+  @Post('tasks')
+  createTask(@Headers() headers, @Body() dto: CreateTaskDto) {
+    return this.schedulerService.createTask(this.getUserId(headers), dto);
+  }
+
+  @Get('tasks')
+  getTasks(@Headers() headers) {
+    return this.schedulerService.getTasks(this.getUserId(headers));
+  }
+
+  @Post('tasks/:id/status')
+  updateTaskStatus(
+    @Headers() headers,
+    @Param('id') id: string,
+    @Body('status') status: string,
   ) {
-    return this.scheduleService.generateScheduleWithCustomSlots(
-      data.userId,
-      data.customSlots,
+    return this.schedulerService.updateTaskStatus(
+      this.getUserId(headers),
+      id,
+      status,
     );
   }
 
-  @MessagePattern('scheduler.schedule.generateUnified')
-  async generateScheduleUnified(@Payload() dto: GenerateUnifiedDto) {
-    return this.scheduleService.generateScheduleFromUnified(dto);
+  @Put('tasks/:id')
+  updateTask(
+    @Headers() headers,
+    @Param('id') id: string,
+    @Body() dto: import('./dto/scheduler.dto').UpdateTaskDto,
+  ) {
+    return this.schedulerService.updateTask(this.getUserId(headers), id, dto);
   }
 
-  @MessagePattern('scheduler.schedule.view')
-  async viewSchedule(
-    @Payload() data: { userId: string; from: string; to: string },
+  @Delete('tasks/:id')
+  deleteTask(@Headers() headers, @Param('id') id: string) {
+    return this.schedulerService.deleteTask(this.getUserId(headers), id);
+  }
+
+  // --- Allocations ---
+  @Post('allocations')
+  allocateTask(@Headers() headers, @Body() dto: CreateTaskAllocationDto) {
+    return this.schedulerService.allocateTask(this.getUserId(headers), dto);
+  }
+
+  @Get('allocations')
+  getAllocations(
+    @Headers() headers,
+    @Query('from') from: string,
+    @Query('to') to: string,
   ) {
-    return this.scheduleService.getScheduleForRange(
-      data.userId,
-      new Date(data.from),
-      new Date(data.to),
+    return this.schedulerService.getAllocations(
+      this.getUserId(headers),
+      new Date(from),
+      new Date(to),
     );
   }
 
-  @MessagePattern('scheduler.schedule.clear')
-  async clearSchedule(@Payload() data: { userId: string; from?: string }) {
-    await this.scheduleService.clearSchedule(
-      data.userId,
-      data.from ? new Date(data.from) : undefined,
+  // --- Preferences ---
+  @Get('preferences')
+  getPreferences(@Headers() headers) {
+    return this.schedulerService.getPreferences(this.getUserId(headers));
+  }
+
+  @Put('preferences')
+  updatePreferences(@Headers() headers, @Body() dto: UpdateUserPreferenceDto) {
+    return this.schedulerService.updatePreferences(
+      this.getUserId(headers),
+      dto,
     );
-    return { success: true };
-  }
-
-  @MessagePattern('scheduler.block.updateStatus')
-  async updateBlockStatus(
-    @Payload() data: { userId: string; blockId: string; status: string },
-  ) {
-    return this.scheduleService.updateBlockStatus(
-      data.userId,
-      data.blockId,
-      data.status as any,
-    );
-  }
-
-  // ============ Session Tracking ============
-
-  @MessagePattern('scheduler.session.start')
-  startSession(
-    @Payload() data: { userId: string; blockId: string; startedAt: string },
-  ) {
-    return Promise.resolve({
-      success: true,
-      message: 'Session start recorded (forwarded to Analytics Service)',
-      data,
-    });
-  }
-
-  @MessagePattern('scheduler.session.stop')
-  stopSession(
-    @Payload() data: { userId: string; blockId: string; stoppedAt: string },
-  ) {
-    return Promise.resolve({
-      success: true,
-      message: 'Session stop recorded (forwarded to Analytics Service)',
-      data,
-    });
-  }
-
-  // ============ Auto-shift / Reprioritize ============
-
-  @MessagePattern('scheduler.schedule.autoshift')
-  async triggerAutoShift(
-    @Payload() data: { userId: string; fromDate: string },
-  ) {
-    return this.scheduleService.generateSchedule(
-      data.userId,
-      new Date(data.fromDate),
-    );
-  }
-
-  @MessagePattern('scheduler.schedule.reprioritize')
-  triggerReprioritize(@Payload() data: { userId: string; goalId: string }) {
-    return Promise.resolve({
-      success: true,
-      message: 'Reprioritize request queued for AI processing',
-      data,
-    });
   }
 }

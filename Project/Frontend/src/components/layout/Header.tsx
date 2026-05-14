@@ -26,12 +26,6 @@ export function Header() {
         {/* Logo & Navigation */}
         <div className="flex items-center gap-8">
           <Link href="/dashboard" className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-purple-600 text-white font-bold text-sm">
-              S
-            </div>
-            <span className="hidden text-lg font-bold text-gray-900 sm:block">
-              StudyPlan
-            </span>
           </Link>
 
           {isAuthenticated && (
@@ -40,8 +34,8 @@ export function Header() {
                 href="/dashboard"
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                   pathname === '/dashboard' 
-                    ? 'text-gray-900 bg-gray-100' 
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    ? 'text-primary-dark bg-primary-light/30' 
+                    : 'text-gray-600 hover:bg-primary-light/20 hover:text-primary-dark'
                 }`}
               >
                 <LayoutDashboard className="h-4 w-4" />
@@ -51,8 +45,8 @@ export function Header() {
                 href="/profile"
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                   pathname === '/profile' 
-                    ? 'text-gray-900 bg-gray-100' 
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    ? 'text-primary-dark bg-primary-light/30' 
+                    : 'text-gray-600 hover:bg-primary-light/20 hover:text-primary-dark'
                 }`}
               >
                 <User className="h-4 w-4" />
@@ -70,7 +64,7 @@ export function Header() {
                 <p className="text-sm font-medium text-gray-900">{user.email}</p>
                 <p className="text-xs text-gray-500 capitalize">{user.role}</p>
               </div>
-              <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center text-blue-700 font-semibold text-sm">
+              <div className="h-8 w-8 rounded-full bg-gradient-to-br from-primary-light to-blue-100 flex items-center justify-center text-primary-dark font-semibold text-sm">
                 {user.email.charAt(0).toUpperCase()}
               </div>
               <button
@@ -84,7 +78,7 @@ export function Header() {
             <div className="flex items-center gap-3">
               <Link
                 href="/login"
-                className="rounded-md bg-blue-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+                className="rounded-md bg-primary-main px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-primary-dark shadow-sm"
               >
                 Đăng nhập
               </Link>

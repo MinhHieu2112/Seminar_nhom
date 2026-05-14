@@ -1,7 +1,9 @@
-node_modules
-dist
-.git
-.env
+node_modules/
+dist/
+.git/
+*.log
 *.md
-.prettierrc
-coverage
+coverage/
+.env
+.vscode/
+test/

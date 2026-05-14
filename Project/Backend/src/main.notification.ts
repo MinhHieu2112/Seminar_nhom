@@ -1,5 +1,5 @@
 import { NestFactory } from '@nestjs/core';
-import { NotificationModule } from './notification/notification.module';
+import { NotificationModule } from './notification-service/notification.module';
 
 /**
  * Notification Service — BullMQ worker only.

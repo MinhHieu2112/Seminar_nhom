@@ -8,7 +8,8 @@ import { UserService } from './user/user.service';
 import { AuthService } from './auth/auth.service';
 import { TokenService } from './auth/token.service';
 import { OtpService } from './auth/otp.service';
-import { UsersController } from './users.controller';
+import { UsersController } from './user/users.controller';
+import { InternalUsersController } from './user/users-internal.controller';
 
 @Module({
   imports: [
@@ -41,7 +42,7 @@ import { UsersController } from './users.controller';
     }),
     BullModule.registerQueue({ name: 'notification-jobs' }),
   ],
-  controllers: [UsersController],
+  controllers: [UsersController, InternalUsersController],
   providers: [AuthService, TokenService, OtpService, UserService],
   exports: [AuthService, UserService],
 })

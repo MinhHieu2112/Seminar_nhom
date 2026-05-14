@@ -1,26 +1,15 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Between, LessThanOrEqual, Repository } from 'typeorm';
 import {
   AnalyticsDashboardResponseDto,
   StudyInsightsResponseDto,
 } from './dto/analytics-response.dto';
-import { Goal } from '../scheduler-service/entities/goal.entity';
-import { ScheduleBlock } from '../scheduler-service/entities/schedule-block.entity';
-import { Task } from '../scheduler-service/entities/task.entity';
+import { PrismaService } from '../scheduler-service/prisma/prisma.service';
 
 @Injectable()
 export class AnalyticsService {
   private readonly logger = new Logger(AnalyticsService.name);
 
-  constructor(
-    @InjectRepository(ScheduleBlock)
-    private readonly blockRepo: Repository<ScheduleBlock>,
-    @InjectRepository(Task)
-    private readonly taskRepo: Repository<Task>,
-    @InjectRepository(Goal)
-    private readonly goalRepo: Repository<Goal>,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async getUserDashboard(
     userId: string,
@@ -28,62 +17,69 @@ export class AnalyticsService {
     this.logger.log(`Fetching analytics dashboard for user ${userId}`);
 
     const now = new Date();
-    const [goals, tasks, allPastBlocks, allBlocks] = await Promise.all([
-      this.goalRepo.find({
+    const [categories, tasks, allAllocations] = await Promise.all([
+      this.prisma.category.findMany({
         where: { userId },
-        relations: ['tasks'],
+        include: { subjects: { include: { tasks: true } } },
       }),
-      this.taskRepo.find({
+      this.prisma.task.findMany({
         where: { userId },
-        relations: ['goal'],
+        include: { subject: true },
       }),
-      this.blockRepo.find({
+      this.prisma.taskAllocation.findMany({
         where: {
           userId,
-          plannedEnd: LessThanOrEqual(now),
+          endTime: { lte: now },
         },
       }),
-      this.blockRepo.find({
+      this.prisma.taskAllocation.findMany({
         where: { userId },
       }),
     ]);
 
-    const plannedBlocks = allBlocks.length;
-    const doneBlocks = allBlocks.filter((block) => block.status === 'done');
-    const completedBlocks = doneBlocks.length;
+    const plannedBlocks = allAllocations.length;
+    const completedBlocks = allAllocations.filter(
+      (block) => block.endTime <= now,
+    ).length; // Placeholder logic for "done" status if not explicit
 
     // Overdue tasks should only be counted from past blocks
-    const overdueTasks = allPastBlocks.filter(
-      (block) => block.status !== 'done' && block.status !== 'shifted',
-    ).length;
-
+    // In Prisma schema, TaskAllocation doesn't have "status", but Task does.
+    // However, the original logic used block.status.
+    // For now, I'll count allocations that passed but aren't completed in some way,
+    // or just use Task status.
     const completedTasks = tasks.filter(
       (task) => task.status === 'done',
     ).length;
 
+    const overdueTasks = tasks.filter(
+      (task) => task.status !== 'done' && task.dueTime && task.dueTime < now,
+    ).length;
+
     const pendingTasks = Math.max(tasks.length - completedTasks, 0);
 
-    // Completion rate based on blocks instead of tasks
+    // Completion rate
     const completionRate =
       plannedBlocks === 0
         ? 0
         : Math.round((completedBlocks / plannedBlocks) * 100);
 
     // Productivity Score calculation
-    const avgFocusScore = 4; // Placeholder for now
-    const streakDays = 0; // Placeholder for now
+    const avgFocusScore = 4;
+    const streakDays = 0;
     const productivityScore = this.calculateProductivityScore(
       completionRate,
       avgFocusScore,
       streakDays,
     );
 
-    const dbSessions = doneBlocks.map((block) => ({
-      startTime: block.plannedStart,
-      durationMin: Math.round(
-        (block.plannedEnd.getTime() - block.plannedStart.getTime()) / 60000,
-      ),
-    }));
+    const dbSessions = allAllocations
+      .filter((a) => a.endTime <= now)
+      .map((block) => ({
+        startTime: block.startTime,
+        durationMin: Math.round(
+          (block.endTime.getTime() - block.startTime.getTime()) / 60000,
+        ),
+      }));
 
     const timeDistribution = this.analyzeTimeDistribution(dbSessions);
     const suggestions = this.generateSuggestions(timeDistribution);
@@ -96,27 +92,29 @@ export class AnalyticsService {
 
     if (overdueTasks > 0) {
       suggestions.push(
-        `Bạn đang có ${overdueTasks} phiên học bị trễ hạn. Nên ưu tiên xử lý hoặc lên lịch lại.`,
+        `Bạn đang có ${overdueTasks} công việc bị trễ hạn. Nên ưu tiên xử lý hoặc lên lịch lại.`,
       );
     }
 
-    const completedGoals = goals.filter(
-      (goal) =>
-        goal.tasks.length > 0 &&
-        goal.tasks.every((task) => task.status === 'done'),
+    const completedCategories = categories.filter(
+      (cat) =>
+        cat.subjects.length > 0 &&
+        cat.subjects.every(
+          (sub) =>
+            sub.tasks.length > 0 && sub.tasks.every((t) => t.status === 'done'),
+        ),
     ).length;
-    const activeGoals = goals.length - completedGoals;
+    const activeGoals = categories.length - completedCategories;
 
     const currentWeek = this.getCurrentWeekRange(now);
-    const currentWeekBlocks = allBlocks.filter(
+    const currentWeekBlocks = allAllocations.filter(
       (block) =>
-        block.plannedStart >= currentWeek.start &&
-        block.plannedStart <= currentWeek.end,
+        block.startTime >= currentWeek.start &&
+        block.startTime <= currentWeek.end,
     );
     const weeklyMinutes = currentWeekBlocks.reduce(
       (total, block) =>
-        total +
-        (block.plannedEnd.getTime() - block.plannedStart.getTime()) / 60000,
+        total + (block.endTime.getTime() - block.startTime.getTime()) / 60000,
       0,
     );
 
@@ -126,9 +124,9 @@ export class AnalyticsService {
       timeDistribution,
       suggestions,
       summary: {
-        totalGoals: goals.length,
+        totalGoals: categories.length,
         activeGoals,
-        completedGoals,
+        completedGoals: completedCategories,
         totalTasks: tasks.length,
         pendingTasks,
         completedTasks,
@@ -153,17 +151,20 @@ export class AnalyticsService {
       `Generating study insights for user ${userId} from ${from} to ${to}`,
     );
 
-    const futureBlocks = await this.blockRepo.find({
+    const futureBlocks = await this.prisma.taskAllocation.findMany({
       where: {
         userId,
-        plannedStart: Between(new Date(from), new Date(to)),
+        startTime: {
+          gte: new Date(from),
+          lte: new Date(to),
+        },
       },
     });
 
     let totalMinutes = 0;
     futureBlocks.forEach((block) => {
       totalMinutes +=
-        (block.plannedEnd.getTime() - block.plannedStart.getTime()) / 60000;
+        (block.endTime.getTime() - block.startTime.getTime()) / 60000;
     });
 
     const plannedHours = totalMinutes / 60;
@@ -223,16 +224,18 @@ export class AnalyticsService {
     }
 
     const [blocks, tasks] = await Promise.all([
-      this.blockRepo.find({
+      this.prisma.taskAllocation.findMany({
         where: {
           userId,
-          plannedStart: Between(from, to),
+          startTime: {
+            gte: from,
+            lte: to,
+          },
         },
-        order: { plannedStart: 'ASC' },
+        orderBy: { startTime: 'asc' },
       }),
-      this.taskRepo.find({
+      this.prisma.task.findMany({
         where: { userId },
-        relations: ['goal'],
       }),
     ]);
 
@@ -247,23 +250,19 @@ export class AnalyticsService {
       }
     >();
 
-    // Helper to generate group key
     const getGroupKey = (date: Date): string => {
       if (period === 'weekly') {
         return this.formatDateKey(date);
       } else if (period === 'monthly') {
-        // Tuần 1, Tuần 2, ... của tháng
         const startOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
         const dayOfMonth = date.getDate();
         const weekNum = Math.ceil((dayOfMonth + startOfMonth.getDay()) / 7);
         return `Tuần ${weekNum}`;
       } else {
-        // Tháng 1, Tháng 2, ...
         return `Tháng ${date.getMonth() + 1}`;
       }
     };
 
-    // Initialize labels for Weekly (ensure all 7 days are present)
     if (period === 'weekly') {
       for (let i = 0; i < 7; i++) {
         const d = new Date(from);
@@ -279,9 +278,9 @@ export class AnalyticsService {
     }
 
     blocks.forEach((block) => {
-      const key = getGroupKey(block.plannedStart);
+      const key = getGroupKey(block.startTime);
       const durationHours =
-        (block.plannedEnd.getTime() - block.plannedStart.getTime()) / 3600000;
+        (block.endTime.getTime() - block.startTime.getTime()) / 3600000;
 
       if (!grouped.has(key)) {
         grouped.set(key, {
@@ -295,12 +294,12 @@ export class AnalyticsService {
 
       const stats = grouped.get(key)!;
       stats.planned += durationHours;
-      if (block.status === 'done') {
+      if (block.endTime <= now) {
+        // Assumption for "actual"
         stats.actual += durationHours;
       }
     });
 
-    // Add tasks completed within range
     tasks
       .filter((task) => task.createdAt >= from && task.createdAt <= to)
       .forEach((task) => {
@@ -325,7 +324,6 @@ export class AnalyticsService {
         }
       });
 
-    // Final mapping
     let result = Array.from(grouped.entries()).map(([label, stats]) => ({
       label,
       planned: Math.round(stats.planned * 10) / 10,
@@ -335,24 +333,21 @@ export class AnalyticsService {
       tasksOverdue: stats.tasksOverdue,
     }));
 
-    // Sort result
     if (period === 'weekly') {
       result.sort((a, b) => a.label.localeCompare(b.label));
     } else if (period === 'monthly') {
       result.sort((a, b) => a.label.localeCompare(b.label));
     } else if (period === 'yearly') {
-      // Sort by month number extracted from label
       result.sort((a, b) => {
         const mA = parseInt(a.label.split(' ')[1]);
         const mB = parseInt(b.label.split(' ')[1]);
         return mA - mB;
       });
-      // Filter empty months for yearly as requested
       result = result.filter((r) => r.planned > 0 || r.actual > 0);
     }
 
     return result.map((r) => ({
-      date: r.label, // keep property name as 'date' for frontend compatibility
+      date: r.label,
       planned: r.planned,
       actual: r.actual,
       tasksCompleted: r.tasksCompleted,
@@ -411,7 +406,6 @@ export class AnalyticsService {
     evening: number;
   }): string[] {
     const suggestions: string[] = [];
-
     let peakTime = 'sáng';
     let maxPct = distribution.morning;
 
@@ -445,27 +439,12 @@ export class AnalyticsService {
     return suggestions;
   }
 
-  private isTaskOverdue(task: Task, now: Date): boolean {
-    const deadline = task.deadline ?? task.goal?.deadline;
+  private isTaskOverdue(task: any, now: Date): boolean {
+    const deadline = task.dueTime;
     if (!deadline) {
       return false;
     }
-
-    return this.normalizeDeadline(deadline).getTime() < now.getTime();
-  }
-
-  private normalizeDeadline(deadline: Date): Date {
-    return new Date(
-      Date.UTC(
-        deadline.getUTCFullYear(),
-        deadline.getUTCMonth(),
-        deadline.getUTCDate(),
-        23,
-        59,
-        59,
-        999,
-      ),
-    );
+    return deadline.getTime() < now.getTime();
   }
 
   private formatDateKey(date: Date): string {

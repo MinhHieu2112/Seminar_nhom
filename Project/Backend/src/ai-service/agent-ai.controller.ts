@@ -58,4 +58,37 @@ export class AgentAiController {
       };
     }
   }
+
+  /**
+   * ai.generate-from-image
+   * Nhận hình ảnh Base64 → AI phân tích
+   * → trả về JSON đã validate bằng Zod để người dùng xem trước
+   */
+  @MessagePattern('ai.generate-from-image')
+  async handleGenerateFromImage(
+    @Payload()
+    payload: {
+      prompt?: string;
+      base64Image: string;
+      mimeType: string;
+    },
+  ) {
+    try {
+      const imageBuffer = Buffer.from(payload.base64Image, 'base64');
+      const result = await this.aiScheduleGenerator.generateFromImage(
+        imageBuffer,
+        payload.mimeType,
+        payload.prompt,
+      );
+      return { success: true, data: result };
+    } catch (error) {
+      return {
+        success: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'AI schedule generation from image failed',
+      };
+    }
+  }
 }

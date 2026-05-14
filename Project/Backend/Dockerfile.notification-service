@@ -26,3 +26,5 @@ COPY --from=builder /app/dist ./dist
 # No TCP port exposed — BullMQ worker only
 
 CMD ["node", "dist/main.notification.js"]
+
+EXPOSE 8002

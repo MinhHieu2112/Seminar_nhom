@@ -34,3 +34,28 @@ export function useUpdateProfile() {
     },
   });
 }
+
+export function useUploadAvatar() {
+  const queryClient = useQueryClient();
+  const setUser = useAuthStore((state) => state.setUser);
+
+  return useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      // We import apiClient inline or at the top if we had to change the top imports, 
+      // but profileApi already uses apiClient inside. So importing it directly is fine.
+      const { apiClient } = await import('@/lib/api-client');
+
+      const response = await apiClient.post('/api/v1/users/avatar', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      return response.data;
+    },
+    onSuccess: (updatedUser: User) => {
+      queryClient.setQueryData(PROFILE_QUERY_KEY, updatedUser);
+      setUser(updatedUser);
+    },
+  });
+}

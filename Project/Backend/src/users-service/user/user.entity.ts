@@ -51,6 +51,51 @@ export class User {
   @Column({ type: 'varchar', nullable: true, length: 2048 })
   avatar!: string | null;
 
+  // ── Facebook OAuth fields ─────────────────────────────────────────────────
+
+  /** Facebook's unique user ID */
+  @Column({ type: 'varchar', nullable: true, unique: true, length: 255 })
+  facebookId!: string | null;
+
+  // ── GitHub OAuth fields ───────────────────────────────────────────────────
+
+  /** GitHub's unique user ID */
+  @Column({ type: 'varchar', nullable: true, unique: true, length: 255 })
+  githubId!: string | null;
+
+  // ── LinkedIn OAuth fields ─────────────────────────────────────────────────
+
+  /** LinkedIn's unique user ID */
+  @Column({ type: 'varchar', nullable: true, unique: true, length: 255 })
+  linkedinId!: string | null;
+
+  @Column({ type: 'varchar', nullable: true, length: 100 })
+  country!: string | null;
+
+  @Column({ type: 'varchar', nullable: true, length: 100 })
+  city!: string | null;
+
+  @Column({ type: 'varchar', nullable: true, length: 20 })
+  postalCode!: string | null;
+
+  @Column({ type: 'varchar', nullable: true, length: 100 })
+  firstName!: string | null;
+
+  @Column({ type: 'varchar', nullable: true, length: 100 })
+  lastName!: string | null;
+
+  @Column({ type: 'date', nullable: true })
+  dob!: string | null;
+
+  @Column({ type: 'varchar', nullable: true, length: 20 })
+  phone!: string | null;
+
+  @Column({ type: 'varchar', nullable: true, length: 2048 })
+  coverPhoto!: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  bio!: string | null;
+
   @CreateDateColumn()
   createdAt!: Date;
 

@@ -6,7 +6,7 @@ import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
 import { User, UserRole } from '../user/user.entity';
-import { RegisterDto, LoginDto, GoogleLoginDto } from '../dto';
+import { RegisterDto, LoginDto, GoogleLoginDto, FacebookLoginDto, GithubLoginDto, LinkedinLoginDto } from '../dto';
 import { TokenService } from './token.service';
 
 export interface JwtPayload {
@@ -46,6 +46,8 @@ export class AuthService {
     const user = this.userRepo.create({
       email: dto.email,
       password: hashedPassword,
+      firstName: dto.firstName,
+      lastName: dto.lastName,
       role: UserRole.CLIENT,
     });
     await this.userRepo.save(user);
@@ -101,48 +103,62 @@ export class AuthService {
   }
 
   /**
-   * Đăng nhập / đăng ký qua Google OAuth.
-   * - Tìm user theo googleId → login ngay nếu tìm thấy.
-   * - Tìm theo email → link googleId + cập nhật profile rồi login.
-   * - Không tìm thấy → tạo user mới (không cần password).
+   * Phương thức chung cho Social Login (Google, Facebook, v.v.)
    */
-  async googleLogin(dto: GoogleLoginDto): Promise<AuthResult> {
-    // 1. Tìm theo googleId (đã từng đăng nhập Google)
+  private async socialLogin(
+    profile: {
+      id: string;
+      email: string;
+      name?: string | null;
+      avatar?: string | null;
+    },
+    provider: 'google' | 'facebook' | 'github' | 'linkedin',
+  ): Promise<AuthResult> {
+    const idField =
+      provider === 'google'
+        ? 'googleId'
+        : provider === 'facebook'
+          ? 'facebookId'
+          : provider === 'github'
+            ? 'githubId'
+            : 'linkedinId';
+
+    // 1. Tìm theo Provider ID
     let user = await this.userRepo.findOne({
-      where: { googleId: dto.googleId },
+      where: { [idField]: profile.id },
     });
 
     if (!user) {
-      // 2. Tìm theo email (đã đăng ký bằng email/password trước đó)
-      user = await this.userRepo.findOne({ where: { email: dto.email } });
+      // 2. Tìm theo email
+      user = await this.userRepo.findOne({ where: { email: profile.email } });
 
       if (user) {
-        // Link tài khoản Google vào tài khoản email hiện có
-        user.googleId = dto.googleId;
-        if (dto.name && !user.name) user.name = dto.name;
-        if (dto.avatar && !user.avatar) user.avatar = dto.avatar;
+        // Link tài khoản
+        user[idField] = profile.id;
+        if (profile.name && !user.name) user.name = profile.name;
+        if (profile.avatar && !user.avatar) user.avatar = profile.avatar;
         await this.userRepo.save(user);
       } else {
-        // 3. Tạo user mới từ Google
+        // 3. Tạo user mới
         user = this.userRepo.create({
-          email: dto.email,
+          email: profile.email,
           password: null,
-          googleId: dto.googleId,
-          name: dto.name ?? null,
-          avatar: dto.avatar ?? null,
+          [idField]: profile.id,
+          name: profile.name ?? null,
+          avatar: profile.avatar ?? null,
           role: UserRole.CLIENT,
         });
         await this.userRepo.save(user);
       }
     } else {
-      // Đã có googleId — cập nhật avatar/name nếu thay đổi
+      // Cập nhật profile nếu thay đổi
       let changed = false;
-      if (dto.name && user.name !== dto.name) {
-        user.name = dto.name;
+      if (profile.name && user.name !== profile.name) {
+        user.name = profile.name;
         changed = true;
       }
-      if (dto.avatar && user.avatar !== dto.avatar) {
-        user.avatar = dto.avatar;
+      if (profile.avatar && user.avatar !== profile.avatar) {
+        user.avatar = profile.avatar;
         changed = true;
       }
       if (changed) await this.userRepo.save(user);
@@ -159,6 +175,54 @@ export class AuthService {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password: _p, ...userWithoutPassword } = user;
     return { accessToken, refreshToken, user: userWithoutPassword };
+  }
+
+  async googleLogin(dto: GoogleLoginDto): Promise<AuthResult> {
+    return this.socialLogin(
+      {
+        id: dto.googleId,
+        email: dto.email,
+        name: dto.name,
+        avatar: dto.avatar,
+      },
+      'google',
+    );
+  }
+
+  async facebookLogin(dto: FacebookLoginDto): Promise<AuthResult> {
+    return this.socialLogin(
+      {
+        id: dto.facebookId,
+        email: dto.email,
+        name: dto.name,
+        avatar: dto.avatar,
+      },
+      'facebook',
+    );
+  }
+
+  async githubLogin(dto: GithubLoginDto): Promise<AuthResult> {
+    return this.socialLogin(
+      {
+        id: dto.githubId,
+        email: dto.email,
+        name: dto.name,
+        avatar: dto.avatar,
+      },
+      'github',
+    );
+  }
+
+  async linkedinLogin(dto: LinkedinLoginDto): Promise<AuthResult> {
+    return this.socialLogin(
+      {
+        id: dto.linkedinId,
+        email: dto.email,
+        name: dto.name,
+        avatar: dto.avatar,
+      },
+      'linkedin',
+    );
   }
 
   async refresh(

@@ -1,60 +1,86 @@
 'use client';
 
-import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import Link from 'next/link';
 import {
   Calendar,
   Target,
-  BarChart2,
-  Users,
+  ChartBar,
   Plus,
-} from 'lucide-react';
+  CaretLeft,
+  CaretRight,
+  DotsThreeVertical,
+} from '@phosphor-icons/react';
 import { useAuthStore } from '@/lib/auth-store';
+import { useUIStore } from '@/lib/ui-store';
 
 export function Sidebar() {
   const pathname = usePathname();
   const { user } = useAuthStore();
+  const { isSidebarCollapsed, toggleSidebar } = useUIStore();
 
   const personalItems = [
-    { href: '/scheduler/schedule', label: 'Lịch của tôi', icon: Calendar },
-    { href: '/scheduler/goals', label: 'Mục tiêu cá nhân', icon: Target },
-    { href: '/scheduler/analytics', label: 'Phân tích', icon: BarChart2 },
+    { href: '/scheduler', label: 'Lịch của tôi', icon: Calendar, color: 'text-blue-500' },
+    { href: '/scheduler/goals', label: 'Task', icon: Target, color: 'text-blue-400' },
+    { href: '/scheduler/analytics', label: 'Phân tích', icon: ChartBar, color: 'text-gray-400' },
   ];
 
   const adminItems = [
-    { href: '/admin/users', label: 'Quản trị người dùng', icon: Users, roles: ['admin'] },
+    { href: '/admin/users', label: 'Quản trị người dùng', icon: DotsThreeVertical, roles: ['admin'] },
   ];
 
   const isAdmin = user?.role === 'admin';
 
   return (
-    <aside className="fixed left-0 top-14 z-40 h-[calc(100vh-3.5rem)] w-60 overflow-y-auto border-r border-gray-200 bg-[#fbfbfa]">
-      <div className="flex flex-col gap-6 p-4 h-full">
+    <aside
+      className={`fixed left-0 top-0 z-40 h-screen transition-all duration-300 ease-in-out border-r border-gray-100 bg-[#fbfbfa] flex flex-col ${isSidebarCollapsed ? 'w-20' : 'w-64'
+        }`}
+    >
+      {/* Toggle Button */}
+      <div className={`p-6 flex items-center justify-between`}>
+        {!isSidebarCollapsed && (
+          <div className="flex items-center gap-2 font-black text-gray-900 tracking-tighter text-xl">
+            StudyPlan
+          </div>
+        )}
+        <button
+          onClick={toggleSidebar}
+          className="p-2 hover:bg-gray-100 rounded-xl text-gray-400 transition-colors mx-auto"
+        >
+          {isSidebarCollapsed ? <CaretRight weight="bold" size={20} /> : <CaretLeft weight="bold" size={20} />}
+        </button>
+      </div>
+
+      <div className="flex flex-col gap-8 p-4 flex-1 overflow-y-auto">
         {/* Cá nhân */}
         <div>
-          <div className="group flex items-center justify-between px-2 py-1 mb-1">
-            <h3 className="text-xs font-semibold text-gray-500 hover:text-gray-700 transition-colors cursor-default">Cá nhân</h3>
-            <button className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-gray-600 transition-opacity">
-              <Plus className="h-4 w-4" />
-            </button>
-          </div>
-          <nav className="space-y-0.5">
+          {!isSidebarCollapsed && (
+            <h3 className="px-4 py-2 text-[11px] font-black text-gray-400 uppercase tracking-widest">Cá nhân</h3>
+          )}
+          <nav className="space-y-1 mt-2">
             {personalItems.map((item) => {
               const Icon = item.icon;
-              const isActive = pathname.startsWith(item.href);
+              const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
 
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center gap-3 rounded-md px-2 py-1.5 text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-gray-200/50 text-gray-900'
-                      : 'text-gray-600 hover:bg-gray-200/50 hover:text-gray-900'
-                  }`}
+                  className={`flex items-center gap-3 rounded-2xl px-4 py-3 transition-all duration-200 group ${isActive
+                    ? 'bg-blue-50 text-blue-600 shadow-sm'
+                    : 'text-gray-600 hover:bg-gray-50'
+                    } ${isSidebarCollapsed ? 'justify-center px-0' : ''}`}
                 >
-                  <Icon className={`h-4 w-4 ${isActive ? 'text-gray-900' : 'text-gray-400'}`} />
-                  {item.label}
+                  <Icon
+                    weight={isActive ? "fill" : "bold"}
+                    size={22}
+                    className={`${isActive ? 'text-blue-500' : item.color} transition-transform group-hover:scale-110`}
+                  />
+                  {!isSidebarCollapsed && (
+                    <span className={`text-[15px] font-bold ${isActive ? 'text-blue-600' : 'text-gray-600'}`}>
+                      {item.label}
+                    </span>
+                  )}
                 </Link>
               );
             })}
@@ -63,27 +89,29 @@ export function Sidebar() {
 
         {/* Teamwork */}
         <div>
-          <div className="group flex items-center justify-between px-2 py-1 mb-1">
-            <h3 className="text-xs font-semibold text-gray-500 hover:text-gray-700 transition-colors cursor-default">Teamwork</h3>
-            <button className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-gray-600 transition-opacity">
-              <Plus className="h-4 w-4" />
-            </button>
-          </div>
-          <nav className="space-y-0.5">
-            <button className="w-full flex items-center gap-3 rounded-md px-2 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-200/50 hover:text-gray-900 transition-colors text-left">
-              <Plus className="h-4 w-4 text-gray-400" />
-              <span>Bắt đầu cộng tác</span>
+          {!isSidebarCollapsed && (
+            <h3 className="px-4 py-2 text-[11px] font-black text-gray-400 uppercase tracking-widest">Teamwork</h3>
+          )}
+          <nav className="space-y-1 mt-2">
+            <button
+              className={`w-full flex items-center gap-3 rounded-2xl px-4 py-3 text-gray-600 hover:bg-gray-50 transition-all group ${isSidebarCollapsed ? 'justify-center px-0' : ''
+                }`}
+            >
+              <Plus weight="bold" size={22} className="text-gray-400 group-hover:scale-110 transition-transform" />
+              {!isSidebarCollapsed && (
+                <span className="text-[15px] font-bold text-gray-600">Bắt đầu cộng tác</span>
+              )}
             </button>
           </nav>
         </div>
 
-        {/* Admin */}
+        {/* Admin Section */}
         {isAdmin && (
           <div>
-            <div className="group flex items-center justify-between px-2 py-1 mb-1">
-              <h3 className="text-xs font-semibold text-gray-500 hover:text-gray-700 transition-colors cursor-default">Quản trị</h3>
-            </div>
-            <nav className="space-y-0.5">
+            {!isSidebarCollapsed && (
+              <h3 className="px-4 py-2 text-[11px] font-black text-gray-400 uppercase tracking-widest">Quản trị</h3>
+            )}
+            <nav className="space-y-1 mt-2">
               {adminItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = pathname.startsWith(item.href);
@@ -92,27 +120,35 @@ export function Sidebar() {
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={`flex items-center gap-3 rounded-md px-2 py-1.5 text-sm font-medium transition-colors ${
-                      isActive
-                        ? 'bg-gray-200/50 text-gray-900'
-                        : 'text-gray-600 hover:bg-gray-200/50 hover:text-gray-900'
-                    }`}
+                    className={`flex items-center gap-3 rounded-2xl px-4 py-3 transition-all ${isActive
+                      ? 'bg-purple-50 text-purple-600 shadow-sm'
+                      : 'text-gray-600 hover:bg-gray-50'
+                      } ${isSidebarCollapsed ? 'justify-center px-0' : ''}`}
                   >
-                    <Icon className={`h-4 w-4 ${isActive ? 'text-gray-900' : 'text-gray-400'}`} />
-                    {item.label}
+                    <Icon weight={isActive ? "fill" : "bold"} size={22} className={isActive ? 'text-purple-500' : 'text-gray-400'} />
+                    {!isSidebarCollapsed && (
+                      <span className={`text-[15px] font-bold ${isActive ? 'text-purple-600' : 'text-gray-600'}`}>
+                        {item.label}
+                      </span>
+                    )}
                   </Link>
                 );
               })}
             </nav>
           </div>
         )}
+      </div>
 
-        {/* Footer */}
-        <div className="mt-auto pt-4">
-          <p className="text-xs text-gray-400 text-center">
+      {/* Footer */}
+      <div className={`p-6 mt-auto flex flex-col items-center gap-4 ${isSidebarCollapsed ? 'px-0' : ''}`}>
+        <div className="w-10 h-10 rounded-full bg-gray-900 flex items-center justify-center text-white font-bold shadow-lg">
+          N
+        </div>
+        {!isSidebarCollapsed && (
+          <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest">
             © 2026 StudyPlan
           </p>
-        </div>
+        )}
       </div>
     </aside>
   );

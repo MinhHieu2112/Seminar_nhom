@@ -1,32 +1,20 @@
 import { NestFactory } from '@nestjs/core';
-import { Transport, MicroserviceOptions } from '@nestjs/microservices';
 import { ValidationPipe } from '@nestjs/common';
 import { SchedulerModule } from './scheduler-service/scheduler.module';
 
 async function bootstrap() {
-  const app = await NestFactory.createMicroservice<MicroserviceOptions>(
-    SchedulerModule,
-    {
-      transport: Transport.TCP,
-      options: {
-        host: '0.0.0.0',
-        port: parseInt(process.env.TCP_PORT || '8003', 10),
-      },
-    },
-  );
+  const app = await NestFactory.create(SchedulerModule);
 
-  // Enable validation for microservice DTOs
   app.useGlobalPipes(
     new ValidationPipe({
       transform: true,
       whitelist: true,
-      forbidNonWhitelisted: false,
+      forbidNonWhitelisted: true,
     }),
   );
 
-  await app.listen();
-  console.log(
-    `Scheduler Service (TCP) listening on 0.0.0.0:${process.env.TCP_PORT || '8003'}`,
-  );
+  const port = process.env.HTTP_PORT || 8003;
+  await app.listen(port, '0.0.0.0');
+  console.log(`Scheduler Service (HTTP) listening on 0.0.0.0:${port}`);
 }
 bootstrap();

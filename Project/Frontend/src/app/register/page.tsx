@@ -1,5 +1,4 @@
-import { RegisterForm } from '@/components/auth/RegisterForm';
-import { AuthLayout } from '@/components/auth/AuthLayout';
+import { AuthSlidingForm } from '@/components/auth/AuthSlidingForm';
 
 export const metadata = {
   title: 'Đăng ký | StudyPlan',
@@ -8,8 +7,6 @@ export const metadata = {
 
 export default function RegisterPage() {
   return (
-    <AuthLayout>
-      <RegisterForm />
-    </AuthLayout>
+    <AuthSlidingForm initialMode="register" />
   );
 }

@@ -1,0 +1,11 @@
+Lucide quá phổ biến hoặc trông hơi "mảnh", bạn có thể thử các bộ icon cao cấp sau để nâng tầm giao diện:
+
+Phosphor Icons (Duo-tone): Đây là bộ icon cực kỳ trendy hiện nay. Chế độ Duotone (2 tông màu) sẽ giúp Dashboard của bạn nhìn có chiều sâu và sang trọng hơn hẳn. Nó rất hợp với các card màu pastel bạn đang dùng.
+
+Để giao diện nhìn đẳng cấp hơn, bạn có thể áp dụng thêm vài chi tiết nhỏ này:
+
+Glassmorphism: Thêm một chút hiệu ứng làm mờ (backdrop-blur) cho Sidebar hoặc các Card để tạo cảm giác cao cấp.
+
+Shadow: Thay vì dùng viền (border), hãy dùng đổ bóng (shadow) cực nhẹ và mịn để các card nổi bật trên nền trắng.
+
+Đồng bộ hóa màu sắc: Đảm bảo màu của icon trong các card trùng với màu chủ đạo của card đó (ví dụ icon mục tiêu màu cam đậm trên nền card màu cam nhạt).

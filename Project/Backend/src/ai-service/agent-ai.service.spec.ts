@@ -1,8 +1,6 @@
 /* eslint-disable @typescript-eslint/no-floating-promises */
 import { Test, TestingModule } from '@nestjs/testing';
 import { AgentAiService } from './agent-ai.service';
-import { describe, beforeEach, it } from 'node:test';
-
 describe('AgentAiService', () => {
   let service: AgentAiService;
 
@@ -18,6 +16,3 @@ describe('AgentAiService', () => {
     expect(service).toBeDefined();
   });
 });
-function expect(service: AgentAiService) {
-  throw new Error('Function not implemented.');
-}

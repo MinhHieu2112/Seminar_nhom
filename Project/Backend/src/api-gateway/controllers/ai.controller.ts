@@ -28,7 +28,7 @@ export class AiGatewayController {
   constructor(
     private readonly tcpClient: TcpClientService,
     private readonly jwtService: JwtService,
-  ) {}
+  ) { }
 
   @Post('normalize')
   @UseInterceptors(FileInterceptor('file'))
@@ -198,6 +198,42 @@ export class AiGatewayController {
     if (!result.success) {
       throw new BadRequestException(
         result.message || 'AI không thể phân tích yêu cầu của bạn.',
+      );
+    }
+
+    return result;
+  }
+
+  /**
+   * POST /api/v1/ai/generate-from-image
+   * Nhận hình ảnh → AI phân tích → trả về JSON để người dùng xem trước
+   */
+  @Post('generate-from-image')
+  @UseInterceptors(FileInterceptor('image'))
+  @HttpCode(HttpStatus.OK)
+  async generateFromImage(
+    @Headers('authorization') authHeader: string,
+    @Body() body: { prompt?: string },
+    @UploadedFile() file?: any,
+  ) {
+    const userId = extractUserId(authHeader, this.jwtService);
+
+    if (!file) {
+      throw new BadRequestException('Image file is required.');
+    }
+
+    const base64Image = file.buffer.toString('base64');
+
+    const result: any = await safeSend(
+      this.tcpClient,
+      'ai-service',
+      'ai.generate-from-image',
+      { prompt: body.prompt, userId, base64Image, mimeType: file.mimetype },
+    );
+
+    if (!result.success) {
+      throw new BadRequestException(
+        result.message || 'AI không thể phân tích hình ảnh của bạn.',
       );
     }
 

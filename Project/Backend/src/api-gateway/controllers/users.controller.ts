@@ -7,16 +7,23 @@ import {
   Headers,
   HttpCode,
   HttpStatus,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
+import 'multer';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { TcpClientService } from '../tcp-client.service';
 import { JwtService } from '@nestjs/jwt';
 import { safeSend, extractUserId } from '../gateway.utils';
+import { CloudinaryService } from '../cloudinary.service';
 
 @Controller('api/v1/users')
 export class UsersGatewayController {
   constructor(
     private readonly tcpClient: TcpClientService,
     private readonly jwtService: JwtService,
+    private readonly cloudinaryService: CloudinaryService,
   ) {}
 
   @Get('me')
@@ -36,6 +43,26 @@ export class UsersGatewayController {
     return safeSend(this.tcpClient, 'user-service', 'user.profile.update', {
       userId,
       ...dto,
+    });
+  }
+
+  @Post('avatar')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadAvatar(
+    @Headers('authorization') authHeader: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    const userId = extractUserId(authHeader, this.jwtService);
+    if (!file) {
+      throw new BadRequestException('No file provided');
+    }
+    
+    const result = await this.cloudinaryService.uploadImage(file);
+    const avatar = result.secure_url;
+    
+    return safeSend(this.tcpClient, 'user-service', 'user.profile.update', {
+      userId,
+      avatar,
     });
   }
 

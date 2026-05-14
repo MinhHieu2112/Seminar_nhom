@@ -1,7 +1,11 @@
 import axios, { type InternalAxiosRequestConfig } from 'axios';
 import Cookies from 'js-cookie';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
+// NEXT_PUBLIC_API_URL may include /api/v1 suffix (e.g. http://localhost:8000/api/v1).
+// We only need the origin so that our path-level calls (which already include /api/v1/...)
+// are not doubled. Strip any trailing /api/v1 suffix.
+const rawUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+const API_BASE_URL = rawUrl.replace(/\/api\/v1\/?$/, '');
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -9,22 +13,34 @@ export const apiClient = axios.create({
   withCredentials: true,
 });
 
+
 // --- Token storage ---
 let isRefreshing = false;
 let refreshSubscribers: Array<(token: string) => void> = [];
 
-// Get token from localStorage (sync with auth store)
+/**
+ * Read access token from localStorage (Zustand persist — single source of truth).
+ */
 function getStoredToken(): string | null {
   if (typeof window === 'undefined') return null;
   try {
-    const authStorage = localStorage.getItem('auth-storage');
-    if (authStorage) {
-      const parsed = JSON.parse(authStorage);
-      return parsed.state?.accessToken || null;
-    }
-  } catch {
-    // ignore parse errors
-  }
+    const raw = localStorage.getItem('auth-storage');
+    if (raw) return JSON.parse(raw).state?.accessToken || null;
+  } catch { /* ignore */ }
+  return null;
+}
+
+/**
+ * Read refresh token from localStorage (Zustand persist — single source of truth).
+ * This is the only reliable place; the cookie can go stale after tab reload or
+ * failed rotations, which is exactly the cause of "Refresh token mismatch".
+ */
+function getStoredRefreshToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem('auth-storage');
+    if (raw) return JSON.parse(raw).state?.refreshToken || null;
+  } catch { /* ignore */ }
   return null;
 }
 
@@ -33,29 +49,50 @@ export function getAccessToken(): string | null {
   return getStoredToken();
 }
 
-export function setAccessToken(token: string) {
-  // Token is managed by auth store, this is just for compatibility
-  console.log('Token set:', token);
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function setAccessToken(_token: string) {
+  // Token is managed by Zustand persist — kept for interface compatibility.
 }
 
 export function clearAuth() {
   Cookies.remove('refreshToken');
+  if (typeof window !== 'undefined') {
+    try {
+      const raw = localStorage.getItem('auth-storage');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        parsed.state.accessToken = null;
+        parsed.state.refreshToken = null;
+        parsed.state.isAuthenticated = false;
+        parsed.state.user = null;
+        localStorage.setItem('auth-storage', JSON.stringify(parsed));
+      }
+    } catch { /* ignore */ }
+  }
 }
 
-// Update auth store with new token
+/**
+ * Write both tokens back after a successful rotation so that
+ * localStorage (Zustand persist) and the cookie stay in sync.
+ */
 function updateAuthStore(accessToken: string, refreshToken: string) {
   if (typeof window === 'undefined') return;
   try {
-    const authStorage = localStorage.getItem('auth-storage');
-    if (authStorage) {
-      const parsed = JSON.parse(authStorage);
+    const raw = localStorage.getItem('auth-storage');
+    if (raw) {
+      const parsed = JSON.parse(raw);
       parsed.state.accessToken = accessToken;
       parsed.state.refreshToken = refreshToken;
       localStorage.setItem('auth-storage', JSON.stringify(parsed));
     }
-  } catch {
-    // ignore errors
-  }
+  } catch { /* ignore */ }
+  // Keep cookie in sync as a secondary fallback
+  Cookies.set('refreshToken', refreshToken, {
+    httpOnly: false,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    expires: 7,
+  });
 }
 
 function subscribeTokenRefresh(callback: (token: string) => void) {
@@ -63,11 +100,11 @@ function subscribeTokenRefresh(callback: (token: string) => void) {
 }
 
 function onTokenRefreshed(newToken: string) {
-  refreshSubscribers.forEach((callback) => callback(newToken));
+  refreshSubscribers.forEach((cb) => cb(newToken));
   refreshSubscribers = [];
 }
 
-// Request interceptor — attach access token
+// ── Request interceptor — attach access token ──────────────────────────────────
 apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = getAccessToken();
   if (token && config.headers) {
@@ -76,7 +113,7 @@ apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   return config;
 });
 
-// Response interceptor — auto refresh on 401
+// ── Response interceptor — auto-refresh on 401 ────────────────────────────────
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -85,7 +122,7 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 
-      // If already refreshing, queue this request
+      // If a refresh is already in-flight, queue this request behind it
       if (isRefreshing) {
         return new Promise((resolve) => {
           subscribeTokenRefresh((newToken: string) => {
@@ -100,28 +137,21 @@ apiClient.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const refreshToken = Cookies.get('refreshToken');
-        if (!refreshToken) {
-          throw new Error('No refresh token');
-        }
+        // Always read from localStorage — never from cookie — to avoid mismatch
+        const refreshToken = getStoredRefreshToken();
+        if (!refreshToken) throw new Error('No refresh token');
 
-        const { data } = await axios.post(`${API_BASE_URL}/auth/refresh`, {
+        const { data } = await axios.post(`${API_BASE_URL}/api/v1/auth/refresh`, {
           refreshToken,
         });
 
-        // Update auth store and cookie
+        // Write rotated tokens back to localStorage + cookie atomically
         updateAuthStore(data.accessToken, data.refreshToken);
-        Cookies.set('refreshToken', data.refreshToken, {
-          httpOnly: false,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax',
-          expires: 7,
-        });
 
-        // Notify all queued requests
+        // Unblock queued requests
         onTokenRefreshed(data.accessToken);
 
-        // Retry original request
+        // Retry the original failed request
         if (originalRequest.headers) {
           originalRequest.headers.Authorization = `Bearer ${data.accessToken}`;
         }

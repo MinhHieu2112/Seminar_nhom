@@ -16,6 +16,9 @@ import { TcpClientService } from '../tcp-client.service';
 import { JwtService } from '@nestjs/jwt';
 import { safeSend, extractUserId } from '../gateway.utils';
 import type { GoogleProfile } from '../strategies/google.strategy';
+import type { FacebookProfile } from '../strategies/facebook.strategy';
+import type { GithubProfile } from '../strategies/github.strategy';
+import type { LinkedinProfile } from '../strategies/linkedin.strategy';
 
 @Controller('api/v1/auth')
 export class AuthGatewayController {
@@ -127,6 +130,128 @@ export class AuthGatewayController {
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Google login failed';
+      return res.redirect(
+        `${frontendUrl}/login?error=${encodeURIComponent(message)}`,
+      );
+    }
+  }
+
+  // ── Facebook OAuth ──────────────────────────────────────────────────────────
+
+  /**
+   * Redirect người dùng đến Facebook login screen.
+   */
+  @Get('facebook')
+  @UseGuards(AuthGuard('facebook'))
+  facebookAuth() {
+    // Passport handles the redirect
+  }
+
+  /**
+   * Facebook redirect về đây sau khi người dùng đồng ý.
+   */
+  @Get('facebook/callback')
+  @UseGuards(AuthGuard('facebook'))
+  async facebookCallback(
+    @Req() req: Request & { user: FacebookProfile },
+    @Res() res: Response,
+  ) {
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+
+    try {
+      const result = await safeSend<{
+        accessToken: string;
+        refreshToken: string;
+        user: Record<string, unknown>;
+      }>(this.tcpClient, 'user-service', 'user.facebook.login', req.user);
+
+      const userEncoded = encodeURIComponent(JSON.stringify(result.user));
+
+      return res.redirect(
+        `${frontendUrl}/auth/callback` +
+          `?accessToken=${encodeURIComponent(result.accessToken)}` +
+          `&refreshToken=${encodeURIComponent(result.refreshToken)}` +
+          `&user=${userEncoded}`,
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Facebook login failed';
+      return res.redirect(
+        `${frontendUrl}/login?error=${encodeURIComponent(message)}`,
+      );
+    }
+  }
+
+  // ── GitHub OAuth ────────────────────────────────────────────────────────────
+
+  @Get('github')
+  @UseGuards(AuthGuard('github'))
+  githubAuth() {
+    // Passport handles the redirect
+  }
+
+  @Get('github/callback')
+  @UseGuards(AuthGuard('github'))
+  async githubCallback(
+    @Req() req: Request & { user: GithubProfile },
+    @Res() res: Response,
+  ) {
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    try {
+      const result = await safeSend<{
+        accessToken: string;
+        refreshToken: string;
+        user: Record<string, unknown>;
+      }>(this.tcpClient, 'user-service', 'user.github.login', req.user);
+
+      const userEncoded = encodeURIComponent(JSON.stringify(result.user));
+      return res.redirect(
+        `${frontendUrl}/auth/callback` +
+          `?accessToken=${encodeURIComponent(result.accessToken)}` +
+          `&refreshToken=${encodeURIComponent(result.refreshToken)}` +
+          `&user=${userEncoded}`,
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'GitHub login failed';
+      return res.redirect(
+        `${frontendUrl}/login?error=${encodeURIComponent(message)}`,
+      );
+    }
+  }
+
+  // ── LinkedIn OAuth ──────────────────────────────────────────────────────────
+
+  @Get('linkedin')
+  @UseGuards(AuthGuard('linkedin'))
+  linkedinAuth() {
+    // Passport handles the redirect
+  }
+
+  @Get('linkedin/callback')
+  @UseGuards(AuthGuard('linkedin'))
+  async linkedinCallback(
+    @Req() req: Request & { user: LinkedinProfile },
+    @Res() res: Response,
+  ) {
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    try {
+      const result = await safeSend<{
+        accessToken: string;
+        refreshToken: string;
+        user: Record<string, unknown>;
+      }>(this.tcpClient, 'user-service', 'user.linkedin.login', req.user);
+
+      const userEncoded = encodeURIComponent(JSON.stringify(result.user));
+      return res.redirect(
+        `${frontendUrl}/auth/callback` +
+          `?accessToken=${encodeURIComponent(result.accessToken)}` +
+          `&refreshToken=${encodeURIComponent(result.refreshToken)}` +
+          `&user=${userEncoded}`,
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'LinkedIn login failed';
       return res.redirect(
         `${frontendUrl}/login?error=${encodeURIComponent(message)}`,
       );

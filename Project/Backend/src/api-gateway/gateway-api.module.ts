@@ -7,27 +7,41 @@ import { AuthGatewayController } from './controllers/auth.controller';
 import { UsersGatewayController } from './controllers/users.controller';
 import { AdminGatewayController } from './controllers/admin.controller';
 import { SchedulerGatewayController } from './controllers/scheduler.controller';
-import { CalendarGatewayController } from './controllers/calendar.controller';
 import { AiGatewayController } from './controllers/ai.controller';
 import { AnalyticsGatewayController } from './controllers/analytics.controller';
 import { GoogleStrategy } from './strategies/google.strategy';
+import { FacebookStrategy } from './strategies/facebook.strategy';
+import { GithubStrategy } from './strategies/github.strategy';
+import { LinkedinStrategy } from './strategies/linkedin.strategy';
+import { CloudinaryService } from './cloudinary.service';
+
+import { HttpModule } from '@nestjs/axios';
+import { HttpClientService } from './http-client.service';
 
 @Module({
   imports: [
     ConfigModule.forRoot(),
     JwtModule.register({}),
     PassportModule.register({ defaultStrategy: 'google' }),
+    HttpModule,
   ],
   controllers: [
     AuthGatewayController,
     UsersGatewayController,
     AdminGatewayController,
     SchedulerGatewayController,
-    CalendarGatewayController,
     AiGatewayController,
     AnalyticsGatewayController,
   ],
-  providers: [TcpClientService, GoogleStrategy],
-  exports: [TcpClientService],
+  providers: [
+    TcpClientService,
+    HttpClientService,
+    GoogleStrategy,
+    FacebookStrategy,
+    GithubStrategy,
+    LinkedinStrategy,
+    CloudinaryService,
+  ],
+  exports: [TcpClientService, HttpClientService],
 })
 export class GatewayApiModule {}

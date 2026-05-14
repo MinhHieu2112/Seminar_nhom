@@ -8,6 +8,8 @@ export const registerSchema = z.object({
     .min(8, 'Password must be at least 8 characters')
     .max(128, 'Password must be at most 128 characters'),
   confirmPassword: z.string(),
+  firstName: z.string().min(1, 'Họ là bắt buộc').max(100),
+  lastName: z.string().min(1, 'Tên là bắt buộc').max(100),
 }).refine((data) => data.password === data.confirmPassword, {
   message: 'Passwords do not match',
   path: ['confirmPassword'],
@@ -21,6 +23,15 @@ export const loginSchema = z.object({
 // --- Profile Schema ---
 export const updateProfileSchema = z.object({
   timezone: z.string().max(255).optional(),
+  country: z.string().max(100).optional(),
+  city: z.string().max(100).optional(),
+  postalCode: z.string().max(20).optional(),
+  firstName: z.string().max(100).optional(),
+  lastName: z.string().max(100).optional(),
+  dob: z.string().optional(),
+  phone: z.string().max(20).optional(),
+  coverPhoto: z.string().max(2048).optional(),
+  bio: z.string().max(10000).optional(),
 });
 
 // --- Password Schemas ---

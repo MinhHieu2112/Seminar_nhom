@@ -15,7 +15,7 @@ export default function HomePage() {
   const carouselItems = [...features, ...features];
 
   return (
-    <div className="min-h-screen bg-white flex flex-col font-sans text-gray-800 selection:bg-green-100">
+    <div className="min-h-screen bg-white flex flex-col font-sans text-gray-800 selection:bg-blue-100">
       <style>{`
         @keyframes slide {
           0% { transform: translateX(0); }
@@ -29,8 +29,8 @@ export default function HomePage() {
         .carousel-track:hover {
           animation-play-state: paused;
         }
-        .green-gradient-text {
-          background: linear-gradient(to right, #2e7d32, #4caf50);
+        .blue-gradient-text {
+          background: linear-gradient(to right, #6ba8e5, #88BDF2);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
         }
@@ -39,21 +39,18 @@ export default function HomePage() {
       {/* Header */}
       <header className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-white/80 backdrop-blur-md sticky top-0 z-50">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-[#4caf50] flex items-center justify-center text-white font-bold text-lg shadow-sm">
-            S
-          </div>
           <span className="font-bold text-gray-900 text-xl tracking-tight">StudyPlan</span>
         </div>
         <div className="flex items-center gap-4">
           <Link
             href="/login"
-            className="text-sm font-semibold text-gray-600 hover:text-[#4caf50] transition-colors"
+            className="text-sm font-semibold text-gray-600 hover:text-[#88BDF2] transition-colors"
           >
             Đăng nhập
           </Link>
           <Link
             href="/register"
-            className="text-sm font-semibold bg-[#4caf50] text-white px-5 py-2.5 rounded-lg hover:bg-[#43a047] transition-all shadow-md shadow-green-200"
+            className="text-sm font-semibold bg-[#88BDF2] text-white px-5 py-2.5 rounded-lg hover:bg-[#6ba8e5] transition-all shadow-md shadow-blue-200"
           >
             Bắt đầu ngay
           </Link>
@@ -64,14 +61,14 @@ export default function HomePage() {
       <main className="flex-1 flex flex-col overflow-hidden">
         {/* Hero Section */}
         <section className="flex flex-col items-center justify-center px-4 text-center py-20 sm:py-28">
-          <div className="inline-flex items-center gap-2 bg-[#e8f5e9] text-[#2e7d32] text-xs font-bold px-3 py-1.5 rounded-full mb-8 border border-[#c8e6c9]">
-            <span className="w-2 h-2 rounded-full bg-[#4caf50] animate-pulse" />
+          <div className="inline-flex items-center gap-2 bg-[#BDDDFC] text-[#6ba8e5] text-xs font-bold px-3 py-1.5 rounded-full mb-8 border border-[#BDDDFC]">
+            <span className="w-2 h-2 rounded-full bg-[#88BDF2] animate-pulse" />
             AI-Powered Study Planning
           </div>
 
           <h1 className="text-5xl sm:text-7xl font-extrabold text-gray-900 leading-tight max-w-4xl mb-6 tracking-tight">
             Lên kế hoạch thông minh,<br/>
-            <span className="green-gradient-text">học tập hiệu quả hơn</span>
+            <span className="blue-gradient-text">học tập hiệu quả hơn</span>
           </h1>
 
           <p className="text-lg sm:text-xl text-gray-500 max-w-2xl mb-10 leading-relaxed">
@@ -81,13 +78,13 @@ export default function HomePage() {
           <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto px-4">
             <Link
               href="/register"
-              className="w-full sm:w-auto px-8 py-4 bg-[#4caf50] text-white font-bold rounded-xl shadow-lg shadow-green-200 hover:shadow-xl hover:shadow-green-300 hover:-translate-y-0.5 transition-all text-base"
+              className="w-full sm:w-auto px-8 py-4 bg-[#88BDF2] text-white font-bold rounded-xl shadow-lg shadow-blue-200 hover:shadow-xl hover:shadow-blue-300 hover:-translate-y-0.5 transition-all text-base"
             >
               Trải nghiệm miễn phí
             </Link>
             <Link
               href="/login"
-              className="w-full sm:w-auto px-8 py-4 bg-white border-2 border-gray-200 text-gray-700 font-bold rounded-xl hover:border-[#4caf50] hover:text-[#4caf50] transition-all text-base"
+              className="w-full sm:w-auto px-8 py-4 bg-white border-2 border-gray-200 text-gray-700 font-bold rounded-xl hover:border-[#88BDF2] hover:text-[#88BDF2] transition-all text-base"
             >
               Đăng nhập tài khoản
             </Link>
@@ -105,9 +102,9 @@ export default function HomePage() {
               {carouselItems.map((f, i) => (
                 <div
                   key={i}
-                  className="flex-shrink-0 w-72 sm:w-80 bg-white border border-gray-100 rounded-2xl p-6 shadow-sm hover:shadow-md hover:border-[#a5d6a7] transition-all cursor-default"
+                  className="flex-shrink-0 w-72 sm:w-80 bg-white border border-gray-100 rounded-2xl p-6 shadow-sm hover:shadow-md hover:border-[#88BDF2] transition-all cursor-default"
                 >
-                  <div className="w-12 h-12 bg-[#e8f5e9] rounded-xl flex items-center justify-center text-2xl mb-4">
+                  <div className="w-12 h-12 bg-[#BDDDFC] rounded-xl flex items-center justify-center text-2xl mb-4">
                     {f.icon}
                   </div>
                   <h3 className="font-bold text-gray-900 text-lg mb-2">{f.title}</h3>
@@ -122,16 +119,16 @@ export default function HomePage() {
       {/* Footer */}
       <footer className="bg-white py-12">
         <div className="max-w-6xl mx-auto px-6 flex flex-col items-center gap-6">
-          <div className="w-10 h-10 rounded-xl bg-[#4caf50] flex items-center justify-center text-white font-bold text-xl opacity-90 shadow-sm">
+          <div className="w-10 h-10 rounded-xl bg-[#88BDF2] flex items-center justify-center text-white font-bold text-xl opacity-90 shadow-sm">
             S
           </div>
           <p className="text-sm text-gray-400 text-center font-medium">
             © {new Date().getFullYear()} StudyPlan.<br/>Nền tảng hỗ trợ học tập tích hợp AI thông minh.
           </p>
           <div className="flex gap-6 mt-2">
-            <Link href="#" className="text-sm text-gray-400 hover:text-[#4caf50] transition-colors">Điều khoản</Link>
-            <Link href="#" className="text-sm text-gray-400 hover:text-[#4caf50] transition-colors">Bảo mật</Link>
-            <Link href="#" className="text-sm text-gray-400 hover:text-[#4caf50] transition-colors">Liên hệ</Link>
+            <Link href="#" className="text-sm text-gray-400 hover:text-[#88BDF2] transition-colors">Điều khoản</Link>
+            <Link href="#" className="text-sm text-gray-400 hover:text-[#88BDF2] transition-colors">Bảo mật</Link>
+            <Link href="#" className="text-sm text-gray-400 hover:text-[#88BDF2] transition-colors">Liên hệ</Link>
           </div>
         </div>
       </footer>

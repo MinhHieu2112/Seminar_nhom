@@ -2,154 +2,173 @@ import {
   Controller,
   Get,
   Post,
-  Patch,
+  Put,
   Delete,
   Body,
   Param,
   Query,
   Headers,
-  HttpCode,
-  HttpStatus,
 } from '@nestjs/common';
-import { TcpClientService } from '../tcp-client.service';
+import { HttpClientService } from '../http-client.service';
 import { JwtService } from '@nestjs/jwt';
-import {
-  safeSend,
-  extractUserId,
-  syncSystemScheduleFromQueue,
-} from '../gateway.utils';
+import { extractUserId } from '../gateway.utils';
 
 @Controller('api/v1/scheduler')
 export class SchedulerGatewayController {
   constructor(
-    private readonly tcpClient: TcpClientService,
+    private readonly httpClient: HttpClientService,
     private readonly jwtService: JwtService,
   ) {}
 
-  @Get('goals')
-  listGoals(
+  private getUid(authHeader: string): string {
+    return extractUserId(authHeader, this.jwtService);
+  }
+
+  // --- Categories ---
+  @Post('categories')
+  createCategory(
     @Headers('authorization') authHeader: string,
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
+    @Body() dto: any,
   ) {
-    const userId = extractUserId(authHeader, this.jwtService);
-    return safeSend(
-      this.tcpClient,
+    return this.httpClient.request(
       'scheduler-service',
-      'scheduler.goal.list',
-      {
-        userId,
-        page: page ? parseInt(page, 10) : 1,
-        limit: limit ? parseInt(limit, 10) : 10,
-      },
+      'post',
+      '/api/v1/scheduler/categories',
+      dto,
+      this.getUid(authHeader),
     );
   }
 
-  @Post('goals')
-  createGoal(@Headers('authorization') authHeader: string, @Body() body: any) {
-    const userId = extractUserId(authHeader, this.jwtService);
-    return safeSend(
-      this.tcpClient,
+  @Get('categories')
+  getCategories(@Headers('authorization') authHeader: string) {
+    return this.httpClient.request(
       'scheduler-service',
-      'scheduler.goal.create',
-      { userId, ...body },
+      'get',
+      '/api/v1/scheduler/categories',
+      null,
+      this.getUid(authHeader),
     );
   }
 
-  @Get('goals/:id')
-  getGoal(
+  @Put('categories/:id')
+  updateCategory(
+    @Headers('authorization') authHeader: string,
+    @Param('id') id: string,
+    @Body() dto: any,
+  ) {
+    return this.httpClient.request(
+      'scheduler-service',
+      'put',
+      `/api/v1/scheduler/categories/${id}`,
+      dto,
+      this.getUid(authHeader),
+    );
+  }
+
+  @Delete('categories/:id')
+  deleteCategory(
     @Headers('authorization') authHeader: string,
     @Param('id') id: string,
   ) {
-    const userId = extractUserId(authHeader, this.jwtService);
-    return safeSend(this.tcpClient, 'scheduler-service', 'scheduler.goal.get', {
-      id,
-      userId,
-    });
+    return this.httpClient.request(
+      'scheduler-service',
+      'delete',
+      `/api/v1/scheduler/categories/${id}`,
+      null,
+      this.getUid(authHeader),
+    );
   }
 
-  @Patch('goals/:id')
-  updateGoal(
+  // --- Subjects ---
+  @Post('subjects')
+  createSubject(
+    @Headers('authorization') authHeader: string,
+    @Body() dto: any,
+  ) {
+    return this.httpClient.request(
+      'scheduler-service',
+      'post',
+      '/api/v1/scheduler/subjects',
+      dto,
+      this.getUid(authHeader),
+    );
+  }
+
+  @Get('subjects')
+  getSubjects(@Headers('authorization') authHeader: string) {
+    return this.httpClient.request(
+      'scheduler-service',
+      'get',
+      '/api/v1/scheduler/subjects',
+      null,
+      this.getUid(authHeader),
+    );
+  }
+
+  @Put('subjects/:id')
+  updateSubject(
     @Headers('authorization') authHeader: string,
     @Param('id') id: string,
-    @Body() body: any,
+    @Body() dto: any,
   ) {
-    const userId = extractUserId(authHeader, this.jwtService);
-    return safeSend(
-      this.tcpClient,
+    return this.httpClient.request(
       'scheduler-service',
-      'scheduler.goal.update',
-      { id, userId, ...body },
+      'put',
+      `/api/v1/scheduler/subjects/${id}`,
+      dto,
+      this.getUid(authHeader),
     );
   }
 
-  @Delete('goals/:id')
-  deleteGoal(
-    @Headers('authorization') authHeader: string,
-    @Param('id') id: string,
-  ) {
-    const userId = extractUserId(authHeader, this.jwtService);
-    return safeSend(
-      this.tcpClient,
-      'scheduler-service',
-      'scheduler.goal.delete',
-      { id, userId },
-    );
-  }
-
-  @Get('goals/:goalId/tasks')
-  listTasks(
-    @Headers('authorization') authHeader: string,
-    @Param('goalId') goalId: string,
-  ) {
-    const userId = extractUserId(authHeader, this.jwtService);
-    return safeSend(
-      this.tcpClient,
-      'scheduler-service',
-      'scheduler.task.list',
-      { goalId, userId },
-    );
-  }
-
-  @Post('goals/:goalId/tasks')
-  createTask(
-    @Headers('authorization') authHeader: string,
-    @Param('goalId') goalId: string,
-    @Body() body: any,
-  ) {
-    const userId = extractUserId(authHeader, this.jwtService);
-    return safeSend(
-      this.tcpClient,
-      'scheduler-service',
-      'scheduler.task.create',
-      { goalId, userId, ...body },
-    );
-  }
-
-  @Get('tasks/:id')
-  getTask(
+  @Delete('subjects/:id')
+  deleteSubject(
     @Headers('authorization') authHeader: string,
     @Param('id') id: string,
   ) {
-    const userId = extractUserId(authHeader, this.jwtService);
-    return safeSend(this.tcpClient, 'scheduler-service', 'scheduler.task.get', {
-      id,
-      userId,
-    });
+    return this.httpClient.request(
+      'scheduler-service',
+      'delete',
+      `/api/v1/scheduler/subjects/${id}`,
+      null,
+      this.getUid(authHeader),
+    );
   }
 
-  @Patch('tasks/:id')
+  // --- Tasks ---
+  @Post('tasks')
+  createTask(@Headers('authorization') authHeader: string, @Body() dto: any) {
+    return this.httpClient.request(
+      'scheduler-service',
+      'post',
+      '/api/v1/scheduler/tasks',
+      dto,
+      this.getUid(authHeader),
+    );
+  }
+
+  @Get('tasks')
+  getTasks(@Headers('authorization') authHeader: string) {
+    return this.httpClient.request(
+      'scheduler-service',
+      'get',
+      '/api/v1/scheduler/tasks',
+      null,
+      this.getUid(authHeader),
+    );
+  }
+
+  @Put('tasks/:id')
   updateTask(
     @Headers('authorization') authHeader: string,
     @Param('id') id: string,
-    @Body() body: any,
+    @Body() dto: any,
   ) {
-    const userId = extractUserId(authHeader, this.jwtService);
-    return safeSend(
-      this.tcpClient,
+    return this.httpClient.request(
       'scheduler-service',
-      'scheduler.task.update',
-      { id, userId, ...body },
+      'put',
+      `/api/v1/scheduler/tasks/${id}`,
+      dto,
+      this.getUid(authHeader),
     );
   }
 
@@ -158,136 +177,80 @@ export class SchedulerGatewayController {
     @Headers('authorization') authHeader: string,
     @Param('id') id: string,
   ) {
-    const userId = extractUserId(authHeader, this.jwtService);
-    return safeSend(
-      this.tcpClient,
+    return this.httpClient.request(
       'scheduler-service',
-      'scheduler.task.delete',
-      { id, userId },
+      'delete',
+      `/api/v1/scheduler/tasks/${id}`,
+      null,
+      this.getUid(authHeader),
     );
   }
 
-  @Post('schedule/generate')
-  async generateSchedule(
+  @Post('tasks/:id/status')
+  updateTaskStatus(
     @Headers('authorization') authHeader: string,
-    @Body() body?: { fromDate?: string; toDate?: string },
+    @Param('id') id: string,
+    @Body('status') status: string,
   ) {
-    const userId = extractUserId(authHeader, this.jwtService);
-    const result = await safeSend(
-      this.tcpClient,
+    return this.httpClient.request(
       'scheduler-service',
-      'scheduler.schedule.generate',
-      {
-        userId,
-        fromDate: body?.fromDate,
-        toDate: body?.toDate,
-      },
-    );
-    await syncSystemScheduleFromQueue(this.tcpClient, userId);
-    return result;
-  }
-
-  @Post('schedule/generate-unified')
-  async generateScheduleUnified(
-    @Headers('authorization') authHeader: string,
-    @Body() body: any,
-  ) {
-    const userId = extractUserId(authHeader, this.jwtService);
-    const result = await safeSend(
-      this.tcpClient,
-      'scheduler-service',
-      'scheduler.schedule.generateUnified',
-      {
-        ...body,
-        userId,
-      },
-    );
-    await syncSystemScheduleFromQueue(this.tcpClient, userId);
-    return result;
-  }
-
-  @Get('schedule/view')
-  async viewSchedule(
-    @Headers('authorization') authHeader: string,
-    @Query() query: { from: string; to: string },
-  ) {
-    const userId = extractUserId(authHeader, this.jwtService);
-    const blocks = await safeSend<any[]>(
-      this.tcpClient,
-      'scheduler-service',
-      'scheduler.schedule.view',
-      {
-        userId,
-        from: query.from,
-        to: query.to,
-      },
-    );
-    return (blocks ?? []).map((b) => ({
-      id: b.id,
-      taskId: b.taskId,
-      userId: b.userId,
-      plannedStart:
-        b.plannedStart instanceof Date
-          ? b.plannedStart.toISOString()
-          : b.plannedStart,
-      plannedEnd:
-        b.plannedEnd instanceof Date
-          ? b.plannedEnd.toISOString()
-          : b.plannedEnd,
-      pomodoroIndex: b.pomodoroIndex ?? 1,
-      sessionType: b.sessionType ?? null,
-      queueOrder: b.queueOrder ?? null,
-      status: b.status,
-      createdAt:
-        b.createdAt instanceof Date ? b.createdAt.toISOString() : b.createdAt,
-      task: b.task
-        ? {
-            id: b.task.id,
-            title: b.task.title,
-            durationMin: b.task.durationMin,
-            priority: b.task.priority,
-            type: b.task.type,
-          }
-        : null,
-    }));
-  }
-
-  @Patch('schedule/blocks/:id')
-  async updateBlockStatus(
-    @Headers('authorization') authHeader: string,
-    @Param('id') blockId: string,
-    @Body() body: { status: string },
-  ) {
-    const userId = extractUserId(authHeader, this.jwtService);
-    return safeSend(
-      this.tcpClient,
-      'scheduler-service',
-      'scheduler.block.updateStatus',
-      {
-        userId,
-        blockId,
-        status: body.status,
-      },
+      'post',
+      `/api/v1/scheduler/tasks/${id}/status`,
+      { status },
+      this.getUid(authHeader),
     );
   }
 
-  @Post('schedule/clear')
-  @HttpCode(HttpStatus.OK)
-  async clearSchedule(
-    @Headers('authorization') authHeader: string,
-    @Body() body?: { from?: string },
-  ) {
-    const userId = extractUserId(authHeader, this.jwtService);
-    const result = await safeSend(
-      this.tcpClient,
+  // --- Allocations ---
+  @Post('allocations')
+  allocateTask(@Headers('authorization') authHeader: string, @Body() dto: any) {
+    return this.httpClient.request(
       'scheduler-service',
-      'scheduler.schedule.clear',
-      {
-        userId,
-        from: body?.from,
-      },
+      'post',
+      '/api/v1/scheduler/allocations',
+      dto,
+      this.getUid(authHeader),
     );
-    await syncSystemScheduleFromQueue(this.tcpClient, userId);
-    return result;
+  }
+
+  @Get('allocations')
+  getAllocations(
+    @Headers('authorization') authHeader: string,
+    @Query('from') from: string,
+    @Query('to') to: string,
+  ) {
+    return this.httpClient.request(
+      'scheduler-service',
+      'get',
+      `/api/v1/scheduler/allocations?from=${from}&to=${to}`,
+      null,
+      this.getUid(authHeader),
+    );
+  }
+
+  // --- Preferences ---
+  @Get('preferences')
+  getPreferences(@Headers('authorization') authHeader: string) {
+    return this.httpClient.request(
+      'scheduler-service',
+      'get',
+      '/api/v1/scheduler/preferences',
+      null,
+      this.getUid(authHeader),
+    );
+  }
+
+  @Put('preferences')
+  updatePreferences(
+    @Headers('authorization') authHeader: string,
+    @Body() dto: any,
+  ) {
+    return this.httpClient.request(
+      'scheduler-service',
+      'put',
+      '/api/v1/scheduler/preferences',
+      dto,
+      this.getUid(authHeader),
+    );
   }
 }

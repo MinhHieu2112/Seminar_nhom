@@ -72,49 +72,14 @@ export async function safeSend<T>(
     throw new InternalServerErrorException(`Service error: ${msg}`);
   }
 }
-
-export interface QueueItem {
-  id: string;
-  taskId: string;
-  taskTitle: string;
-  plannedStart: Date | string;
-  plannedEnd: Date | string;
-  sessionType: string;
-  pomodoroIndex: number;
-  queueOrder: number;
-}
-
+/**
+ * Synchronize the system schedule from the queue.
+ * @deprecated This was part of a removed queue service and is currently a no-op.
+ */
 export async function syncSystemScheduleFromQueue(
-  tcpClient: TcpClientService,
-  userId: string,
-) {
-  const queueItems = await safeSend<QueueItem[]>(
-    tcpClient,
-    'queue-service',
-    'queue.schedule.list',
-    { userId },
-  );
-
-  await safeSend(tcpClient, 'calendar-service', 'calendar.schedule.replace', {
-    userId,
-    items: queueItems.map((item) => ({
-      title: item.taskTitle,
-      startTime:
-        item.plannedStart instanceof Date
-          ? item.plannedStart.toISOString()
-          : item.plannedStart,
-      endTime:
-        item.plannedEnd instanceof Date
-          ? item.plannedEnd.toISOString()
-          : item.plannedEnd,
-      priority: 3,
-      source: 'system',
-      description: `${item.sessionType} session`,
-      externalId: item.id,
-      taskId: item.taskId,
-      pomodoroIndex: item.pomodoroIndex,
-      sessionType: item.sessionType,
-      queueOrder: item.queueOrder,
-    })),
-  });
+  _tcpClient: TcpClientService,
+  _userId: string,
+): Promise<void> {
+  // queue-service removed, this is a placeholder to prevent TS errors in controllers.
+  return Promise.resolve();
 }
