@@ -100,6 +100,21 @@ export function useUpdateGroup() {
   });
 }
 
+export function useRemoveMember() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ groupId, targetUserId }: { groupId: string; targetUserId: string }) => {
+      const res = await groupService.removeMember(groupId, targetUserId);
+      return res.data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['groups', variables.groupId] });
+      queryClient.invalidateQueries({ queryKey: ['groups'] });
+    },
+  });
+}
+
 export function useDeleteGroup() {
   const queryClient = useQueryClient();
 

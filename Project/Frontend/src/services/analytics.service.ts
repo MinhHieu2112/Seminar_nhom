@@ -2,18 +2,32 @@ import { apiClient } from '@/lib/api-client';
 import type { 
   AnalyticsDashboard, 
   AnalyticsHistoryPoint, 
-  TimeDistribution, 
-  AnalyticsSummary, 
+  TimeDistribution,
+  TimeBreakdownPoint,
+  AnalyticsSummary,
   WeeklyOverview,
   TeamworkStats,
+  TeamContributionPoint,
+  BurndownPoint,
+  PerformanceMetricPoint,
+  PendingApprovalItem,
   NextDeadline
 } from '@/types/api';
 
-export type { TimeDistribution, AnalyticsSummary, WeeklyOverview, TeamworkStats, NextDeadline };
+export type {
+  TimeDistribution,
+  TimeBreakdownPoint,
+  AnalyticsSummary,
+  WeeklyOverview,
+  TeamworkStats,
+  TeamContributionPoint,
+  BurndownPoint,
+  PerformanceMetricPoint,
+  PendingApprovalItem,
+  NextDeadline,
+};
 
-export interface AnalyticsDashboardResponse extends AnalyticsDashboard {
-  // Inherits all fields from shared AnalyticsDashboard
-}
+export type AnalyticsDashboardResponse = AnalyticsDashboard;
 
 export interface StudyInsightsResponse {
   isOverloaded: boolean;
@@ -22,11 +36,11 @@ export interface StudyInsightsResponse {
 }
 
 export const analyticsService = {
-  getDashboard: () =>
+  getDashboard: (period: 'weekly' | 'monthly' | 'yearly' = 'weekly') =>
     apiClient.get<{
       success: boolean;
       data: AnalyticsDashboardResponse;
-    }>('/api/v1/analytics/dashboard').then(res => res.data),
+    }>('/api/v1/analytics/dashboard', { params: { period } }).then(res => res.data),
 
   getInsights: (from: string, to: string) =>
     apiClient.post<{

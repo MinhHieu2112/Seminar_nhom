@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import {
   Controller,
@@ -28,7 +27,7 @@ export class AiGatewayController {
   constructor(
     private readonly tcpClient: TcpClientService,
     private readonly jwtService: JwtService,
-  ) { }
+  ) {}
 
   @Post('normalize')
   @UseInterceptors(FileInterceptor('file'))

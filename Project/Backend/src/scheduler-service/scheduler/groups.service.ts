@@ -220,6 +220,46 @@ export class GroupsService {
     return group;
   }
 
+  async removeMember(
+    requesterId: string,
+    groupId: string,
+    targetUserId: string,
+  ) {
+    const group = await this.prisma.group.findUnique({
+      where: { id: groupId },
+      include: { members: true },
+    });
+
+    if (!group) {
+      throw new NotFoundException('Group not found');
+    }
+
+    const requester = group.members.find((m) => m.userId === requesterId);
+    if (!requester || requester.role !== 'admin') {
+      throw new ForbiddenException('Only group admins can remove members');
+    }
+
+    if (targetUserId === group.creatorId) {
+      throw new ForbiddenException('Cannot remove the group creator');
+    }
+
+    const target = group.members.find((m) => m.userId === targetUserId);
+    if (!target) {
+      throw new NotFoundException('Member not found in group');
+    }
+
+    await this.prisma.groupMember.delete({
+      where: {
+        groupId_userId: {
+          groupId,
+          userId: targetUserId,
+        },
+      },
+    });
+
+    return { success: true, message: 'Member removed successfully' };
+  }
+
   async deleteGroup(userId: string, groupId: string) {
     const group = await this.prisma.group.findUnique({
       where: { id: groupId },

@@ -13,8 +13,8 @@ export function useAnalyticsData(period: 'weekly' | 'monthly' | 'yearly' = 'week
     isLoading: isLoadingDashboard,
     error: dashboardError,
   } = useQuery({
-    queryKey: ['analytics-dashboard'],
-    queryFn: analyticsService.getDashboard,
+    queryKey: ['analytics-dashboard', period],
+    queryFn: () => analyticsService.getDashboard(period),
   });
 
   const {
@@ -62,7 +62,7 @@ export function useAnalyticsData(period: 'weekly' | 'monthly' | 'yearly' = 'week
 
   return {
     dashboardData: realtimeDashboard || initialDashboard?.data || null,
-    insightsData: insights?.data || null,
+    insightsData: insights?.data ?? null,
     isLoading: isLoadingDashboard || isLoadingInsights,
     error: dashboardError,
   };

@@ -21,6 +21,8 @@ import {
   UpdateTaskDto,
 } from './dto/scheduler.dto';
 
+import { NotificationService } from '../notification/notification.service';
+
 @Injectable()
 export class SchedulerService {
   private readonly userServiceUrl: string;
@@ -30,6 +32,7 @@ export class SchedulerService {
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
     @Inject('REDIS_CLIENT') private readonly redisClient: ClientProxy,
+    private readonly notificationService: NotificationService,
   ) {
     this.userServiceUrl = this.configService.get<string>(
       'USER_SERVICE_URL',
@@ -226,6 +229,17 @@ export class SchedulerService {
           dueTime: dueTime ? new Date(dueTime) : null,
         },
       });
+
+      if (assigneeId && assigneeId !== userId) {
+        await this.notificationService.createNotification({
+          userId: assigneeId,
+          title: `📌 Bạn được phân công công việc`,
+          message: `Bạn đã được phân công công việc "${task.title}"`,
+          type: 'group',
+          taskId: task.id,
+        });
+      }
+
       this.redisClient.emit('task.created', task);
       return task;
     } catch (error) {
@@ -251,8 +265,9 @@ export class SchedulerService {
       include: {
         subject: true,
         allocations: true,
+        attachments: true,
         group: {
-          select: { id: true, name: true },
+          select: { id: true, name: true, creatorId: true },
         },
       },
       orderBy: [{ dueTime: 'asc' }, { createdAt: 'desc' }],
@@ -298,9 +313,25 @@ export class SchedulerService {
           ...(dto.subjectId !== undefined && { subjectId: dto.subjectId }),
           ...(dto.assigneeId !== undefined && { assigneeId: dto.assigneeId }),
           ...(dto.priority !== undefined && { priority: dto.priority }),
-          ...(dto.status !== undefined && { status: dto.status }),
+          ...(dto.status && { status: dto.status }),
         },
       });
+
+      if (
+        dto.assigneeId !== undefined &&
+        dto.assigneeId !== null &&
+        dto.assigneeId !== exists.assigneeId &&
+        dto.assigneeId !== userId
+      ) {
+        await this.notificationService.createNotification({
+          userId: dto.assigneeId,
+          title: `📌 Bạn được phân công công việc`,
+          message: `Bạn đã được phân công công việc "${task.title}"`,
+          type: 'group',
+          taskId: task.id,
+        });
+      }
+
       this.redisClient.emit('task.updated', task);
       return task;
     } catch (error) {
@@ -358,6 +389,125 @@ export class SchedulerService {
       },
       include: { task: true },
     });
+  }
+
+  // ============ Task Attachments & Review ============
+
+  async uploadAttachments(userId: string, taskId: string, attachments: any[]) {
+    const task = await this.findTaskForAccess(userId, taskId);
+    if (!task) throw new NotFoundException('Task not found');
+    if (task.assigneeId !== userId) {
+      throw new ForbiddenException('Only the assignee can upload evidence');
+    }
+
+    // Determine admin of the group (creator)
+    let adminId = task.userId; // Default to task creator if no group
+    if (task.groupId) {
+      const group = await this.prisma.group.findUnique({
+        where: { id: task.groupId },
+      });
+      if (group) adminId = group.creatorId;
+    }
+
+    await this.prisma.$transaction(
+      attachments.map((att) =>
+        this.prisma.taskAttachment.create({
+          data: {
+            taskId,
+            uploaderId: userId,
+            fileName: att.fileName,
+            fileUrl: att.fileUrl,
+            fileSize: att.fileSize,
+            mimeType: att.mimeType,
+          },
+        }),
+      ),
+    );
+
+    const updatedTask = await this.prisma.task.update({
+      where: { id: taskId },
+      data: { submittedForReview: true },
+      include: { attachments: true },
+    });
+
+    if (adminId && adminId !== userId) {
+      await this.notificationService.createNotification({
+        userId: adminId,
+        title: `✅ Minh chứng đã được nộp`,
+        message: `Thành viên đã nộp file minh chứng cho công việc "${task.title}". Vui lòng kiểm tra và duyệt.`,
+        type: 'group',
+        taskId: task.id,
+      });
+    }
+
+    this.redisClient.emit('task.updated', updatedTask);
+    return updatedTask;
+  }
+
+  async approveTask(userId: string, taskId: string) {
+    const task = await this.prisma.task.findUnique({
+      where: { id: taskId },
+      include: { group: true },
+    });
+    if (!task) throw new NotFoundException('Task not found');
+
+    const isAdmin = task.group
+      ? task.group.creatorId === userId
+      : task.userId === userId;
+    if (!isAdmin) {
+      throw new ForbiddenException('Only admin can approve tasks');
+    }
+
+    const updatedTask = await this.prisma.task.update({
+      where: { id: taskId },
+      data: { status: 'done', submittedForReview: false },
+    });
+
+    if (task.assigneeId && task.assigneeId !== userId) {
+      await this.notificationService.createNotification({
+        userId: task.assigneeId,
+        title: `🎉 Công việc đã được duyệt`,
+        message: `Minh chứng cho công việc "${task.title}" đã được duyệt thành công!`,
+        type: 'group',
+        taskId: task.id,
+      });
+    }
+
+    this.redisClient.emit('task.updated', updatedTask);
+    return updatedTask;
+  }
+
+  async rejectTask(userId: string, taskId: string) {
+    const task = await this.prisma.task.findUnique({
+      where: { id: taskId },
+      include: { group: true },
+    });
+    if (!task) throw new NotFoundException('Task not found');
+
+    const isAdmin = task.group
+      ? task.group.creatorId === userId
+      : task.userId === userId;
+    if (!isAdmin) {
+      throw new ForbiddenException('Only admin can reject tasks');
+    }
+
+    const updatedTask = await this.prisma.task.update({
+      where: { id: taskId },
+      data: { submittedForReview: false },
+    });
+
+    if (task.assigneeId && task.assigneeId !== userId) {
+      await this.notificationService.createNotification({
+        userId: task.assigneeId,
+        title: `⚠️ Minh chứng bị từ chối`,
+        message: `Minh chứng cho công việc "${task.title}" không đạt yêu cầu. Vui lòng nộp lại.`,
+        type: 'group',
+        taskId: task.id,
+      });
+    }
+
+    this.redisClient.emit('task.updated', updatedTask);
+    return updatedTask;
   }
 
   // ============ User Preferences ============

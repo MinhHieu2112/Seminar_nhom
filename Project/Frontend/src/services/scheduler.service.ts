@@ -39,4 +39,15 @@ export const schedulerService = {
   getAllocations: (from: string, to: string) =>
     apiClient.get<Allocation[]>(`/api/v1/scheduler/allocations`, { params: { from, to } }),
   getPreferences: () => apiClient.get('/api/v1/scheduler/preferences'),
+
+  uploadAttachments: (taskId: string, formData: FormData) =>
+    apiClient.post<Task>(`/api/v1/scheduler/tasks/${taskId}/attachments`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    }),
+  approveTask: (taskId: string) =>
+    apiClient.patch<Task>(`/api/v1/scheduler/tasks/${taskId}/approve`),
+  rejectTask: (taskId: string) =>
+    apiClient.patch<Task>(`/api/v1/scheduler/tasks/${taskId}/reject`),
 };

@@ -164,3 +164,34 @@ export function useSchedulerSubjects() {
         },
     });
 }
+
+export function useUploadAttachments() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ taskId, formData }: { taskId: string; formData: FormData }) =>
+            schedulerService.uploadAttachments(taskId, formData),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: SCHEDULER_QUERY_KEY });
+        },
+    });
+}
+
+export function useApproveTask() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (taskId: string) => schedulerService.approveTask(taskId),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: SCHEDULER_QUERY_KEY });
+        },
+    });
+}
+
+export function useRejectTask() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (taskId: string) => schedulerService.rejectTask(taskId),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: SCHEDULER_QUERY_KEY });
+        },
+    });
+}

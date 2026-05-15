@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-floating-promises */
 import { Test, TestingModule } from '@nestjs/testing';
 import { AgentAiService } from './agent-ai.service';
 describe('AgentAiService', () => {

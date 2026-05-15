@@ -20,7 +20,7 @@ import {
 import { addDays, startOfDay, endOfDay, isSameDay, format, addMonths, subMonths, parseISO, formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { useSchedulerTasks, useSchedulerAllocations } from '@/hooks/useScheduler';
-import type { Task, Allocation } from '@/types/api';
+import type { Task, Allocation, AnalyticsDashboard } from '@/types/api';
 import { useAnalyticsDashboard } from '@/hooks/useAnalytics';
 
 const CircularProgress = ({ percent, colorClass, size = 64, stroke = 6 }: { percent: number, colorClass: string, size?: number, stroke?: number }) => {
@@ -57,10 +57,11 @@ export function DashboardContent() {
   const [planTab, setPlanTab] = useState<'active' | 'history'>('active');
 
   const { data: analyticsData } = useAnalyticsDashboard();
-  const analytics = analyticsData || {
+  const analytics: AnalyticsDashboard = analyticsData || {
     completionRate: 0,
     productivityScore: 0,
     timeDistribution: { morning: 0, afternoon: 0, evening: 0 },
+    timeBreakdown: [],
     suggestions: [],
     summary: { 
       totalGoals: 0, activeGoals: 0, completedGoals: 0, 
@@ -69,7 +70,12 @@ export function DashboardContent() {
       plannedBlocks: 0, completedBlocks: 0, totalStudyMins: 0 
     },
     teamwork: { pendingInvitations: 0, activeGroupTasks: 0, collaboratorsCount: 0, waitingResponseTasks: 0 },
-    weeklyOverview: { scheduledBlocks: 0, studyHours: 0, completedTasks: 0 }
+    weeklyOverview: { scheduledBlocks: 0, studyHours: 0, completedTasks: 0 },
+    teamContribution: [],
+    burndown: [],
+    performance: [],
+    pendingApprovals: [],
+    nextDeadline: undefined,
   };
 
   const { data: tasks = [] } = useSchedulerTasks();

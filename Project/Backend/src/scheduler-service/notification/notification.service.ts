@@ -6,11 +6,54 @@ export class NotificationService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getNotifications(userId: string) {
-    return await this.prisma.notification.findMany({
+    const notifications = await this.prisma.notification.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
       take: 50,
     });
+
+    const taskIds = notifications
+      .map((notification) => notification.taskId)
+      .filter((taskId): taskId is string => Boolean(taskId));
+
+    if (taskIds.length === 0) {
+      return notifications.map((n) => ({ ...n, task: null }));
+    }
+
+    const tasks = await this.prisma.task.findMany({
+      where: {
+        id: { in: taskIds },
+      },
+      select: {
+        id: true,
+        title: true,
+        groupId: true,
+        group: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    });
+
+    const taskMap = new Map(
+      tasks.map((task) => [
+        task.id,
+        {
+          id: task.id,
+          title: task.title,
+          groupId: task.groupId,
+          groupName: task.group?.name ?? null,
+        },
+      ]),
+    );
+
+    return notifications.map((notification) => ({
+      ...notification,
+      task: notification.taskId
+        ? (taskMap.get(notification.taskId) ?? null)
+        : null,
+    }));
   }
 
   async markAsRead(userId: string, id: string) {

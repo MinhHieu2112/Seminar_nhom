@@ -103,7 +103,7 @@ export default function AnalyticsPage() {
             {/* Row 1: Stacked bar + Pie */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2">
-                <TimeStackedBarChart timeDistribution={dashboardData.timeDistribution} />
+                <TimeStackedBarChart timeBreakdown={dashboardData.timeBreakdown} />
               </div>
               <div>
                 <TaskStatusPieChart summary={dashboardData.summary} />
@@ -118,7 +118,7 @@ export default function AnalyticsPage() {
                   Gợi ý cải thiện
                 </h3>
                 <ul className="space-y-2">
-                  {[...dashboardData.suggestions, ...(insightsData?.recommendations ?? [])].map((s, i) => (
+                  {[...(dashboardData?.suggestions || []), ...(insightsData?.recommendations ?? [])].map((s, i) => (
                     <li key={i} className="flex items-start gap-2 text-sm text-indigo-800">
                       <span className="mt-1 w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0" />
                       {s}
@@ -135,14 +135,14 @@ export default function AnalyticsPage() {
           <>
             {/* Row 1: Member contributions + Burndown */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <TeamContributionChart metric={metric} />
-              <BurndownChart />
+              <TeamContributionChart metric={metric} data={dashboardData.teamContribution} />
+              <BurndownChart data={dashboardData.burndown} />
             </div>
 
             {/* Row 2: Radar + Pending approvals */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <PerformanceRadarChart />
-              <PendingApprovals />
+              <PerformanceRadarChart data={dashboardData.performance} />
+              <PendingApprovals data={dashboardData.pendingApprovals} />
             </div>
           </>
         )}

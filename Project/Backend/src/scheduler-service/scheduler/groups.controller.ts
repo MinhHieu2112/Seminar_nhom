@@ -70,6 +70,16 @@ export class GroupsController {
     return this.groupsService.respondToInvitation(userId, invitationId, accept);
   }
 
+  @Delete(':groupId/members/:targetUserId')
+  @UseGuards(GroupGuard)
+  removeMember(
+    @Headers('x-user-id') userId: string,
+    @Param('groupId') groupId: string,
+    @Param('targetUserId') targetUserId: string,
+  ) {
+    return this.groupsService.removeMember(userId, groupId, targetUserId);
+  }
+
   @Delete(':groupId')
   @UseGuards(GroupGuard)
   deleteGroup(

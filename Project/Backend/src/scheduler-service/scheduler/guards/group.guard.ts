@@ -13,11 +13,15 @@ export class GroupGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
-    const userId = request.headers['x-user-id'];
+    const userIdHeader = request.headers?.['x-user-id'];
+    const userId = Array.isArray(userIdHeader) ? userIdHeader[0] : userIdHeader;
+    const params = request.params ?? {};
+    const body = request.body ?? {};
+    const query = request.query ?? {};
 
     // Support finding groupId in params or body
-    const groupId =
-      request.params.groupId || request.body.groupId || request.query.groupId;
+    const rawGroupId = params.groupId ?? body.groupId ?? query.groupId;
+    const groupId = Array.isArray(rawGroupId) ? rawGroupId[0] : rawGroupId;
 
     if (!userId) {
       throw new ForbiddenException('Missing user context');

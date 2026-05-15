@@ -134,7 +134,6 @@ export class AnalyticsService {
 
     let completedTasks = 0;
     let pendingTasks = 0;
-    let overdueTasks = 0;
     let totalStudyMins = 0;
     let morning = 0;
     let afternoon = 0;
@@ -143,7 +142,7 @@ export class AnalyticsService {
     for (const s of summaries) {
       completedTasks += s.tasksCompleted;
       pendingTasks += s.pendingTasks;
-      overdueTasks += s.overdueTasks;
+      // overdueTasks += s.overdueTasks; (unused)
       totalStudyMins += s.totalStudyMins;
       morning += s.morningMins;
       afternoon += s.afternoonMins;
@@ -222,10 +221,37 @@ export class AnalyticsService {
       }),
     ]);
 
+    const timeBreakdown = [
+      {
+        label: 'Sáng',
+        minutes: morning,
+        percentage: totalTime ? Math.round((morning / totalTime) * 100) : 0,
+      },
+      {
+        label: 'Chiều',
+        minutes: afternoon,
+        percentage: totalTime ? Math.round((afternoon / totalTime) * 100) : 0,
+      },
+      {
+        label: 'Tối',
+        minutes: evening,
+        percentage: totalTime ? Math.round((evening / totalTime) * 100) : 0,
+      },
+    ];
+
     return {
       completionRate,
       productivityScore: Math.min(completionRate + 10, 100),
       timeDistribution,
+      timeBreakdown,
+      teamContribution: [],
+      burndown: [],
+      performance: [
+        { metric: 'Tốc độ', value: 80 },
+        { metric: 'Kỷ luật', value: 70 },
+        { metric: 'Chiều sâu', value: 90 },
+      ],
+      pendingApprovals: [],
       suggestions: ['Hãy tiếp tục duy trì!'],
       summary: {
         totalGoals,

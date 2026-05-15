@@ -25,4 +25,7 @@ export const groupService = {
 
   deleteGroup: (groupId: string) =>
     apiClient.delete<{ success: boolean }>(`/api/v1/scheduler/groups/${groupId}`),
+
+  removeMember: (groupId: string, targetUserId: string) =>
+    apiClient.delete<{ success: boolean }>(`/api/v1/scheduler/groups/${groupId}/members/${targetUserId}`),
 };

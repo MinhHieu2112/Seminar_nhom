@@ -3,12 +3,19 @@ import {
   Get,
   Post,
   Put,
+  Patch,
   Delete,
   Body,
   Param,
   Query,
   Headers,
+  UseInterceptors,
+  UploadedFiles,
+  BadRequestException,
 } from '@nestjs/common';
+import { FilesInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
 import { HttpClientService } from '../http-client.service';
 import { JwtService } from '@nestjs/jwt';
 import { extractUserId } from '../gateway.utils';
@@ -236,6 +243,76 @@ export class SchedulerGatewayController {
       'post',
       `/api/v1/scheduler/tasks/${id}/status`,
       { status },
+      this.getUid(authHeader),
+    );
+  }
+
+  // --- Task Attachments ---
+  @Post('tasks/:taskId/attachments')
+  @UseInterceptors(
+    FilesInterceptor('files', 10, {
+      storage: diskStorage({
+        destination: './uploads',
+        filename: (req, file, cb) => {
+          const uniqueSuffix =
+            Date.now() + '-' + Math.round(Math.random() * 1e9);
+          cb(null, `${uniqueSuffix}${extname(file.originalname)}`);
+        },
+      }),
+      limits: {
+        fileSize: 5 * 1024 * 1024, // 5MB limit
+      },
+    }),
+  )
+  async uploadTaskAttachments(
+    @Headers('authorization') authHeader: string,
+    @Param('taskId') taskId: string,
+    @UploadedFiles() files: Express.Multer.File[],
+  ) {
+    if (!files || files.length === 0) {
+      throw new BadRequestException('No files uploaded');
+    }
+
+    const metadata = files.map((f) => ({
+      fileName: f.originalname,
+      fileUrl: `/uploads/${f.filename}`,
+      fileSize: f.size,
+      mimeType: f.mimetype,
+    }));
+
+    return this.httpClient.request(
+      'scheduler-service',
+      'post',
+      `/api/v1/scheduler/tasks/${taskId}/attachments`,
+      { attachments: metadata },
+      this.getUid(authHeader),
+    );
+  }
+
+  @Patch('tasks/:taskId/approve')
+  approveTask(
+    @Headers('authorization') authHeader: string,
+    @Param('taskId') taskId: string,
+  ) {
+    return this.httpClient.request(
+      'scheduler-service',
+      'patch',
+      `/api/v1/scheduler/tasks/${taskId}/approve`,
+      null,
+      this.getUid(authHeader),
+    );
+  }
+
+  @Patch('tasks/:taskId/reject')
+  rejectTask(
+    @Headers('authorization') authHeader: string,
+    @Param('taskId') taskId: string,
+  ) {
+    return this.httpClient.request(
+      'scheduler-service',
+      'patch',
+      `/api/v1/scheduler/tasks/${taskId}/reject`,
+      null,
       this.getUid(authHeader),
     );
   }

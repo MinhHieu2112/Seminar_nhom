@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Envelope, Bell, ChatCircle, Spinner, UserPlus, Warning, Clock } from '@phosphor-icons/react';
 import { useGetInvitations, useRespondToInvitation } from '@/hooks/useGroups';
 import { useGetNotifications, useMarkNotificationAsRead, useMarkAllNotificationsAsRead } from '@/hooks/useNotifications';
@@ -9,6 +10,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 
 export function NotificationMailbox() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<'invitations' | 'notifications'>('invitations');
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -49,14 +51,30 @@ export function NotificationMailbox() {
     }
   };
 
-  const toggleOpen = (tab: 'invitations' | 'notifications') => {
-    if (isOpen && activeTab === tab) {
+  const handleOpenNotification = async (notif: NotificationType) => {
+    try {
+      if (notif.status === 'unread') {
+        await markReadMutation.mutateAsync(notif.id);
+      }
+
+      if (notif.task?.groupId) {
+        router.push(`/scheduler/teamwork/${notif.task.groupId}?taskId=${notif.task.id}`);
+      }
+    } catch (err) {
+      console.error('Failed to open notification:', err);
+    } finally {
       setIsOpen(false);
-    } else {
-      setIsOpen(true);
-      setActiveTab(tab);
     }
   };
+
+  const toggleOpen = () => {
+    setIsOpen(!isOpen);
+    if (!isOpen) {
+      setActiveTab(pendingInvCount > 0 ? 'invitations' : 'notifications');
+    }
+  };
+
+  const totalUnread = pendingInvCount + unreadNotifCount;
 
   return (
     <div className="relative flex items-center gap-1" ref={dropdownRef}>
@@ -65,31 +83,17 @@ export function NotificationMailbox() {
         <button className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-all relative">
           <ChatCircle size={20} weight="bold" />
         </button>
-        
-        <button 
-          onClick={() => toggleOpen('invitations')}
-          className={`p-2 rounded-full transition-all relative ${
-            isOpen && activeTab === 'invitations' ? 'text-indigo-600 bg-indigo-50' : 'text-gray-500 hover:text-indigo-600 hover:bg-indigo-50'
-          }`}
-        >
-          <Envelope size={20} weight="bold" />
-          {pendingInvCount > 0 && (
-            <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white">
-              {pendingInvCount}
-            </span>
-          )}
-        </button>
 
         <button 
-          onClick={() => toggleOpen('notifications')}
+          onClick={toggleOpen}
           className={`p-2 rounded-full transition-all relative ${
-            isOpen && activeTab === 'notifications' ? 'text-indigo-600 bg-indigo-50' : 'text-gray-500 hover:text-indigo-600 hover:bg-indigo-50'
+            isOpen ? 'text-indigo-600 bg-indigo-50' : 'text-gray-500 hover:text-indigo-600 hover:bg-indigo-50'
           }`}
         >
           <Bell size={20} weight="bold" />
-          {unreadNotifCount > 0 && (
+          {totalUnread > 0 && (
             <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-indigo-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white">
-              {unreadNotifCount}
+              {totalUnread}
             </span>
           )}
         </button>
@@ -98,23 +102,36 @@ export function NotificationMailbox() {
       {/* Dropdown */}
       {isOpen && (
         <div className="absolute top-full right-0 mt-2 w-80 bg-white border border-gray-100 rounded-3xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
-          <div className="px-5 py-4 border-b border-gray-50 flex items-center justify-between bg-gray-50/50">
-            <h3 className="font-bold text-gray-900 flex items-center gap-2">
-              {activeTab === 'invitations' ? 'Hòm thư mời' : 'Thông báo nhắc lịch'}
-              {activeTab === 'invitations' ? (
-                pendingInvCount > 0 && <span className="bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full text-[10px] font-black">{pendingInvCount}</span>
-              ) : (
-                unreadNotifCount > 0 && <span className="bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full text-[10px] font-black">{unreadNotifCount}</span>
+          <div className="px-5 py-4 border-b border-gray-50 flex flex-col gap-3 bg-gray-50/50">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                Thông báo
+                {totalUnread > 0 && <span className="bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full text-[10px] font-black">{totalUnread} mới</span>}
+              </h3>
+              {activeTab === 'notifications' && unreadNotifCount > 0 && (
+                <button 
+                  onClick={() => markAllReadMutation.mutate()}
+                  className="text-[11px] font-bold text-indigo-600 hover:underline"
+                >
+                  Đánh dấu đã đọc
+                </button>
               )}
-            </h3>
-            {activeTab === 'notifications' && unreadNotifCount > 0 && (
+            </div>
+
+            <div className="flex gap-2">
               <button 
-                onClick={() => markAllReadMutation.mutate()}
-                className="text-[11px] font-bold text-indigo-600 hover:underline"
+                onClick={() => setActiveTab('notifications')}
+                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-colors ${activeTab === 'notifications' ? 'bg-indigo-100 text-indigo-700' : 'text-gray-500 hover:bg-gray-100'}`}
               >
-                Đánh dấu đã đọc
+                Tin nhắn ({unreadNotifCount})
               </button>
-            )}
+              <button 
+                onClick={() => setActiveTab('invitations')}
+                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-colors ${activeTab === 'invitations' ? 'bg-indigo-100 text-indigo-700' : 'text-gray-500 hover:bg-gray-100'}`}
+              >
+                Lời mời ({pendingInvCount})
+              </button>
+            </div>
           </div>
 
           <div className="max-h-[380px] overflow-y-auto">
@@ -144,7 +161,12 @@ export function NotificationMailbox() {
               ) : (
                 <div className="divide-y divide-gray-50">
                   {notifications.map((notif: NotificationType) => (
-                    <NotificationItem key={notif.id} notif={notif} onMarkRead={handleMarkRead} />
+                    <NotificationItem
+                      key={notif.id}
+                      notif={notif}
+                      onMarkRead={handleMarkRead}
+                      onOpen={handleOpenNotification}
+                    />
                   ))}
                 </div>
               )
@@ -199,14 +221,34 @@ function InvitationItem({ inv, onResponse, isPending }: { inv: GroupInvitation, 
   );
 }
 
-function NotificationItem({ notif, onMarkRead }: { notif: NotificationType, onMarkRead: (id: string) => void }) {
+function NotificationItem({
+  notif,
+  onMarkRead,
+  onOpen,
+}: {
+  notif: NotificationType;
+  onMarkRead: (id: string) => void;
+  onOpen: (notif: NotificationType) => void;
+}) {
   const isUrgent = notif.title.includes('🔴 Gấp');
   const isWarning = notif.title.includes('⚠️ Nhắc nhở');
+  const canOpenTask = Boolean(notif.task?.groupId);
 
   return (
     <div 
-      className={`p-4 transition-colors group relative ${notif.status === 'unread' ? 'bg-blue-50/30' : 'hover:bg-gray-50'}`}
-      onClick={() => notif.status === 'unread' && onMarkRead(notif.id)}
+      className={`p-4 transition-colors group relative ${
+        notif.status === 'unread' ? 'bg-blue-50/30' : 'hover:bg-gray-50'
+      } ${canOpenTask ? 'cursor-pointer' : ''}`}
+      onClick={() => {
+        if (canOpenTask) {
+          onOpen(notif);
+          return;
+        }
+
+        if (notif.status === 'unread') {
+          onMarkRead(notif.id);
+        }
+      }}
     >
       <div className="flex gap-3">
         <div className={`w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-110 ${
@@ -231,6 +273,11 @@ function NotificationItem({ notif, onMarkRead }: { notif: NotificationType, onMa
           <p className="text-xs text-gray-500 line-clamp-2">
             {notif.message}
           </p>
+          {notif.task?.groupId && (
+            <p className="mt-2 text-[11px] font-bold text-indigo-600">
+              Mở task trong nhóm {notif.task.groupName || 'teamwork'}
+            </p>
+          )}
         </div>
       </div>
       {notif.status === 'unread' && (

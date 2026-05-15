@@ -8,14 +8,32 @@ import { analyticsService } from '@/services/analytics.service';
 import type { 
   AnalyticsDashboard as DashboardData, 
   TimeDistribution,
+  TimeBreakdownPoint,
   AnalyticsSummary,
   WeeklyOverview,
   TaskStats,
   TeamworkStats,
+  TeamContributionPoint,
+  BurndownPoint,
+  PerformanceMetricPoint,
+  PendingApprovalItem,
   NextDeadline
 } from '@/types/api';
 
-export type { DashboardData, TimeDistribution, AnalyticsSummary, WeeklyOverview, TaskStats, TeamworkStats, NextDeadline };
+export type {
+  DashboardData,
+  TimeDistribution,
+  TimeBreakdownPoint,
+  AnalyticsSummary,
+  WeeklyOverview,
+  TaskStats,
+  TeamworkStats,
+  TeamContributionPoint,
+  BurndownPoint,
+  PerformanceMetricPoint,
+  PendingApprovalItem,
+  NextDeadline,
+};
 
 export interface InsightsData {
   isOverloaded: boolean;
@@ -45,8 +63,8 @@ export function useAnalyticsDashboard(period: FilterPeriod = 'weekly') {
   }, [period]);
 
   const { data: dashboardResp, isLoading: loadingDashboard, error: dashboardError } = useQuery({
-    queryKey: ['analytics-dashboard'],
-    queryFn:  () => analyticsService.getDashboard(),
+    queryKey: ['analytics-dashboard', period],
+    queryFn:  () => analyticsService.getDashboard(period === 'custom' ? 'weekly' : period),
     staleTime: 60_000,
   });
 
@@ -69,8 +87,8 @@ export function useAnalyticsDashboard(period: FilterPeriod = 'weekly') {
     socket.on('connect', () => setIsConnected(true));
     socket.on('disconnect', () => setIsConnected(false));
 
-    socket.on(`dashboard-update-${user.id}`, (updated: DashboardData) => {
-      queryClient.setQueryData(['analytics-dashboard'], { success: true, data: updated });
+    socket.on(`dashboard-update-${user.id}`, () => {
+      queryClient.invalidateQueries({ queryKey: ['analytics-dashboard'] });
     });
 
     return () => { socket.disconnect(); };

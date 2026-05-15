@@ -126,6 +126,17 @@ export interface Subject {
   tasks?: Task[];
 }
 
+export interface TaskAttachment {
+  id: string;
+  taskId: string;
+  uploaderId: string;
+  fileName: string;
+  fileUrl: string;
+  fileSize: number;
+  mimeType: string;
+  uploadedAt: string;
+}
+
 export interface Task {
   id: string;
   userId: string;
@@ -137,9 +148,11 @@ export interface Task {
   subjectId?: string | null;
   priority?: number;
   status: TaskStatus;
+  submittedForReview?: boolean;
   createdAt: string;
   subject?: Pick<Subject, 'id' | 'name' | 'categoryId'>;
-  group?: Pick<Group, 'id' | 'name'> | null;
+  group?: Pick<Group, 'id' | 'name' | 'creatorId'> | null;
+  attachments?: TaskAttachment[];
 }
 
 export interface ScheduleItem {
@@ -258,6 +271,12 @@ export interface TimeDistribution {
   evening: number;
 }
 
+export interface TimeBreakdownPoint {
+  label: string;
+  minutes: number;
+  percentage: number;
+}
+
 export interface TaskStats {
   total: number;
   completed: number;
@@ -295,14 +314,44 @@ export interface WeeklyOverview {
   completedTasks: number;
 }
 
+export interface TeamContributionPoint {
+  name: string;
+  tasks: number;
+  hours: number;
+}
+
+export interface BurndownPoint {
+  day: string;
+  remaining: number;
+  ideal: number;
+}
+
+export interface PerformanceMetricPoint {
+  metric: string;
+  value: number;
+}
+
+export interface PendingApprovalItem {
+  id: string;
+  title: string;
+  assignee: string;
+  priority: 'high' | 'medium' | 'low';
+  dueDate: string;
+}
+
 export interface AnalyticsDashboard {
   completionRate: number;
   productivityScore: number;
   timeDistribution: TimeDistribution;
+  timeBreakdown: TimeBreakdownPoint[];
   suggestions: string[];
   summary: AnalyticsSummary;
   weeklyOverview: WeeklyOverview;
   teamwork: TeamworkStats;
+  teamContribution: TeamContributionPoint[];
+  burndown: BurndownPoint[];
+  performance: PerformanceMetricPoint[];
+  pendingApprovals: PendingApprovalItem[];
   nextDeadline?: NextDeadline;
 }
 
@@ -371,6 +420,12 @@ export interface Notification {
   message: string;
   type: string;
   taskId?: string | null;
+  task?: {
+    id: string;
+    title: string;
+    groupId?: string | null;
+    groupName?: string | null;
+  } | null;
   status: 'unread' | 'read';
   createdAt: string;
   updatedAt: string;

@@ -1,0 +1,32 @@
+# Simple
+Xây dựng chức năng upload file cho người dùng được phân công task. Người dùng có thể tải lên nhiều file minh chứng để hoàn thành task.
+
+# Specific
+- Chỉ người được phân công task mới được upload file.
+- Sau khi upload thành công:
+  + Hệ thống gửi notification realtime cho admin để xét duyệt.
+  + Task hiển thị dấu tích xác nhận người dùng đã hoàn thành.
+  + Trạng thái task chưa đổi ngay, admin sẽ cập nhật sau khi kiểm tra file.
+- Lưu thông tin file: tên file, dung lượng, loại file, thời gian upload, người upload.
+- Hỗ trợ xem và tải file đã upload.
+
+# Structured
+Bao gồm:
+1. API upload file backend.
+2. Validate quyền người dùng.
+3. Lưu file và metadata database.
+4. Gửi notification cho admin.
+5. Cập nhật UI dấu tích hoàn thành task.
+6. API/admin cập nhật trạng thái task.
+
+# Scalable
+Thiết kế dễ mở rộng:
+- Hỗ trợ nhiều loại file.
+- Có thể tích hợp cloud storage sau này.
+- Hỗ trợ lịch sử upload và nhiều admin duyệt task.
+
+# Secure
+- Giới hạn dung lượng file.
+- Chặn file độc hại hoặc định dạng không hợp lệ.
+- Kiểm tra quyền truy cập trước khi upload/download.
+- Không cho người khác sửa hoặc xóa file trái phép.

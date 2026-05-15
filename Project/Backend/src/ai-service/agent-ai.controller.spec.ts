@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AgentAiController } from './agent-ai.controller';
 import { AgentAiService } from './agent-ai.service';
+import { AiScheduleGeneratorService } from './ai-schedule-generator.service';
 
 describe('AgentAiController', () => {
   let controller: AgentAiController;
@@ -8,7 +9,22 @@ describe('AgentAiController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AgentAiController],
-      providers: [AgentAiService],
+      providers: [
+        {
+          provide: AgentAiService,
+          useValue: {
+            generateScheduleFromForm: jest.fn(),
+            normalizeInput: jest.fn(),
+          },
+        },
+        {
+          provide: AiScheduleGeneratorService,
+          useValue: {
+            generateFromPrompt: jest.fn(),
+            generateFromImage: jest.fn(),
+          },
+        },
+      ],
     }).compile();
 
     controller = module.get<AgentAiController>(AgentAiController);

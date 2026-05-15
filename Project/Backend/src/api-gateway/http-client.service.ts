@@ -28,7 +28,7 @@ export class HttpClientService {
 
   async request(
     serviceName: string,
-    method: 'get' | 'post' | 'put' | 'delete',
+    method: 'get' | 'post' | 'put' | 'delete' | 'patch',
     path: string,
     data?: any,
     userId?: string,

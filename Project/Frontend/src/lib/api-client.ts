@@ -5,7 +5,8 @@ import Cookies from 'js-cookie';
 // We only need the origin so that our path-level calls (which already include /api/v1/...)
 // are not doubled. Strip any trailing /api/v1 suffix.
 const rawUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-const API_BASE_URL = rawUrl.replace(/\/api\/v1\/?$/, '');
+export const API_BASE_URL = rawUrl.replace(/\/api\/v1\/?$/, '');
+export const API_PUBLIC_ORIGIN = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000').replace(/\/api\/v1\/?$/, '');
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,

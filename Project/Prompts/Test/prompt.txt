@@ -1,0 +1,31 @@
+# Simple
+Sinh các file kiểm thử backend cho microservice sử dụng NestJS.
+
+# Specific
+- Viết unit test và integration test cho controller và service.
+- Sử dụng Jest và TestingModule của NestJS.
+- Mock repository, TCP/RPC service và external dependency nếu cần.
+- Kiểm thử đầy đủ các trường hợp:
+  + Thành công
+  + Dữ liệu không hợp lệ
+  + Không tìm thấy dữ liệu
+  + Exception handling
+  + Edge cases
+
+# Structured
+Bao gồm:
+1. File *.spec.ts cho service.
+2. File *.spec.ts cho controller.
+3. Mock data và mock provider.
+4. Validate response structure.
+5. Kiểm tra business logic và exception.
+
+# Scalable
+- Code test dễ mở rộng cho các module khác.
+- Tái sử dụng mock và helper function.
+- Tuân thủ cấu trúc microservices hiện tại.
+
+# Secure
+- Không bypass validate logic.
+- Kiểm tra authorization/role nếu có.
+- Đảm bảo test đúng luồng xử lý thực tế.

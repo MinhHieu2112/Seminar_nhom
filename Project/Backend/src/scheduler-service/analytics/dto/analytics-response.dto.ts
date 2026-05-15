@@ -4,6 +4,37 @@ export class TimeDistributionDto {
   evening!: number;
 }
 
+export class TimeBreakdownPointDto {
+  label!: string;
+  minutes!: number;
+  percentage!: number;
+}
+
+export class TeamContributionPointDto {
+  name!: string;
+  tasks!: number;
+  hours!: number;
+}
+
+export class BurndownPointDto {
+  day!: string;
+  remaining!: number;
+  ideal!: number;
+}
+
+export class PerformanceMetricPointDto {
+  metric!: string;
+  value!: number;
+}
+
+export class PendingApprovalItemDto {
+  id!: string;
+  title!: string;
+  assignee!: string;
+  priority!: 'high' | 'medium' | 'low';
+  dueDate!: string;
+}
+
 export class TaskStatsDto {
   total!: number;
   completed!: number;
@@ -49,6 +80,11 @@ export class AnalyticsDashboardResponseDto {
   summary!: AnalyticsSummaryDto;
   weeklyOverview!: WeeklyOverviewDto;
   teamwork!: TeamworkStatsDto;
+  timeBreakdown!: TimeBreakdownPointDto[];
+  teamContribution!: TeamContributionPointDto[];
+  burndown!: BurndownPointDto[];
+  performance!: PerformanceMetricPointDto[];
+  pendingApprovals!: PendingApprovalItemDto[];
   nextDeadline?: NextDeadlineDto;
 }
 

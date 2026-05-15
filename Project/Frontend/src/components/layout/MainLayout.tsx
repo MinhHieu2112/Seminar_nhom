@@ -18,9 +18,7 @@ export function MainLayout({ children }: MainLayoutProps) {
   const shouldHideLayout = !pathname || noLayoutPages.some(page =>
     pathname === page || pathname.startsWith(page + '/')
   );
-  const shouldShowGlobalHeader =
-    !!pathname &&
-    (pathname === '/dashboard' || pathname === '/profile' || pathname.startsWith('/profile/'));
+  const shouldShowGlobalHeader = !shouldHideLayout;
 
   if (shouldHideLayout) {
     return <>{children}</>;

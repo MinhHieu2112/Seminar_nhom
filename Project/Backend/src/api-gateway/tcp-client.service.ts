@@ -75,7 +75,6 @@ export class TcpClientService implements OnModuleInit, OnModuleDestroy {
     }
 
     try {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const result = await lastValueFrom(client.send(pattern, data));
       return result as T;
     } catch (error) {

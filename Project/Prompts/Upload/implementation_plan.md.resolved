@@ -1,0 +1,75 @@
+# Xây dựng chức năng Upload File Minh Chứng cho Task
+
+Chức năng này cho phép người được phân công (assignee) tải lên các file minh chứng để hoàn thành task. Quản trị viên (admin) của nhóm sẽ xem xét các file này và quyết định duyệt (đổi trạng thái thành Xong) hoặc từ chối.
+
+## User Review Required
+
+> [!WARNING]
+> Kế hoạch này sẽ thực hiện thay đổi Database Schema (thêm bảng `TaskAttachment` và cột `submittedForReview` vào `Task`).
+> Các file upload sẽ được lưu trực tiếp vào thư mục `/uploads` trên server Backend (Local Disk) để đảm bảo tính khả thi và đơn giản trong môi trường hiện tại. Nếu sau này cần lên Production thật, chúng ta có thể dễ dàng chuyển sang Cloudinary/S3.
+
+## Open Questions
+
+- Giới hạn dung lượng mỗi file tải lên là bao nhiêu? (Đề xuất: 5MB/file để không làm nặng server local).
+- Loại định dạng file nào được phép tải lên? (Đề xuất: Hình ảnh `jpg, png, jpeg`, tài liệu `pdf, doc, docx, xls, xlsx`). Bạn có muốn bổ sung thêm định dạng nào không?
+
+## Proposed Changes
+
+---
+### Database & Schema (Backend)
+
+#### [MODIFY] `Backend/src/scheduler-service/scheduler/prisma/schema.prisma`
+- Bổ sung model `TaskAttachment` để lưu metadata của file (URL, dung lượng, định dạng, người upload).
+- Thêm trường `submittedForReview Boolean @default(false)` vào model `Task`.
+- Chạy lệnh migration để cập nhật database.
+
+---
+### API Gateway (Backend)
+
+#### [MODIFY] `Backend/src/main.ts`
+- Cấu hình Express static middleware để phục vụ các file upload công khai qua đường dẫn `/uploads`.
+
+#### [MODIFY] `Backend/src/api-gateway/controllers/scheduler.controller.ts`
+- Thêm endpoint `POST /tasks/:taskId/attachments` sử dụng `FilesInterceptor` (Multer) để nhận nhiều file.
+- Lưu file vào thư mục `Backend/uploads`.
+- Forward metadata của file (URL, size, mimetype) sang Scheduler Microservice.
+- Thêm endpoint `PATCH /tasks/:taskId/approve` và `PATCH /tasks/:taskId/reject`.
+
+---
+### Scheduler Microservice (Backend)
+
+#### [MODIFY] `Backend/src/scheduler-service/scheduler/scheduler.controller.ts`
+- Thêm các endpoint nội bộ để nhận metadata file và ghi vào CSDL.
+
+#### [MODIFY] `Backend/src/scheduler-service/scheduler/scheduler.service.ts`
+- **Upload File**: Tạo record trong bảng `TaskAttachment`, đổi `submittedForReview = true`, và tạo Notification báo cho Admin.
+- **Approve**: Đổi `status = 'done'`, báo Notification cho assignee.
+- **Reject**: Đổi `submittedForReview = false`, báo Notification cho assignee (yêu cầu nộp lại).
+
+---
+### Frontend UI & Hooks
+
+#### [MODIFY] `Frontend/src/hooks/useScheduler.ts`
+- Thêm các mutation: `useUploadAttachments`, `useApproveTask`, `useRejectTask`.
+
+#### [NEW] `Frontend/src/components/teamwork/UploadEvidenceModal.tsx`
+- Modal cho phép người dùng chọn và tải lên nhiều file cùng lúc. Hiển thị thanh tiến trình tải lên nếu có thể.
+
+#### [MODIFY] `Frontend/src/app/scheduler/teamwork/[id]/page.tsx`
+- **Giao diện Assignee**: Khi được phân công, hiển thị nút "Nộp minh chứng" nếu chưa hoàn thành.
+- **Trạng thái**: Nếu đã nộp file, hiển thị trạng thái "Đang chờ duyệt" (Pending Review).
+- **Giao diện Admin**: Thay vì nút đổi trạng thái thông thường, nếu task có file đính kèm, Admin có thể nhấn xem danh sách file và có 2 nút "Duyệt" (Approve) và "Từ chối" (Reject).
+
+## Verification Plan
+
+### Automated Tests
+- Chạy lệnh `npx prisma format && npx prisma validate` trên Backend để đảm bảo Schema hợp lệ.
+- Kiểm tra build Backend `npm run build` không lỗi.
+- Kiểm tra build Frontend `npm run build` không lỗi.
+
+### Manual Verification
+1. Đăng nhập bằng tài khoản A (Admin tạo nhóm, tạo task và phân công cho B).
+2. Đăng nhập tài khoản B (Thành viên), bấm "Nộp minh chứng" và tải lên 2 file.
+3. Kiểm tra DB có lưu `TaskAttachment` và trạng thái task đổi sang `Chờ duyệt`.
+4. Đăng nhập lại tài khoản A, thấy notification mới, vào giao diện xem file đính kèm và ấn "Duyệt".
+5. Xác nhận Task đã chuyển sang `Xong` và B nhận được notification duyệt thành công.

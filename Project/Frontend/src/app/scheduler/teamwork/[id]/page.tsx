@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import {
   Users,
   Calendar,
@@ -14,18 +14,26 @@ import {
   Trash,
   CheckCircle,
   Clock,
+  UploadSimple,
+  FileText,
+  Check,
 } from '@phosphor-icons/react';
 import { useAuthStore } from '@/store/auth-store';
 import { AddMemberModal } from '@/components/teamwork/AddMemberModal';
 import { EditGroupModal } from '@/components/teamwork/EditGroupModal';
-import { useGetGroupDetails, useDeleteGroup } from '@/hooks/useGroups';
+import { useGetGroupDetails, useDeleteGroup, useRemoveMember } from '@/hooks/useGroups';
 import { useUsersProfiles } from '@/hooks/useProfile';
 import {
   useCreateTask,
   useSchedulerTasks,
   useDeleteTask,
   useUpdateTask,
+  useApproveTask,
+  useRejectTask,
 } from '@/hooks/useScheduler';
+import { UploadEvidenceModal } from '@/components/teamwork/UploadEvidenceModal';
+import { TaskAttachment } from '@/types/api';
+import { API_PUBLIC_ORIGIN } from '@/lib/api-client';
 
 
 function getErrorMessage(error: unknown, fallback: string) {
@@ -54,9 +62,12 @@ const PRIORITY_COLORS: Record<number, string> = {
 export default function GroupDetailsPage() {
   const { id } = useParams() as { id: string };
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user: currentUser } = useAuthStore();
   const { data: group, isLoading, error } = useGetGroupDetails(id);
   const { data: groupTasks = [] } = useSchedulerTasks(id);
+  const highlightedTaskId = searchParams.get('taskId');
+  const taskRowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
 
   const memberIds = useMemo(() => {
     return group?.members?.map((m) => m.userId) || [];
@@ -72,12 +83,17 @@ export default function GroupDetailsPage() {
   const deleteTask = useDeleteTask();
   const updateTask = useUpdateTask();
   const deleteGroupMutation = useDeleteGroup();
+  const removeMemberMutation = useRemoveMember();
 
   const [activeTab, setActiveTab] = useState<'tasks' | 'members'>('tasks');
   const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+  const [uploadModalTaskId, setUploadModalTaskId] = useState<string | null>(null);
   const [taskError, setTaskError] = useState<string | null>(null);
+  
+  const approveTask = useApproveTask();
+  const rejectTask = useRejectTask();
   
   const [taskForm, setTaskForm] = useState({
     title: '',
@@ -94,6 +110,26 @@ export default function GroupDetailsPage() {
       return aTime - bTime;
     });
   }, [groupTasks]);
+
+  useEffect(() => {
+    if (!highlightedTaskId) return;
+
+    const row = taskRowRefs.current[highlightedTaskId];
+    if (!row) return;
+
+    row.scrollIntoView({
+      behavior: 'smooth',
+      block: 'center',
+    });
+  }, [highlightedTaskId, orderedTasks]);
+
+  const buildAttachmentUrl = (fileUrl: string) => {
+    if (fileUrl.startsWith('http://') || fileUrl.startsWith('https://')) {
+      return fileUrl;
+    }
+
+    return `${API_PUBLIC_ORIGIN}${fileUrl}`;
+  };
 
   const handleDeleteGroup = async () => {
     if (!confirm('Bạn có chắc chắn muốn xóa nhóm này? Hành động này không thể hoàn tác.')) {
@@ -207,16 +243,18 @@ export default function GroupDetailsPage() {
           </div>
 
           <div className="flex items-center gap-3 flex-wrap">
-            <button
-              onClick={() => {
-                setTaskError(null);
-                setIsTaskModalOpen(true);
-              }}
-              className="px-6 py-2.5 rounded-2xl bg-blue-600 text-white hover:bg-blue-700 font-bold text-sm transition-all shadow-lg shadow-blue-600/20 flex items-center gap-2 active:scale-95"
-            >
-              <Plus size={18} weight="bold" />
-              Thêm task mới
-            </button>
+            {isAdmin && (
+              <button
+                onClick={() => {
+                  setTaskError(null);
+                  setIsTaskModalOpen(true);
+                }}
+                className="px-6 py-2.5 rounded-2xl bg-blue-600 text-white hover:bg-blue-700 font-bold text-sm transition-all shadow-lg shadow-blue-600/20 flex items-center gap-2 active:scale-95"
+              >
+                <Plus size={18} weight="bold" />
+                Thêm task mới
+              </button>
+            )}
           </div>
         </div>
 
@@ -275,7 +313,17 @@ export default function GroupDetailsPage() {
                   {orderedTasks.length > 0 ? (
                     orderedTasks.map((task, index) => {
                       return (
-                        <tr key={task.id} className="hover:bg-gray-50/50 transition-colors group">
+                        <tr
+                          key={task.id}
+                          ref={(node) => {
+                            taskRowRefs.current[task.id] = node;
+                          }}
+                          className={`transition-colors group ${
+                            highlightedTaskId === task.id
+                              ? 'bg-blue-50/70 ring-1 ring-inset ring-blue-200'
+                              : 'hover:bg-gray-50/50'
+                          }`}
+                        >
                           <td className="px-4 py-4 text-sm font-bold text-gray-400">{index + 1}</td>
                           <td className="px-4 py-4">
                             <div className="flex flex-col min-w-0">
@@ -297,18 +345,39 @@ export default function GroupDetailsPage() {
                             </span>
                           </td>
                           <td className="px-4 py-4">
-                            <span className={`flex items-center gap-1 text-xs font-bold ${
-                              task.status === 'done' ? 'text-emerald-500' : 'text-amber-500'
-                            }`}>
-                              {task.status === 'done' ? <CheckCircle size={13} weight="fill" /> : <Clock size={13} weight="fill" />}
-                              {task.status === 'done' ? 'Xong' : 'Chờ'}
-                            </span>
+                            <div className="flex flex-col gap-1">
+                              <span className={`flex items-center gap-1 text-xs font-bold ${
+                                task.status === 'done' ? 'text-emerald-500' : 
+                                task.submittedForReview ? 'text-blue-500' : 'text-amber-500'
+                              }`}>
+                                {task.status === 'done' ? <CheckCircle size={13} weight="fill" /> : <Clock size={13} weight="fill" />}
+                                {task.status === 'done' ? 'Xong' : task.submittedForReview ? 'Chờ duyệt' : 'Chờ'}
+                              </span>
+                              {task.attachments && task.attachments.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {task.attachments.map((att: TaskAttachment) => (
+                                    <a 
+                                      key={att.id} 
+                                      href={buildAttachmentUrl(att.fileUrl)}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex max-w-full items-center gap-1 rounded-full bg-gray-100 px-2 py-1 text-[10px] font-semibold text-gray-600 transition-colors hover:bg-gray-200"
+                                      title={att.fileName}
+                                    >
+                                      <FileText size={12} />
+                                      <span className="truncate max-w-[110px]">{att.fileName}</span>
+                                    </a>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                           </td>
                           <td className="px-4 py-4">
                             <select
                               value={task.assigneeId ?? ''}
                               onChange={(e) => updateTask.mutate({ id: task.id, data: { assigneeId: e.target.value || null } })}
-                              className="w-full text-xs font-semibold text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400/20 transition-all cursor-pointer truncate"
+                              disabled={!isAdmin || task.status === 'done'}
+                              className={`w-full text-xs font-semibold text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 outline-none transition-all truncate ${isAdmin && task.status !== 'done' ? 'focus:border-blue-400 focus:ring-1 focus:ring-blue-400/20 cursor-pointer' : 'cursor-not-allowed opacity-70'}`}
                             >
                               <option value="">-- Chưa phân công --</option>
                               {group.members?.map(m => {
@@ -322,14 +391,45 @@ export default function GroupDetailsPage() {
                             </select>
                           </td>
                           <td className="px-4 py-4">
-                            <div className="flex items-center justify-center">
-                              <button
-                                onClick={() => handleDeleteTask(task.id)}
-                                className="p-2 rounded-xl text-gray-300 hover:text-red-500 hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100"
-                                title="Xóa task"
-                              >
-                                <Trash size={16} />
-                              </button>
+                            <div className="flex items-center justify-center gap-2">
+                              {isAdmin && task.submittedForReview && task.status !== 'done' && (
+                                <>
+                                  <button
+                                    onClick={() => approveTask.mutate(task.id)}
+                                    className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-all"
+                                    title="Duyệt task"
+                                  >
+                                    <Check size={16} weight="bold" />
+                                  </button>
+                                  <button
+                                    onClick={() => rejectTask.mutate(task.id)}
+                                    className="p-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-all"
+                                    title="Từ chối"
+                                  >
+                                    <X size={16} weight="bold" />
+                                  </button>
+                                </>
+                              )}
+                              
+                              {!isAdmin && task.assigneeId === currentUser?.id && task.status !== 'done' && !task.submittedForReview && (
+                                <button
+                                  onClick={() => setUploadModalTaskId(task.id)}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 font-bold text-[10px] transition-all"
+                                >
+                                  <UploadSimple size={14} weight="bold" />
+                                  NỘP FILE
+                                </button>
+                              )}
+
+                              {isAdmin && (
+                                <button
+                                  onClick={() => handleDeleteTask(task.id)}
+                                  className="p-2 rounded-xl text-gray-300 hover:text-red-500 hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100"
+                                  title="Xóa task"
+                                >
+                                  <Trash size={16} />
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -347,6 +447,12 @@ export default function GroupDetailsPage() {
             </div>
           </div>
         )}
+
+        <UploadEvidenceModal 
+          isOpen={!!uploadModalTaskId} 
+          onClose={() => setUploadModalTaskId(null)} 
+          taskId={uploadModalTaskId || ''} 
+        />
 
         {activeTab === 'members' && (
           <div className="p-8">
@@ -366,8 +472,11 @@ export default function GroupDetailsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {group.members?.map((member) => {
                 const profile = getMemberProfile(member.userId);
+                const isSelf = member.userId === currentUser?.id;
+                const isCreator = member.userId === group.creatorId;
+                const canRemove = isAdmin && !isSelf && !isCreator;
                 return (
-                  <div key={member.id} className="p-4 border border-gray-100 rounded-2xl flex items-center gap-4 bg-white hover:shadow-md transition-all">
+                  <div key={member.id} className="p-4 border border-gray-100 rounded-2xl flex items-center gap-4 bg-white hover:shadow-md transition-all group/member">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold overflow-hidden ${
                       member.role === 'admin' ? 'bg-yellow-400' : 'bg-blue-400'
                     }`}>
@@ -382,10 +491,25 @@ export default function GroupDetailsPage() {
                         <span className="truncate">
                           {profile ? `${profile.firstName} ${profile.lastName}` : `User ${member.userId.substring(0, 8)}...`}
                         </span>
-                        {member.userId === currentUser?.id && <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded flex-shrink-0">Bạn</span>}
+                        {isSelf && <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded flex-shrink-0">Bạn</span>}
+                        {isCreator && <span className="text-[10px] bg-yellow-100 text-yellow-600 px-1.5 py-0.5 rounded flex-shrink-0">Chủ nhóm</span>}
                       </div>
                       <div className="text-xs text-gray-500 mt-0.5">{member.role === 'admin' ? 'Quản trị viên' : 'Thành viên'}</div>
                     </div>
+                    {canRemove && (
+                      <button
+                        onClick={() => {
+                          if (confirm(`Bạn có chắc muốn xóa ${profile ? `${profile.firstName} ${profile.lastName}` : 'thành viên này'} khỏi nhóm?`)) {
+                            removeMemberMutation.mutate({ groupId: id, targetUserId: member.userId });
+                          }
+                        }}
+                        disabled={removeMemberMutation.isPending}
+                        className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all opacity-0 group-hover/member:opacity-100 disabled:opacity-50"
+                        title="Xóa thành viên"
+                      >
+                        {removeMemberMutation.isPending ? <Spinner size={16} className="animate-spin" /> : <Trash size={16} weight="bold" />}
+                      </button>
+                    )}
                   </div>
                 );
               })}
@@ -489,4 +613,3 @@ export default function GroupDetailsPage() {
     </div>
   );
 }
-

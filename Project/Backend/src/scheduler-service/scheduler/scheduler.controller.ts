@@ -6,6 +6,7 @@ import {
   Body,
   Get,
   Put,
+  Patch,
   Param,
   Headers,
   Delete,
@@ -143,6 +144,25 @@ export class SchedulerController {
   @Delete('tasks/:id')
   deleteTask(@Headers('x-user-id') userId: string, @Param('id') id: string) {
     return this.schedulerService.deleteTask(userId, id);
+  }
+
+  @Post('tasks/:id/attachments')
+  uploadAttachments(
+    @Headers('x-user-id') userId: string,
+    @Param('id') id: string,
+    @Body('attachments') attachments: any[],
+  ) {
+    return this.schedulerService.uploadAttachments(userId, id, attachments);
+  }
+
+  @Patch('tasks/:id/approve')
+  approveTask(@Headers('x-user-id') userId: string, @Param('id') id: string) {
+    return this.schedulerService.approveTask(userId, id);
+  }
+
+  @Patch('tasks/:id/reject')
+  rejectTask(@Headers('x-user-id') userId: string, @Param('id') id: string) {
+    return this.schedulerService.rejectTask(userId, id);
   }
 
   // --- Allocations ---
