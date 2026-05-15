@@ -1,0 +1,52 @@
+# Chain of Thought Prompt — Debug tính năng “+ Bắt đầu cộng tác”
+
+Với vai trò là Senior Fullstack Developer (NestJS + React + Prisma), hãy kiểm tra và sửa lỗi tính năng “+ Bắt đầu cộng tác” không hoạt động khi submit form thêm Schedule/Goal.
+
+Hãy suy luận từng bước theo quy trình debug thực tế:
+
+1. Phân tích luồng hoạt động hiện tại:
+
+* Frontend form submit.
+* State management.
+* API request gửi groupId/collaboration data.
+* Backend controller/service.
+* Prisma schema và database relation.
+
+2. Kiểm tra nguyên nhân lỗi:
+
+* onClick hoặc onSubmit không trigger.
+* Thiếu binding state/form field.
+* groupId không được gửi lên backend.
+* DTO validation reject dữ liệu.
+* Prisma relation sai.
+* API response lỗi nhưng frontend không handle.
+* Guard/Auth chặn request.
+* Sai tên field giữa frontend và backend.
+
+3. Kiểm tra UI/UX:
+
+* Nút “+ Bắt đầu cộng tác” có update form state không.
+* Có hiển thị danh sách member/group không.
+* Có loading/error state không.
+
+4. Sửa toàn bộ logic:
+
+* Đồng bộ field giữa frontend/backend.
+* Fix DTO, Prisma schema, service logic.
+* Fix React state/form binding.
+* Thêm validation và error handling đầy đủ.
+
+5. Sau khi sửa:
+
+* Giải thích nguyên nhân gốc gây lỗi.
+* Hiển thị code đã refactor.
+* Đảm bảo tạo Schedule cộng tác thành công.
+* Đảm bảo user ngoài group không truy cập được.
+
+Ràng buộc:
+
+* Sử dụng NestJS + Prisma Client.
+* Không dùng TypeORM.
+* Giữ clean architecture.
+* Không phá vỡ CRUD Schedule hiện tại.
+* Ưu tiên minimal changes nhưng ổn định và dễ mở rộng.

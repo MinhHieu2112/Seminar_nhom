@@ -1,11 +1,13 @@
 'use client';
 
 import { Camera, MapPin } from '@phosphor-icons/react';
-import { useUploadAvatar } from '@/lib/hooks/useProfile';
+import { useUploadAvatar } from '@/hooks/useProfile';
 import { useRef } from 'react';
 import toast from 'react-hot-toast';
+import Image from 'next/image';
+import type { User } from '@/types/api';
 
-export function ProfileSummary({ user }: { user: any }) {
+export function ProfileSummary({ user }: { user: User | null | undefined }) {
   const { mutateAsync: uploadAvatar, isPending: isUploading } = useUploadAvatar();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -54,13 +56,20 @@ export function ProfileSummary({ user }: { user: any }) {
 
         {/* Avatar */}
         <div className="relative group shrink-0">
-          <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-white shadow-lg bg-gray-100">
+          <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-white shadow-lg bg-gray-100 relative">
             {isUploading ? (
               <div className="w-full h-full flex flex-col items-center justify-center bg-gray-50">
                 <div className="w-6 h-6 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
               </div>
             ) : (
-              <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+              <Image 
+                src={avatarUrl} 
+                alt="Avatar" 
+                fill
+                sizes="128px"
+                className="object-cover"
+                unoptimized
+              />
             )}
           </div>
           <button

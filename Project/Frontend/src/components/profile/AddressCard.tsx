@@ -1,16 +1,14 @@
 'use client';
 
-import { User } from '@/types/api';
 import { UseFormRegister, FieldErrors } from 'react-hook-form';
 import { UpdateProfileFormData } from '@/lib/schemas';
 
 interface AddressCardProps {
-  user?: User;
   register: UseFormRegister<UpdateProfileFormData>;
   errors: FieldErrors<UpdateProfileFormData>;
 }
 
-export function AddressCard({ user, register, errors }: AddressCardProps) {
+export function AddressCard({ register, errors }: AddressCardProps) {
   return (
     <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
       <div className="flex justify-between items-center mb-10">
@@ -63,15 +61,6 @@ function InfoInput({
         className={`w-full bg-gray-50 border-b-2 border-transparent hover:border-gray-200 focus:border-[#024230] focus:bg-white outline-none py-1 transition-all text-gray-900 font-bold rounded-t-lg px-2 ${error ? 'border-red-500' : ''}`}
       />
       {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
-    </div>
-  );
-}
-
-function InfoField({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="space-y-1.5">
-      <p className="text-gray-400 text-sm font-medium">{label}</p>
-      <p className="text-gray-900 font-bold">{value}</p>
     </div>
   );
 }

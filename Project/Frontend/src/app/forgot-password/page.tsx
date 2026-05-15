@@ -5,8 +5,9 @@ import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { forgotPasswordSchema, type ForgotPasswordFormData } from '@/lib/schemas';
-import { passwordApi } from '@/lib/api';
+import { passwordService } from '@/services/password.service';
 import { AuthLayout } from '@/components/auth/AuthLayout';
+import { Check, EnvelopeSimple, Warning, CircleNotch, ArrowLeft, ArrowRight } from '@phosphor-icons/react';
 
 export default function ForgotPasswordPage() {
   const [submitted, setSubmitted] = useState(false);
@@ -19,8 +20,6 @@ export default function ForgotPasswordPage() {
     if (otpCode && countdown > 0) {
       const timer = setTimeout(() => setCountdown(c => c - 1), 1000);
       return () => clearTimeout(timer);
-    } else if (countdown === 0) {
-      setOtpCode(null);
     }
   }, [otpCode, countdown]);
 
@@ -35,7 +34,7 @@ export default function ForgotPasswordPage() {
   const onSubmit = async (data: ForgotPasswordFormData) => {
     setError('');
     try {
-      const response = await passwordApi.forgot({ email: data.email });
+      const response = await passwordService.forgot({ email: data.email });
       setSubmittedEmail(data.email);
       if (response.data.otp) {
         setOtpCode(response.data.otp);
@@ -61,10 +60,8 @@ export default function ForgotPasswordPage() {
     return (
       <AuthLayout>
         <div className="fp-success">
-          <div className="fp-success-icon">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M20 6L9 17l-5-5" />
-            </svg>
+          <div className="fp-success-icon bg-emerald-100 text-emerald-600 w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-6">
+            <Check size={28} weight="bold" />
           </div>
           <h2 className="fp-success-title">Kiểm tra email của bạn</h2>
           <p className="fp-success-desc">
@@ -72,7 +69,7 @@ export default function ForgotPasswordPage() {
             <strong>{submittedEmail}</strong>.
           </p>
 
-          {otpCode && (
+          {otpCode && countdown > 0 && (
             <div style={{ marginTop: 20, marginBottom: 20, padding: 15, backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, textAlign: 'center' }}>
               <p style={{ margin: '0 0 10px 0', color: '#166534', fontSize: 14 }}>Mã OTP tự động (sẽ ẩn sau {countdown}s):</p>
               <div style={{ fontSize: 32, letterSpacing: 8, fontWeight: 'bold', color: '#15803d' }}>
@@ -83,13 +80,15 @@ export default function ForgotPasswordPage() {
 
           <Link
             href={`/reset-password?email=${encodeURIComponent(submittedEmail)}`}
-            className="fp-btn-primary"
+            className="fp-btn-primary flex items-center justify-center gap-2"
             id="fp-enter-code"
           >
-            Nhập mã khôi phục →
+            Nhập mã khôi phục <ArrowRight size={18} weight="bold" />
           </Link>
           <p className="fp-back-link">
-            <Link href="/login" className="fp-link">← Quay lại đăng nhập</Link>
+            <Link href="/login" className="fp-link flex items-center justify-center gap-1">
+              <ArrowLeft size={14} /> Quay lại đăng nhập
+            </Link>
           </p>
         </div>
       </AuthLayout>
@@ -107,9 +106,7 @@ export default function ForgotPasswordPage() {
         <form onSubmit={handleSubmit(onSubmit)} className="fp-form">
           {error && (
             <div className="fp-error-banner" role="alert">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 3a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 018 4zm0 8a1 1 0 110-2 1 1 0 010 2z" />
-              </svg>
+              <Warning size={18} weight="fill" />
               {error}
             </div>
           )}
@@ -121,14 +118,11 @@ export default function ForgotPasswordPage() {
                 id="forgot-email"
                 type="email"
                 autoComplete="email"
-                className={`fp-input${errors.email ? ' fp-input--error' : ''}`}
+                className={`fp-input${errors.email ? ' lf-input--error' : ''}`}
                 placeholder="Địa chỉ email của bạn"
               />
               <div className="fp-input-icon">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-                  <polyline points="22,6 12,13 2,6" />
-                </svg>
+                <EnvelopeSimple size={18} />
               </div>
             </div>
             {errors.email && <p className="fp-field-error">{errors.email.message}</p>}
@@ -137,7 +131,7 @@ export default function ForgotPasswordPage() {
           <button id="forgot-submit" type="submit" disabled={isSubmitting} className="fp-btn-primary">
             {isSubmitting ? (
               <>
-                <span className="fp-spinner" />
+                <CircleNotch className="animate-spin" size={18} />
                 Đang gửi...
               </>
             ) : (

@@ -209,4 +209,28 @@ export class UsersController {
   adminToggleUser(@Payload() data: { userId: string }) {
     return this.userService.adminToggleUser(data.userId);
   }
+
+  /**
+   * Search for a user by email
+   */
+  @MessagePattern('user.find-by-email')
+  findByEmail(@Payload() data: { email: string }) {
+    return this.userService.findByEmail(data.email);
+  }
+
+  /**
+   * Search for users by keyword
+   */
+  @MessagePattern('user.search')
+  search(@Payload() data: { query: string }) {
+    return this.userService.search(data.query);
+  }
+
+  /**
+   * Fetch multiple users by their IDs
+   */
+  @MessagePattern('user.find-many')
+  findManyByIds(@Payload() data: { ids: string[] }) {
+    return this.userService.findManyByIds(data.ids);
+  }
 }

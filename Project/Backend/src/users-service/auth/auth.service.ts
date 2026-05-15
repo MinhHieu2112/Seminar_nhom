@@ -6,7 +6,14 @@ import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
 import { User, UserRole } from '../user/user.entity';
-import { RegisterDto, LoginDto, GoogleLoginDto, FacebookLoginDto, GithubLoginDto, LinkedinLoginDto } from '../dto';
+import {
+  RegisterDto,
+  LoginDto,
+  GoogleLoginDto,
+  FacebookLoginDto,
+  GithubLoginDto,
+  LinkedinLoginDto,
+} from '../dto';
 import { TokenService } from './token.service';
 
 export interface JwtPayload {

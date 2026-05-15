@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { resetPasswordSchema, type ResetPasswordFormData } from '@/lib/schemas';
-import { passwordApi } from '@/lib/api';
+import { passwordService } from '@/services/password.service';
 import { AuthLayout } from '@/components/auth/AuthLayout';
 
 function CheckIcon() {
@@ -59,7 +59,7 @@ function ResetPasswordForm() {
     setError('');
     setIsVerifyingOtp(true);
     try {
-      await passwordApi.verifyOtp({ email: getValues('email'), otp: getValues('otp') });
+      await passwordService.verifyOtp({ email: getValues('email'), otp: getValues('otp') });
       setStep(2);
     } catch (err: unknown) {
       const axiosErr = err as { response?: { status?: number; data?: { error?: { message?: string } } } };
@@ -76,7 +76,7 @@ function ResetPasswordForm() {
   const onSubmit = async (data: ResetPasswordFormData) => {
     setError('');
     try {
-      await passwordApi.reset({ email: data.email, otp: data.otp, newPassword: data.newPassword });
+      await passwordService.reset({ email: data.email, otp: data.otp, newPassword: data.newPassword });
       setSuccess(true);
       setTimeout(() => router.push('/login'), 3000);
     } catch (err: unknown) {

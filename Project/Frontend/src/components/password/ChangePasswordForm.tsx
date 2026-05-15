@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { changePasswordSchema, type ChangePasswordFormData } from '@/lib/schemas';
-import { passwordApi } from '@/lib/api';
+import { passwordService } from '@/services/password.service';
 
 export function ChangePasswordForm() {
   const [success, setSuccess] = useState(false);
@@ -24,7 +24,7 @@ export function ChangePasswordForm() {
     setSuccess(false);
 
     try {
-      await passwordApi.change({
+      await passwordService.change({
         oldPassword: data.oldPassword,
         newPassword: data.newPassword,
       });

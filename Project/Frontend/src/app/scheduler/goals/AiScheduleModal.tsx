@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { X, Sparkle, Image as ImageIcon, Warning, CircleNotch, Paperclip, Check } from '@phosphor-icons/react';
-import { useGenerateAiScheduleFromPrompt, useGenerateAiScheduleFromImage, useCreateAiScheduleBatch, AiSchedulePreview } from '@/lib/hooks/useAiGenerator';
+import { useGenerateAiScheduleFromPrompt, useGenerateAiScheduleFromImage, useCreateAiScheduleBatch, AiSchedulePreview } from '@/hooks/useAiGenerator';
 
 interface AiScheduleModalProps {
     onClose: () => void;
@@ -34,16 +34,17 @@ export function AiScheduleModal({ onClose, onSuccess }: AiScheduleModalProps) {
         try {
             if (file) {
                 const res = await generateFromImageMutation.mutateAsync({ file, prompt });
-                setPreview(res.data);
+                setPreview(res);
             } else if (prompt.trim()) {
                 const res = await generateFromPromptMutation.mutateAsync(prompt);
-                setPreview(res.data);
+                setPreview(res);
             } else {
                 setErrorInfo("Vui lòng nhập nội dung hoặc tải ảnh lên.");
             }
-        } catch (err: any) {
+        } catch (err: unknown) {
             // if backend passes clear list of missing fields, it will be in the message
-            setErrorInfo(err.response?.data?.message || err.message || "Failed to generate schedule.");
+            const error = err as { response?: { data?: { message?: string } }; message?: string };
+            setErrorInfo(error.response?.data?.message || error.message || "Failed to generate schedule.");
         }
     };
 
@@ -52,7 +53,7 @@ export function AiScheduleModal({ onClose, onSuccess }: AiScheduleModalProps) {
         try {
             await createBatchMutation.mutateAsync(preview);
             onSuccess();
-        } catch (err: any) {
+        } catch {
             setErrorInfo("Failed to save schedule.");
         }
     };

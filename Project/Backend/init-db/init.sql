@@ -1,1 +1,2 @@
-CREATE DATABASE scheduler_db;
+CREATE DATABASE db_user;
+CREATE DATABASE db_scheduler;

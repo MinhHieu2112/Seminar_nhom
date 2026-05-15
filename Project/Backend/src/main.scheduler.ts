@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
-import { SchedulerModule } from './scheduler-service/scheduler.module';
+import { Transport, MicroserviceOptions } from '@nestjs/microservices';
+import { SchedulerModule } from './scheduler-service/scheduler/scheduler.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(SchedulerModule);
@@ -13,8 +14,29 @@ async function bootstrap() {
     }),
   );
 
+  app.connectMicroservice<MicroserviceOptions>({
+    transport: Transport.TCP,
+    options: {
+      host: '0.0.0.0',
+      port: parseInt(process.env.TCP_PORT || '8004', 10),
+    },
+  });
+
+  app.connectMicroservice<MicroserviceOptions>({
+    transport: Transport.REDIS,
+    options: {
+      host: process.env.REDIS_HOST || 'localhost',
+      port: parseInt(process.env.REDIS_PORT || '6379', 10),
+    },
+  });
+
+  await app.startAllMicroservices();
+
   const port = process.env.HTTP_PORT || 8003;
   await app.listen(port, '0.0.0.0');
   console.log(`Scheduler Service (HTTP) listening on 0.0.0.0:${port}`);
+  console.log(
+    `Scheduler Service (TCP) listening on 0.0.0.0:${process.env.TCP_PORT || 8004}`,
+  );
 }
 bootstrap();

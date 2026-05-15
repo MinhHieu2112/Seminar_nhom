@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { useAuthStore } from '@/lib/auth-store';
+import { useAuthStore } from '@/store/auth-store';
 import { getAccessToken } from '@/lib/api-client';
 
 interface AuthGuardProps {

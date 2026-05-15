@@ -23,12 +23,7 @@ export class TcpClientService implements OnModuleInit, OnModuleDestroy {
 
     this.registerClient('scheduler-service', {
       host: this.configService.get('SCHEDULER_SERVICE_HOST', 'localhost'),
-      port: this.configService.get<number>('SCHEDULER_SERVICE_PORT', 8003),
-    });
-
-    this.registerClient('analytics-service', {
-      host: this.configService.get('ANALYTICS_SERVICE_HOST', 'localhost'),
-      port: this.configService.get<number>('ANALYTICS_SERVICE_PORT', 8006),
+      port: this.configService.get<number>('SCHEDULER_SERVICE_PORT', 8004),
     });
 
     this.registerClient('ai-service', {

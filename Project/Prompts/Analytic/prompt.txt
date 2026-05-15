@@ -1,0 +1,28 @@
+Thiết kế chức năng Analytics theo mô hình microservice cho hệ thống lập kế hoạch học tập thông minh.
+
+Backend:
+
+* Xây dựng analytics-service độc lập.
+* scheduler-service khi có dữ liệu task/schedule mới sẽ publish event qua Redis hoặc RabbitMQ.
+* analytics-service subscribe event, xử lý và lưu dữ liệu thống kê rút gọn vào database riêng.
+* Hỗ trợ thống kê theo:
+
+  1. Cá nhân:
+
+     * Stacked Bar Chart: phân bổ thời gian theo loại task.
+     * Pie Chart: tỉ lệ trạng thái task (completed, in-progress, overdue).
+  2. Teamwork:
+
+     * Horizontal Bar Chart: đóng góp thành viên theo số task hoặc tổng giờ học.
+     * Burn-down Chart: theo dõi workload còn lại theo deadline.
+     * Radar Chart: đánh giá tốc độ hoàn thành, đúng hạn, tương tác, chất lượng task.
+     * Progress Tracker: danh sách task chờ leader phê duyệt.
+  3. Có bộ lọc theo ngày, tháng, năm, khoảng thời gian tùy chỉnh.
+
+Frontend:
+
+* Thiết kế dashboard hiện đại, sang trọng, rõ ràng.
+* UI ưu tiên  card layout, responsive.
+* Biểu đồ trực quan bằng Recharts hoặc Chart.js.
+* Có filter theo thời gian, cá nhân, nhóm và project.
+* Animation mượt, loading skeleton và realtime update bằng WebSocket.

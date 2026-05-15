@@ -5,6 +5,7 @@ import {
   Post,
   Body,
   Headers,
+  Query,
   HttpCode,
   HttpStatus,
   UseInterceptors,
@@ -56,10 +57,10 @@ export class UsersGatewayController {
     if (!file) {
       throw new BadRequestException('No file provided');
     }
-    
+
     const result = await this.cloudinaryService.uploadImage(file);
     const avatar = result.secure_url;
-    
+
     return safeSend(this.tcpClient, 'user-service', 'user.profile.update', {
       userId,
       avatar,
@@ -76,6 +77,26 @@ export class UsersGatewayController {
     return safeSend(this.tcpClient, 'user-service', 'user.password.change', {
       userId,
       ...dto,
+    });
+  }
+
+  @Get('search')
+  search(@Query('q') query: string) {
+    if (!query) {
+      throw new BadRequestException('Search query is required');
+    }
+    return safeSend(this.tcpClient, 'user-service', 'user.search', {
+      query,
+    });
+  }
+
+  @Post('batch')
+  getManyProfiles(@Body('ids') ids: string[]) {
+    if (!ids || !Array.isArray(ids)) {
+      throw new BadRequestException('IDs array is required');
+    }
+    return safeSend(this.tcpClient, 'user-service', 'user.find-many', {
+      ids,
     });
   }
 }

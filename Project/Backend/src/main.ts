@@ -12,6 +12,7 @@ async function bootstrap() {
       whitelist: true,
       transform: true,
       forbidNonWhitelisted: true,
+      disableErrorMessages: false, // Ensure we see what's wrong
     }),
   );
 

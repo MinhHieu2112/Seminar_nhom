@@ -49,9 +49,12 @@ export class HttpClientService {
         }),
       );
       return response.data;
-    } catch (error) {
+    } catch (error: any) {
+      const errorData = error.response?.data || error.message;
       this.logger.error(
-        `HTTP request to ${serviceName} failed: ${error.message}`,
+        `HTTP request to ${serviceName} failed [${method.toUpperCase()} ${path}]: ${
+          typeof errorData === 'object' ? JSON.stringify(errorData) : errorData
+        }`,
       );
       throw error;
     }

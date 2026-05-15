@@ -14,8 +14,9 @@ import {
   Pie,
   Cell,
 } from 'recharts';
-import { BarChart2, Calendar, Clock, Target, CheckSquare, PieChart as PieChartIcon } from 'lucide-react';
-import { useAnalyticsDashboard, useAnalyticsHistory } from '@/lib/hooks/useAnalytics';
+import { ChartBar, Calendar, Clock, Target, CheckSquare, ChartPie as PieChartIcon } from '@phosphor-icons/react';
+
+import { useAnalyticsDashboard, useAnalyticsHistory } from '@/hooks/useAnalytics';
 
 const PIE_COLORS = ['#10b981', '#fcd34d', '#ef4444'];
 
@@ -27,16 +28,19 @@ export function AnalyticsView() {
   const totalPlanned = history.reduce((total, item) => total + item.planned, 0);
   const totalActual = history.reduce((total, item) => total + item.actual, 0);
 
+  const completedTasks = (analytics?.summary?.individualTasks.completed ?? 0) + (analytics?.summary?.teamTasks.completed ?? 0);
+  const overdueTasks = (analytics?.summary?.individualTasks.overdue ?? 0) + (analytics?.summary?.teamTasks.overdue ?? 0);
+  const totalTasks = (analytics?.summary?.individualTasks.total ?? 0) + (analytics?.summary?.teamTasks.total ?? 0);
+  
   const completedBlocks = analytics?.summary?.completedBlocks ?? 0;
-  const overdueBlocks = analytics?.summary?.overdueTasks ?? 0;
   const plannedBlocks = analytics?.summary?.plannedBlocks ?? 0;
   // Ensure pending is not negative
-  const pendingBlocks = Math.max(plannedBlocks - completedBlocks - overdueBlocks, 0);
+  const pendingTasks = Math.max(totalTasks - completedTasks - overdueTasks, 0);
 
   const taskStatusData = [
-    { name: 'Hoàn thành', value: completedBlocks },
-    { name: 'Đang chờ', value: pendingBlocks },
-    { name: 'Trễ hạn', value: overdueBlocks },
+    { name: 'Hoàn thành', value: completedTasks },
+    { name: 'Đang chờ', value: pendingTasks },
+    { name: 'Trễ hạn', value: overdueTasks },
   ];
 
   return (
@@ -111,7 +115,7 @@ export function AnalyticsView() {
             <h3 className="font-medium text-gray-900">Phiên trễ hạn</h3>
           </div>
           <p className="text-2xl font-bold text-gray-900">
-            {analytics?.summary?.overdueTasks ?? 0}
+            {overdueTasks}
           </p>
         </div>
       </div>
@@ -120,7 +124,7 @@ export function AnalyticsView() {
         {/* Main Bar Chart - Hours */}
         <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm lg:col-span-2">
           <h2 className="mb-6 flex items-center gap-2 text-lg font-semibold text-gray-900">
-            <BarChart2 className="h-5 w-5 text-blue-500" />
+            <ChartBar className="h-5 w-5 text-blue-500" />
             Biểu đồ giờ học
           </h2>
 
@@ -130,7 +134,7 @@ export function AnalyticsView() {
             </div>
           ) : history.length === 0 ? (
             <div className="flex h-80 flex-col items-center justify-center text-gray-500">
-              <BarChart2 className="mb-2 h-12 w-12 text-gray-300" />
+              <ChartBar className="mb-2 h-12 w-12 text-gray-300" />
               <p>Chưa có dữ liệu học tập trong kỳ này</p>
             </div>
           ) : (

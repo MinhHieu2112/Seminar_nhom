@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useAdminUsers, useToggleUser } from '@/lib/hooks/useAdmin';
+import { useAdminUsers, useToggleUser } from '@/hooks/useAdmin';
 import type { User } from '@/types/api';
 
 function UserRow({ user }: { user: User }) {
@@ -94,7 +94,7 @@ export function UsersTable() {
   const [page, setPage] = useState(1);
   const limit = 10;
 
-  const { data, isLoading, error } = useAdminUsers({ page, limit });
+  const { data, isLoading, error } = useAdminUsers(page, limit);
 
   const totalPages = data ? Math.ceil(data.total / limit) : 0;
 

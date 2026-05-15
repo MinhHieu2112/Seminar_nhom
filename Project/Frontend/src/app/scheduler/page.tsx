@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, memo } from 'react';
-import { useSchedulerAllocations, useSchedulerTasks } from '@/lib/hooks/useScheduler';
+import { useSchedulerAllocations, useSchedulerTasks } from '@/hooks/useScheduler';
 import {
     format, startOfWeek, addDays, startOfDay, endOfDay, addWeeks, subWeeks, isSameDay, parseISO
 } from 'date-fns';
@@ -106,19 +106,19 @@ export default function SchedulerPage() {
     const handleToday = () => setCurrentDate(new Date());
 
     return (
-        <div className="min-h-screen bg-[#f8f9fc] text-slate-900 pb-10">
-            {/* Header: Đã tăng kích thước font và điều chỉnh Spacing */}
+        <div className="min-h-screen bg-[#f8f9fc] text-slate-700 pb-10">
+            {/* Header */}
             <header className="top-0 z-30 bg-[#f8f9fc]/80 backdrop-blur-md pb-4 px-6 max-w-350 mx-auto flex items-end justify-between">
                 <div className="flex flex-col gap-1">
-                    <span className="text-[11px] font-black text-indigo-500 uppercase tracking-[0.3em] ml-1">
+                    <span className="text-[11px] font-black text-indigo-400 uppercase tracking-[0.3em] ml-1">
                         {format(currentDate, 'MMMM yyyy', { locale: vi })}
                     </span>
                     <div className="flex items-center gap-6">
-                        <h1 className="text-5xl font-black tracking-tighter">Lịch trình</h1>
+                        <h1 className="text-5xl font-black tracking-tighter text-slate-800">Lịch trình</h1>
                         <div className="flex items-center bg-white border border-slate-200 p-1 rounded-2xl shadow-sm">
-                            <button onClick={handlePrevWeek} className="p-2.5 hover:bg-slate-50 rounded-xl transition-all active:scale-95"><CaretLeft weight="bold" size={18} /></button>
-                            <button onClick={handleToday} className="px-6 py-2 hover:bg-slate-50 rounded-xl text-[11px] font-black uppercase tracking-widest text-slate-600">Hôm nay</button>
-                            <button onClick={handleNextWeek} className="p-2.5 hover:bg-slate-50 rounded-xl transition-all active:scale-95"><CaretRight weight="bold" size={18} /></button>
+                            <button onClick={handlePrevWeek} className="p-2.5 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 rounded-xl transition-all active:scale-95"><CaretLeft weight="bold" size={18} /></button>
+                            <button onClick={handleToday} className="px-6 py-2 hover:bg-indigo-50 rounded-xl text-[11px] font-black uppercase tracking-widest text-indigo-500 hover:text-indigo-700 transition-colors">Hôm nay</button>
+                            <button onClick={handleNextWeek} className="p-2.5 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 rounded-xl transition-all active:scale-95"><CaretRight weight="bold" size={18} /></button>
                         </div>
                     </div>
                 </div>
@@ -138,7 +138,7 @@ export default function SchedulerPage() {
                             <div className="w-20 shrink-0 border-r border-slate-100 flex flex-col pt-12 bg-slate-50/30">
                                 {Array.from({ length: phase.end - phase.start + 1 }, (_, i) => phase.start + i).map(h => (
                                     <div key={h} className="h-16 flex items-start justify-center">
-                                        <span className="text-[10px] font-bold text-slate-400 tabular-nums -translate-y-2">{h}:00</span>
+                                        <span className="text-[10px] font-semibold text-slate-300 tabular-nums -translate-y-2">{h}:00</span>
                                     </div>
                                 ))}
                             </div>
@@ -153,9 +153,9 @@ export default function SchedulerPage() {
                                     return (
                                         <div key={dIdx} className={`flex-1 min-w-30 border-r border-slate-100 last:border-0 relative ${isToday ? 'bg-indigo-50/30' : ''}`}>
                                             {/* Header ngày */}
-                                            <div className="h-12 flex flex-col items-center justify-center border-b border-slate-100/50 bg-white/40 sticky top-0 z-10">
-                                                <span className={`text-[9px] font-black uppercase tracking-tighter ${isToday ? 'text-indigo-500' : 'text-slate-400'}`}>{DAY_NAMES[dIdx]}</span>
-                                                <span className={`text-sm font-black ${isToday ? 'text-indigo-600' : 'text-slate-700'}`}>{format(day, 'dd')}</span>
+                                            <div className={`h-12 flex flex-col items-center justify-center border-b border-slate-100/50 sticky top-0 z-10 transition-colors ${isToday ? 'bg-indigo-50/60' : 'bg-white/40'}`}>
+                                                <span className={`text-[9px] font-black uppercase tracking-tighter ${isToday ? 'text-indigo-500' : 'text-slate-300'}`}>{DAY_NAMES[dIdx]}</span>
+                                                <span className={`text-sm font-black ${isToday ? 'text-indigo-600' : 'text-slate-500'}`}>{format(day, 'dd')}</span>
                                             </div>
 
                                             {/* Khu vực chứa Event */}

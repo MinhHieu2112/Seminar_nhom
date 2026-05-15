@@ -1,20 +1,20 @@
 version: '3.8'
 
 services:
-  postgres:
+  postgres-db:
     image: postgres:15-alpine
-    container_name: user-service-postgres
+    container_name: postgres-db-container
     environment:
       POSTGRES_USER: ${DB_USERNAME:-studyplan}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}
-      POSTGRES_DB: ${DB_NAME:-studyplan}
+      POSTGRES_DB: postgres
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init-db:/docker-entrypoint-initdb.d
     ports:
       - "5432:5432"
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${DB_USERNAME:-studyplan} -d ${DB_NAME:-studyplan}" ]
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USERNAME:-studyplan} -d postgres" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -41,12 +41,12 @@ services:
     container_name: user-service-app
     environment:
       NODE_ENV: production
-      DB_HOST: postgres
+      DB_HOST: postgres-db
       DB_PORT: 5432
       DB_USERNAME: ${DB_USERNAME:-studyplan}
       DB_PASSWORD: ${DB_PASSWORD:-secret}
-      DB_NAME: ${DB_NAME:-studyplan}
-      DATABASE_URL: postgresql://${DB_USERNAME:-studyplan}:${DB_PASSWORD:-secret}@postgres:5432/${DB_NAME:-studyplan}
+      DB_NAME: db_user
+      DATABASE_URL: postgresql://${DB_USERNAME:-studyplan}:${DB_PASSWORD:-secret}@postgres-db:5432/db_user
       REDIS_URL: redis://redis:6379
       REDIS_HOST: redis
       REDIS_PORT: 6379
@@ -57,33 +57,7 @@ services:
     ports:
       - "8001:8001"
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - user-service-network
-    restart: unless-stopped
-
-  notification-service:
-    build:
-      context: .
-      dockerfile: Dockerfile.notification-service
-    container_name: notification-service-app
-    environment:
-      NODE_ENV: production
-      DATABASE_URL: postgresql://${DB_USERNAME:-studyplan}:${DB_PASSWORD:-secret}@postgres:5432/${DB_NAME:-studyplan}
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      TCP_PORT: 8002
-      SMTP_HOST: ${SMTP_HOST:-}
-      SMTP_PORT: ${SMTP_PORT:-587}
-      SMTP_USER: ${SMTP_USER:-}
-      SMTP_PASS: ${SMTP_PASS:-}
-      EMAIL_FROM: ${EMAIL_FROM:-noreply@studyplan.app}
-    # No TCP port exposed. Entirely queue-driven.
-    depends_on:
-      postgres:
+      postgres-db:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -99,13 +73,17 @@ services:
     environment:
       NODE_ENV: production
       TZ: Asia/Ho_Chi_Minh
-      DATABASE_URL: postgresql://${DB_USERNAME:-studyplan}:${DB_PASSWORD:-secret}@postgres:5432/scheduler_db
-      USER_SERVICE_URL: http://user-service-app:8001
+      SCHEDULER_DATABASE_URL: postgresql://${DB_USERNAME:-studyplan}:${DB_PASSWORD:-secret}@postgres-db:5432/db_scheduler
+      DATABASE_URL: postgresql://${DB_USERNAME:-studyplan}:${DB_PASSWORD:-secret}@postgres-db:5432/db_scheduler
+      USER_SERVICE_URL: http://user-service-app:8011
       HTTP_PORT: 8003
+      TCP_PORT: 8004
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
     ports:
-      - "8003:8003"
+      - "8004:8004"
     depends_on:
-      postgres:
+      postgres-db:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -127,24 +105,6 @@ services:
       - user-service-network
     restart: unless-stopped
 
-  analytics-service:
-    build:
-      context: .
-      dockerfile: Dockerfile.analytics-service
-    container_name: analytics-service-app
-    environment:
-      NODE_ENV: production
-      DATABASE_URL: postgresql://${DB_USERNAME:-studyplan}:${DB_PASSWORD:-secret}@postgres:5432/${DB_NAME:-studyplan}
-      ANALYTICS_TCP_PORT: 8006
-    ports:
-      - "8006:8006"
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - user-service-network
-    restart: unless-stopped
-
   api-gateway:
     build:
       context: .
@@ -161,8 +121,8 @@ services:
       USER_SERVICE_HOST: user-service
       USER_SERVICE_PORT: 8001
       SCHEDULER_SERVICE_URL: http://scheduler-service-app:8003
-      ANALYTICS_SERVICE_HOST: analytics-service
-      ANALYTICS_SERVICE_PORT: 8006
+      SCHEDULER_SERVICE_HOST: scheduler-service-app
+      SCHEDULER_SERVICE_PORT: 8004
       AI_SERVICE_HOST: ai-service
       AI_SERVICE_PORT: 8005
       # Google OAuth
@@ -186,8 +146,7 @@ services:
     depends_on:
       - user-service
       - scheduler-service
-      - notification-service
-      - analytics-service
+      - ai-service
     networks:
       - user-service-network
     restart: unless-stopped

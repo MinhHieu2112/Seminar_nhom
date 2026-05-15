@@ -4,7 +4,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In, Like } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { User, UserRole } from './user.entity';
 import { UpdateProfileDto, ChangePasswordDto } from '../dto';
@@ -164,6 +164,49 @@ export class UserService {
     user.isActive = !user.isActive;
     await this.userRepo.save(user);
     return stripPassword(user);
+  }
+
+  /**
+   * Finds a user by their email address and returns a sanitized profile.
+   *
+   * @param email - Email address to search for
+   * @returns Sanitized User object or null
+   */
+  async findByEmail(email: string): Promise<Omit<User, 'password'> | null> {
+    const user = await this.userRepo.findOne({ where: { email } });
+    if (!user) return null;
+    return stripPassword(user);
+  }
+
+  /**
+   * Searches users by keyword (email, firstName, lastName).
+   *
+   * @param query - Search keyword
+   * @returns Array of sanitized User objects
+   */
+  async search(query: string): Promise<Omit<User, 'password'>[]> {
+    const users = await this.userRepo.find({
+      where: [
+        { email: Like(`%${query}%`) },
+        { firstName: Like(`%${query}%`) },
+        { lastName: Like(`%${query}%`) },
+      ],
+      take: 10,
+    });
+    return users.map(stripPassword);
+  }
+
+  /**
+   * Finds multiple users by their IDs.
+   *
+   * @param ids - Array of user UUIDs
+   * @returns Array of sanitized User objects
+   */
+  async findManyByIds(ids: string[]): Promise<Omit<User, 'password'>[]> {
+    const users = await this.userRepo.find({
+      where: { id: In(ids) },
+    });
+    return users.map(stripPassword);
   }
 
   /**

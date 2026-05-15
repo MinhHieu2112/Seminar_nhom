@@ -135,6 +135,38 @@ export class SchedulerGatewayController {
   }
 
   // --- Tasks ---
+  @Get('schedules')
+  getSchedules(
+    @Headers('authorization') authHeader: string,
+    @Query('groupId') groupId?: string,
+  ) {
+    const path = groupId
+      ? `/api/v1/scheduler/schedules?groupId=${encodeURIComponent(groupId)}`
+      : '/api/v1/scheduler/schedules';
+
+    return this.httpClient.request(
+      'scheduler-service',
+      'get',
+      path,
+      null,
+      this.getUid(authHeader),
+    );
+  }
+
+  @Post('schedules')
+  createSchedule(
+    @Headers('authorization') authHeader: string,
+    @Body() dto: any,
+  ) {
+    return this.httpClient.request(
+      'scheduler-service',
+      'post',
+      '/api/v1/scheduler/schedules',
+      dto,
+      this.getUid(authHeader),
+    );
+  }
+
   @Post('tasks')
   createTask(@Headers('authorization') authHeader: string, @Body() dto: any) {
     return this.httpClient.request(
@@ -147,11 +179,18 @@ export class SchedulerGatewayController {
   }
 
   @Get('tasks')
-  getTasks(@Headers('authorization') authHeader: string) {
+  getTasks(
+    @Headers('authorization') authHeader: string,
+    @Query('groupId') groupId?: string,
+  ) {
+    const path = groupId
+      ? `/api/v1/scheduler/tasks?groupId=${encodeURIComponent(groupId)}`
+      : '/api/v1/scheduler/tasks';
+
     return this.httpClient.request(
       'scheduler-service',
       'get',
-      '/api/v1/scheduler/tasks',
+      path,
       null,
       this.getUid(authHeader),
     );
@@ -239,7 +278,6 @@ export class SchedulerGatewayController {
       this.getUid(authHeader),
     );
   }
-
   @Put('preferences')
   updatePreferences(
     @Headers('authorization') authHeader: string,
@@ -250,6 +288,134 @@ export class SchedulerGatewayController {
       'put',
       '/api/v1/scheduler/preferences',
       dto,
+      this.getUid(authHeader),
+    );
+  }
+
+  @Post('groups')
+  createGroup(@Headers('authorization') authHeader: string, @Body() dto: any) {
+    return this.httpClient.request(
+      'scheduler-service',
+      'post',
+      '/api/v1/scheduler/groups',
+      dto,
+      this.getUid(authHeader),
+    );
+  }
+
+  @Get('groups')
+  getGroups(@Headers('authorization') authHeader: string) {
+    return this.httpClient.request(
+      'scheduler-service',
+      'get',
+      '/api/v1/scheduler/groups',
+      null,
+      this.getUid(authHeader),
+    );
+  }
+
+  @Get('groups/:id')
+  getGroupDetails(
+    @Headers('authorization') authHeader: string,
+    @Param('id') id: string,
+  ) {
+    return this.httpClient.request(
+      'scheduler-service',
+      'get',
+      `/api/v1/scheduler/groups/${id}`,
+      null,
+      this.getUid(authHeader),
+    );
+  }
+
+  @Post('groups/:id/invitations')
+  inviteGroupMember(
+    @Headers('authorization') authHeader: string,
+    @Param('id') id: string,
+    @Body() dto: any,
+  ) {
+    return this.httpClient.request(
+      'scheduler-service',
+      'post',
+      `/api/v1/scheduler/groups/${id}/invitations`,
+      dto,
+      this.getUid(authHeader),
+    );
+  }
+
+  @Get('groups/invitations/me')
+  getGroupInvitations(@Headers('authorization') authHeader: string) {
+    return this.httpClient.request(
+      'scheduler-service',
+      'get',
+      '/api/v1/scheduler/groups/invitations/me',
+      null,
+      this.getUid(authHeader),
+    );
+  }
+
+  @Post('groups/invitations/:id/respond')
+  respondToGroupInvitation(
+    @Headers('authorization') authHeader: string,
+    @Param('id') id: string,
+    @Body('accept') accept: boolean,
+  ) {
+    return this.httpClient.request(
+      'scheduler-service',
+      'post',
+      `/api/v1/scheduler/groups/invitations/${id}/respond`,
+      { accept },
+      this.getUid(authHeader),
+    );
+  }
+
+  @Delete('groups/:id')
+  deleteGroup(
+    @Headers('authorization') authHeader: string,
+    @Param('id') id: string,
+  ) {
+    return this.httpClient.request(
+      'scheduler-service',
+      'delete',
+      `/api/v1/scheduler/groups/${id}`,
+      null,
+      this.getUid(authHeader),
+    );
+  }
+
+  // --- Notifications ---
+  @Get('notifications')
+  getNotifications(@Headers('authorization') authHeader: string) {
+    return this.httpClient.request(
+      'scheduler-service',
+      'get',
+      '/api/v1/scheduler/notifications',
+      null,
+      this.getUid(authHeader),
+    );
+  }
+
+  @Post('notifications/:id/read')
+  markNotificationAsRead(
+    @Headers('authorization') authHeader: string,
+    @Param('id') id: string,
+  ) {
+    return this.httpClient.request(
+      'scheduler-service',
+      'post',
+      `/api/v1/scheduler/notifications/${id}/read`,
+      null,
+      this.getUid(authHeader),
+    );
+  }
+
+  @Post('notifications/read-all')
+  markAllNotificationsAsRead(@Headers('authorization') authHeader: string) {
+    return this.httpClient.request(
+      'scheduler-service',
+      'post',
+      '/api/v1/scheduler/notifications/read-all',
+      null,
       this.getUid(authHeader),
     );
   }

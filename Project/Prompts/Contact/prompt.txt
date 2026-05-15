@@ -1,0 +1,44 @@
+# Five S Prompt — Refactor Scheduler-Service for Team Collaboration
+
+## Scope
+
+Mở rộng scheduler-service bằng NestJS để hỗ trợ cộng tác nhóm theo mô hình Database-per-service.
+
+## Structure
+
+* Cập nhật `schema.prisma`:
+
+  * Thêm bảng `Group`.
+  * Thêm bảng `GroupMember`.
+* Chỉnh sửa bảng `Schedule`:
+
+  * Thêm `groupId`.
+  * Thiết lập relation với `Group`.
+* Viết NestJS Guard:
+
+  * Kiểm tra User hiện tại có thuộc `Group` của `Schedule` đang truy cập hay không.
+* Sử dụng Prisma Client cho toàn bộ database access.
+
+## Style
+
+* Áp dụng clean architecture, module/service/repository rõ ràng.
+* Viết code TypeScript chuẩn NestJS.
+* Tách Guard, DTO, Prisma query và business logic riêng biệt.
+* Tối ưu query Prisma và tránh duplicate logic.
+
+## Safety
+
+* Không dùng TypeORM.
+* Handle các trường hợp:
+
+  * Group không tồn tại.
+  * User không thuộc group.
+  * Schedule không tồn tại.
+* Trả về HTTP exception phù hợp (`403`, `404`).
+
+## Success
+
+* User chỉ truy cập được Schedule thuộc Group của mình.
+* Prisma schema migration chạy thành công.
+* Guard hoạt động đúng với JWT user context.
+* Code dễ mở rộng cho role/permission trong tương lai.

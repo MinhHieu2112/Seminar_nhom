@@ -19,7 +19,7 @@ import { AuthGuard } from '@/components/auth/AuthGuard';
 import { ProfileSummary } from '@/components/profile/ProfileSummary';
 import { PersonalInfoCard } from '@/components/profile/PersonalInfoCard';
 import { AddressCard } from '@/components/profile/AddressCard';
-import { useProfile, useUpdateProfile } from '@/lib/hooks/useProfile';
+import { useProfile, useUpdateProfile } from '@/hooks/useProfile';
 import toast from 'react-hot-toast';
 import type { User } from '@/types/api';
 
@@ -340,8 +340,8 @@ function ProfileContent() {
           {/* VIEW: Thông tin cá nhân */}
           {activeTab === 'personal' && (
             <div className="space-y-6">
-              <PersonalInfoCard user={user} register={register} errors={errors} />
-              <AddressCard user={user} register={register} errors={errors} />
+              <PersonalInfoCard register={register} errors={errors} />
+              <AddressCard register={register} errors={errors} />
             </div>
           )}
 

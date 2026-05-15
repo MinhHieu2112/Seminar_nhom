@@ -1,38 +1,48 @@
 # Multi-stage build for scheduler-service (TCP + HTTP Microservice)
 FROM node:20-alpine AS builder
 
+# Install pnpm
+RUN npm install -g pnpm
+
 WORKDIR /app
 
 RUN apk add --no-cache tzdata
 
 # Copy package files and install ALL deps (including dev)
-COPY package*.json ./
-RUN npm ci
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
 
 # Copy source and generate Prisma client, then build
 COPY . .
-RUN npx prisma generate --schema=src/scheduler-service/prisma/schema.prisma
-RUN npm run build
+# Fix: Ensure types are updated before build
+RUN pnpm prisma generate --schema=src/scheduler-service/scheduler/prisma/schema.prisma
+RUN pnpm run build
 
 # ── Production stage ──────────────────────────────────────────
 FROM node:20-alpine
+
+# Install pnpm
+RUN npm install -g pnpm
 
 WORKDIR /app
 
 RUN apk add --no-cache tzdata
 ENV TZ=Asia/Ho_Chi_Minh
 
-# Install production deps only
-COPY package*.json ./
-RUN npm ci --only=production && npm cache clean --force
+# Copy package files and install production deps
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --prod --frozen-lockfile
 
 # Copy compiled output from builder
 COPY --from=builder /app/dist ./dist
 
-# Copy generated Prisma client (not shipped in node_modules by npm ci --only=production)
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/client
+# Generate Prisma client in production stage for runtime
+COPY src/scheduler-service/scheduler/prisma/schema.prisma ./schema.prisma
+RUN pnpm prisma generate --schema=./schema.prisma
+
+# Cleanup pnpm store
+RUN pnpm store prune
 
 EXPOSE 8003
 
-CMD ["node", "dist/main.scheduler.js"]
+CMD ["sh", "-c", "pnpm prisma db push --schema=./schema.prisma && node dist/main.scheduler.js"]

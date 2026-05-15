@@ -1,6 +1,7 @@
 'use client';
 
-import { usePathname } from 'next/navigation';
+import React, { useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   Calendar,
@@ -10,14 +11,20 @@ import {
   CaretLeft,
   CaretRight,
   DotsThreeVertical,
+  Users,
 } from '@phosphor-icons/react';
-import { useAuthStore } from '@/lib/auth-store';
-import { useUIStore } from '@/lib/ui-store';
+import { useAuthStore } from '@/store/auth-store';
+import { useUIStore } from '@/store/ui-store';
+import { useGetGroups } from '@/hooks/useGroups';
+import { CreateGroupModal } from '@/components/teamwork/CreateGroupModal';
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { user } = useAuthStore();
   const { isSidebarCollapsed, toggleSidebar } = useUIStore();
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const { data: groups, isLoading: isGroupsLoading } = useGetGroups();
 
   const personalItems = [
     { href: '/scheduler', label: 'Lịch của tôi', icon: Calendar, color: 'text-blue-500' },
@@ -39,7 +46,7 @@ export function Sidebar() {
       {/* Toggle Button */}
       <div className={`p-6 flex items-center justify-between`}>
         {!isSidebarCollapsed && (
-          <div className="flex items-center gap-2 font-black text-gray-900 tracking-tighter text-xl">
+          <div className="flex items-center gap-2 font-black text-indigo-900 tracking-tighter text-xl">
             StudyPlan
           </div>
         )}
@@ -60,15 +67,15 @@ export function Sidebar() {
           <nav className="space-y-1 mt-2">
             {personalItems.map((item) => {
               const Icon = item.icon;
-              const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
+              const isActive = pathname === item.href;
 
               return (
                 <Link
                   key={item.href}
                   href={item.href}
                   className={`flex items-center gap-3 rounded-2xl px-4 py-3 transition-all duration-200 group ${isActive
-                    ? 'bg-blue-50 text-blue-600 shadow-sm'
-                    : 'text-gray-600 hover:bg-gray-50'
+                    ? 'bg-blue-50 text-blue-600 shadow-sm ring-1 ring-blue-100'
+                    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
                     } ${isSidebarCollapsed ? 'justify-center px-0' : ''}`}
                 >
                   <Icon
@@ -77,7 +84,7 @@ export function Sidebar() {
                     className={`${isActive ? 'text-blue-500' : item.color} transition-transform group-hover:scale-110`}
                   />
                   {!isSidebarCollapsed && (
-                    <span className={`text-[15px] font-bold ${isActive ? 'text-blue-600' : 'text-gray-600'}`}>
+                    <span className={`text-[15px] font-bold ${isActive ? 'text-blue-600' : 'text-slate-600'}`}>
                       {item.label}
                     </span>
                   )}
@@ -93,13 +100,39 @@ export function Sidebar() {
             <h3 className="px-4 py-2 text-[11px] font-black text-gray-400 uppercase tracking-widest">Teamwork</h3>
           )}
           <nav className="space-y-1 mt-2">
+            {!isGroupsLoading && groups?.map((group) => {
+              const isActive = pathname === `/scheduler/teamwork/${group.id}`;
+              return (
+                <Link
+                  key={group.id}
+                  href={`/scheduler/teamwork/${group.id}`}
+                  className={`flex items-center gap-3 rounded-2xl px-4 py-3 transition-all duration-200 group ${isActive
+                    ? 'bg-blue-50 text-blue-600 shadow-sm ring-1 ring-blue-100'
+                    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
+                    } ${isSidebarCollapsed ? 'justify-center px-0' : ''}`}
+                >
+                  <Users
+                    weight={isActive ? "fill" : "bold"}
+                    size={22}
+                    className={`${isActive ? 'text-blue-500' : 'text-green-500'} transition-transform group-hover:scale-110`}
+                  />
+                  {!isSidebarCollapsed && (
+                    <span className={`text-[15px] font-bold ${isActive ? 'text-blue-600' : 'text-slate-600'} truncate`}>
+                      {group.name}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
+
             <button
+              onClick={() => setIsCreateModalOpen(true)}
               className={`w-full flex items-center gap-3 rounded-2xl px-4 py-3 text-gray-600 hover:bg-gray-50 transition-all group ${isSidebarCollapsed ? 'justify-center px-0' : ''
                 }`}
             >
               <Plus weight="bold" size={22} className="text-gray-400 group-hover:scale-110 transition-transform" />
               {!isSidebarCollapsed && (
-                <span className="text-[15px] font-bold text-gray-600">Bắt đầu cộng tác</span>
+                <span className="text-[15px] font-bold text-slate-500">Bắt đầu cộng tác</span>
               )}
             </button>
           </nav>
@@ -141,15 +174,25 @@ export function Sidebar() {
 
       {/* Footer */}
       <div className={`p-6 mt-auto flex flex-col items-center gap-4 ${isSidebarCollapsed ? 'px-0' : ''}`}>
-        <div className="w-10 h-10 rounded-full bg-gray-900 flex items-center justify-center text-white font-bold shadow-lg">
+        <div className="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold shadow-lg shadow-indigo-600/20">
           N
         </div>
         {!isSidebarCollapsed && (
-          <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest">
+          <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">
             © 2026 StudyPlan
           </p>
         )}
       </div>
+
+      {isCreateModalOpen && (
+        <CreateGroupModal
+          onClose={() => setIsCreateModalOpen(false)}
+          onSuccess={(groupId) => {
+            setIsCreateModalOpen(false);
+            router.push(`/scheduler/teamwork/${groupId}`);
+          }}
+        />
+      )}
     </aside>
   );
 }

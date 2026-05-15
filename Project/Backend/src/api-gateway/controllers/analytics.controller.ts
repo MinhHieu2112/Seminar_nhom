@@ -24,7 +24,7 @@ export class AnalyticsGatewayController {
     const userId = extractUserId(authHeader, this.jwtService);
     return safeSend(
       this.tcpClient,
-      'analytics-service',
+      'scheduler-service',
       'analytics.dashboard.get',
       { userId },
     );
@@ -39,7 +39,7 @@ export class AnalyticsGatewayController {
     const userId = extractUserId(authHeader, this.jwtService);
     return safeSend(
       this.tcpClient,
-      'analytics-service',
+      'scheduler-service',
       'analytics.insights.get',
       {
         userId,
@@ -56,7 +56,7 @@ export class AnalyticsGatewayController {
     const userId = extractUserId(authHeader, this.jwtService);
     return safeSend(
       this.tcpClient,
-      'analytics-service',
+      'scheduler-service',
       'analytics.history.get',
       { userId, period },
     );

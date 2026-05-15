@@ -128,6 +128,9 @@ export interface Subject {
 
 export interface Task {
   id: string;
+  userId: string;
+  groupId?: string | null;
+  assigneeId?: string | null;
   title: string;
   description?: string | null;
   dueTime?: string | null;
@@ -136,6 +139,21 @@ export interface Task {
   status: TaskStatus;
   createdAt: string;
   subject?: Pick<Subject, 'id' | 'name' | 'categoryId'>;
+  group?: Pick<Group, 'id' | 'name'> | null;
+}
+
+export interface ScheduleItem {
+  id: string;
+  userId: string;
+  groupId?: string | null;
+  subjectId: string;
+  startTime: string;
+  endTime: string;
+  dayOfWeek: number;
+  createdAt: string;
+  updatedAt: string;
+  subject?: Pick<Subject, 'id' | 'name' | 'categoryId'>;
+  group?: Pick<Group, 'id' | 'name'> | null;
 }
 
 export interface ScheduleBlock {
@@ -240,16 +258,35 @@ export interface TimeDistribution {
   evening: number;
 }
 
+export interface TaskStats {
+  total: number;
+  completed: number;
+  pending: number;
+  overdue: number;
+}
+
 export interface AnalyticsSummary {
   totalGoals: number;
   activeGoals: number;
   completedGoals: number;
-  totalTasks: number;
-  pendingTasks: number;
-  completedTasks: number;
-  overdueTasks: number;
+  individualTasks: TaskStats;
+  teamTasks: TaskStats;
   plannedBlocks: number;
   completedBlocks: number;
+  totalStudyMins: number;
+}
+
+export interface TeamworkStats {
+  pendingInvitations: number;
+  activeGroupTasks: number;
+  collaboratorsCount: number;
+  waitingResponseTasks: number;
+}
+
+export interface NextDeadline {
+  title: string;
+  dueTime: string;
+  priority: number;
 }
 
 export interface WeeklyOverview {
@@ -265,6 +302,8 @@ export interface AnalyticsDashboard {
   suggestions: string[];
   summary: AnalyticsSummary;
   weeklyOverview: WeeklyOverview;
+  teamwork: TeamworkStats;
+  nextDeadline?: NextDeadline;
 }
 
 export interface AnalyticsHistoryPoint {
@@ -274,4 +313,65 @@ export interface AnalyticsHistoryPoint {
   tasksCompleted?: number;
   tasksPending?: number;
   tasksOverdue?: number;
+}
+
+// ─── Teamwork (Groups) ────────────────────────────────────────────────────────
+
+export interface GroupMember {
+  id: string;
+  groupId: string;
+  userId: string;
+  role: string;
+  joinedAt: string;
+}
+
+export interface Group {
+  id: string;
+  name: string;
+  description?: string | null;
+  creatorId: string;
+  createdAt: string;
+  updatedAt: string;
+  members?: GroupMember[];
+  _count?: {
+    members: number;
+  };
+}
+
+export interface CreateGroupDto {
+  name: string;
+  description?: string;
+}
+
+export interface UpdateGroupDto {
+  name?: string;
+  description?: string;
+}
+
+export interface AddMemberDto {
+  userId: string;
+  role?: string;
+}
+
+export interface GroupInvitation {
+  id: string;
+  groupId: string;
+  userId: string;
+  inviterId: string;
+  status: 'PENDING' | 'ACCEPTED' | 'REJECTED';
+  createdAt: string;
+  updatedAt: string;
+  group?: Pick<Group, 'id' | 'name' | 'description'>;
+}
+
+export interface Notification {
+  id: string;
+  userId: string;
+  title: string;
+  message: string;
+  type: string;
+  taskId?: string | null;
+  status: 'unread' | 'read';
+  createdAt: string;
+  updatedAt: string;
 }

@@ -1,18 +1,26 @@
 # Multi-stage build for API Gateway (HTTP Server)
 FROM node:20-alpine AS builder
 
+# Install pnpm
+RUN npm install -g pnpm
+
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
-RUN npm ci
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
 
 # Copy source and build
 COPY . .
-RUN npm run build
+# Fix: Ensure Prisma types are available for the global Nest build
+RUN pnpm prisma generate --schema=src/scheduler-service/scheduler/prisma/schema.prisma
+RUN pnpm run build
 
 # Production stage
 FROM node:20-alpine
+
+# Install pnpm
+RUN npm install -g pnpm
 
 WORKDIR /app
 
@@ -20,8 +28,8 @@ RUN apk add --no-cache tzdata
 ENV TZ=Asia/Ho_Chi_Minh
 
 # Copy package files and install production deps
-COPY package*.json ./
-RUN npm ci --only=production && npm cache clean --force
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --prod --frozen-lockfile && pnpm store prune
 
 # Copy built files from builder
 COPY --from=builder /app/dist ./dist

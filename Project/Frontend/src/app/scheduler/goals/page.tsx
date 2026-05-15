@@ -11,7 +11,7 @@ import {
     useSchedulerSubjects, useCreateCategory, useCreateTask, useCreateSubject,
     useUpdateCategory, useDeleteCategory, useUpdateSubject, useDeleteSubject,
     useUpdateTask, useDeleteTask
-} from '@/lib/hooks/useScheduler';
+} from '@/hooks/useScheduler';
 import { AiScheduleModal } from './AiScheduleModal';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -282,7 +282,7 @@ export default function GoalsPage() {
                 {/* All */}
                 <button
                     onClick={() => setFilterCat(null)}
-                    className={`flex items-center gap-3 px-4 py-2.5 mx-2 rounded-xl text-[14px] font-bold transition-all ${!filterCat ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
+                    className={`flex items-center gap-3 px-4 py-2.5 mx-2 rounded-xl text-[14px] font-bold transition-all ${!filterCat ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20' : 'text-slate-500 hover:bg-slate-50'}`}
                 >
                     <span className={`w-2 h-2 rounded-full ${!filterCat ? 'bg-white' : 'bg-slate-300'}`} />
                     Tất cả
@@ -347,7 +347,7 @@ export default function GoalsPage() {
                 {/* ── Topbar ─────────────────────────────────────────────── */}
                 <div className="sticky top-0 z-20 bg-white/90 backdrop-blur-md border-b border-slate-200/60 px-8 py-4 flex items-center justify-between gap-4">
                     <div>
-                        <h1 className="text-2xl font-black text-slate-900 tracking-tight">Danh sách công việc</h1>
+                        <h1 className="text-2xl font-black text-slate-800 tracking-tight">Danh sách công việc</h1>
                         <p className="text-[13px] text-slate-400 font-medium mt-0.5">
                             {filterCat ? (categories as Category[]).find(c => c.id === filterCat)?.name : 'Tất cả lĩnh vực học tập'}
                         </p>
@@ -383,7 +383,7 @@ export default function GoalsPage() {
                 </div>
 
                 {/* ── Content ────────────────────────────────────────────── */}
-                <div className="px-8 py-8 space-y-14">
+                <div className="px-10 pt-14 pb-16 space-y-14 max-w-6xl">
                     {organized.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-32 text-slate-300 gap-5">
                             <Folder size={80} weight="thin" />

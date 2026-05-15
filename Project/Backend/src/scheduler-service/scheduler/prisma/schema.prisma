@@ -1,0 +1,193 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("SCHEDULER_DATABASE_URL")
+}
+
+model Category {
+  id        String    @id @default(uuid())
+  name      String
+  color     String?
+  userId    String
+  subjects  Subject[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([name, userId])
+}
+
+model Subject {
+  id         String     @id @default(uuid())
+  name       String
+  categoryId String
+  category   Category   @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  userId     String
+  schedules  Schedule[]
+  tasks      Task[]
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  @@unique([name, userId, categoryId])
+}
+
+
+model Task {
+  id              String           @id @default(uuid())
+  userId          String
+  groupId         String?
+  group           Group?           @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  assigneeId      String?
+  title           String
+  description     String?
+  dueTime         DateTime?
+  subjectId       String?
+  subject         Subject?         @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  priority        Int              @default(3)
+  status          String           @default("pending")
+  allocations     TaskAllocation[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+}
+
+model TaskAllocation {
+  id        String   @id @default(uuid())
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  startTime DateTime
+  endTime   DateTime
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model UserPreference {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  settings  Json     // Storage for theme, work hours, etc.
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model DailySummary {
+  id              String   @id @default(uuid())
+  userId          String
+  date            DateTime // Stored as Start of Day (00:00:00)
+  tasksCompleted  Int      @default(0)
+  pendingTasks    Int      @default(0)
+  overdueTasks    Int      @default(0)
+  totalStudyMins  Int      @default(0) // Duration of task allocations
+  morningMins     Int      @default(0)
+  afternoonMins   Int      @default(0)
+  eveningMins     Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([userId, date])
+}
+
+model TaskLog {
+  id              String   @id @default(uuid())
+  taskId          String
+  userId          String
+  subjectId       String?
+  action          String   // "created", "completed", "overdue"
+  timestamp       DateTime @default(now())
+  
+  @@index([userId, timestamp])
+}
+
+model TeamWorkload {
+  id              String   @id @default(uuid())
+  teamId          String
+  date            DateTime // Start of Day
+  totalTasks      Int      @default(0)
+  completedTasks  Int      @default(0)
+  remainingPoints Int      @default(0) // Simplified representation for burndown
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([teamId, date])
+}
+
+model MemberStats {
+  id              String   @id @default(uuid())
+  teamId          String
+  userId          String
+  tasksCompleted  Int      @default(0)
+  totalStudyMins  Int      @default(0)
+  lastActiveTime  DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([teamId, userId])
+}
+
+model Schedule {
+  id         String   @id @default(uuid())
+  userId     String
+  groupId    String?
+  group      Group?   @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  subjectId  String
+  subject    Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  startTime  DateTime
+  endTime    DateTime
+  dayOfWeek  Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Group {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  creatorId   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members     GroupMember[]
+  invitations GroupInvitation[]
+  schedules   Schedule[]
+  tasks       Task[]
+}
+
+model GroupMember {
+  id        String   @id @default(uuid())
+  groupId   String
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId    String
+  role      String   @default("member")
+  joinedAt  DateTime @default(now())
+
+  @@unique([groupId, userId])
+}
+
+model GroupInvitation {
+  id        String   @id @default(uuid())
+  groupId   String
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId    String   // Target user
+  inviterId String   // Source user
+  status    String   @default("PENDING") // PENDING, ACCEPTED, REJECTED
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([groupId, userId])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  message   String
+  type      String   @default("system") // "system", "reminder", "group"
+  taskId    String?
+  status    String   @default("unread") // "unread", "read"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, status])
+  @@index([taskId])
+}

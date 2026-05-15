@@ -1,9 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { useAuthStore } from '@/lib/auth-store';
+import { useAuthStore } from '@/store/auth-store';
 import { useRouter, usePathname } from 'next/navigation';
-import { LayoutDashboard, User } from 'lucide-react';
+import { SquaresFour, User } from '@phosphor-icons/react';
+import { NotificationMailbox } from './NotificationMailbox';
 
 export function Header() {
   const router = useRouter();
@@ -38,7 +39,7 @@ export function Header() {
                     : 'text-gray-600 hover:bg-primary-light/20 hover:text-primary-dark'
                 }`}
               >
-                <LayoutDashboard className="h-4 w-4" />
+                <SquaresFour className="h-4 w-4" />
                 Tổng quan
               </Link>
               <Link
@@ -59,10 +60,13 @@ export function Header() {
         {/* User Info & Logout */}
         <div className="flex items-center gap-4">
           {isAuthenticated && user ? (
-            <div className="flex items-center gap-3">
-              <div className="hidden text-right sm:block">
-                <p className="text-sm font-medium text-gray-900">{user.email}</p>
-                <p className="text-xs text-gray-500 capitalize">{user.role}</p>
+            <div className="flex items-center gap-6">
+              <NotificationMailbox />
+              
+              <div className="flex items-center gap-3">
+                <div className="hidden text-right sm:block">
+                  <p className="text-sm font-medium text-gray-900">{user.email}</p>
+                  <p className="text-xs text-gray-500 capitalize">{user.role}</p>
               </div>
               <div className="h-8 w-8 rounded-full bg-gradient-to-br from-primary-light to-blue-100 flex items-center justify-center text-primary-dark font-semibold text-sm">
                 {user.email.charAt(0).toUpperCase()}
@@ -74,6 +78,7 @@ export function Header() {
                 Đăng xuất
               </button>
             </div>
+          </div>
           ) : (
             <div className="flex items-center gap-3">
               <Link

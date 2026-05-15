@@ -2,7 +2,7 @@
 import { Header } from './Header';
 import { Sidebar } from './Sidebar';
 import { usePathname } from 'next/navigation';
-import { useUIStore } from '@/lib/ui-store';
+import { useUIStore } from '@/store/ui-store';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -18,6 +18,9 @@ export function MainLayout({ children }: MainLayoutProps) {
   const shouldHideLayout = !pathname || noLayoutPages.some(page =>
     pathname === page || pathname.startsWith(page + '/')
   );
+  const shouldShowGlobalHeader =
+    !!pathname &&
+    (pathname === '/dashboard' || pathname === '/profile' || pathname.startsWith('/profile/'));
 
   if (shouldHideLayout) {
     return <>{children}</>;
@@ -30,8 +33,8 @@ export function MainLayout({ children }: MainLayoutProps) {
 
       {/* Main Content Area */}
       <main className={`transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'ml-20' : 'ml-64'}`}>
-        <Header />
-        <div className="min-h-[calc(100vh-4rem)] px-4 lg:px-8 pt-4 pb-8">
+        {shouldShowGlobalHeader && <Header />}
+        <div className={`${shouldShowGlobalHeader ? 'min-h-[calc(100vh-4rem)] pt-4' : 'min-h-screen pt-6'} px-4 pb-8 lg:px-8`}>
           <div className="mx-auto max-w-7xl">
             {children}
           </div>
