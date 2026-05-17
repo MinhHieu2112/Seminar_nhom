@@ -1,13 +1,14 @@
 import React, { useState, useRef } from 'react';
 import { X, UploadSimple, File as FileIcon, Trash, Spinner } from '@phosphor-icons/react';
 import { useUploadAttachments, useDeleteAttachment } from '@/hooks/useScheduler';
+import type { TaskAttachment } from '@/types/api';
 
 interface UploadEvidenceModalProps {
   isOpen: boolean;
   onClose: () => void;
   taskId: string;
   groupId?: string;
-  existingAttachments?: any[];
+  existingAttachments?: TaskAttachment[];
 }
 
 export function UploadEvidenceModal({ isOpen, onClose, taskId, groupId, existingAttachments = [] }: UploadEvidenceModalProps) {
@@ -72,7 +73,7 @@ export function UploadEvidenceModal({ isOpen, onClose, taskId, groupId, existing
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
       <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50">
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-linear-to-r from-blue-50 to-indigo-50">
           <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
             <UploadSimple size={20} className="text-blue-600" weight="bold" />
             Nộp & cập nhật minh chứng

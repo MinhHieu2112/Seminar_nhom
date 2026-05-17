@@ -1,26 +1,30 @@
-import { Injectable } from '@nestjs/common';
-import { CreateNotificationDto } from './dto/create-notification.dto';
-import { UpdateNotificationDto } from './dto/update-notification.dto';
+import { Injectable, Inject } from '@nestjs/common';
+import { ClientProxy } from '@nestjs/microservices';
 
 @Injectable()
 export class NotificationService {
-  create(createNotificationDto: CreateNotificationDto) {
-    return 'This action adds a new notification';
-  }
+  constructor(
+    @Inject('REDIS_CLIENT') private readonly redisClient: ClientProxy,
+  ) {}
 
-  findAll() {
-    return `This action returns all notification`;
-  }
-
-  findOne(id: number) {
-    return `This action returns a #${id} notification`;
-  }
-
-  update(id: number, updateNotificationDto: UpdateNotificationDto) {
-    return `This action updates a #${id} notification`;
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} notification`;
+  sendNotification(data: {
+    userId: string;
+    title: string;
+    message: string;
+    type?: string;
+    taskId?: string;
+  }) {
+    try {
+      console.log(
+        '[TeamworkService] Publishing notification.create event to Redis:',
+        data,
+      );
+      this.redisClient.emit('notification.create', data);
+    } catch (err) {
+      console.error(
+        '[TeamworkService] Failed to emit notification.create event:',
+        err,
+      );
+    }
   }
 }

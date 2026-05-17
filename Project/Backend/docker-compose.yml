@@ -138,8 +138,10 @@ services:
       TCP_PORT: 8007
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      GIPHY_API_KEY: ${GIPHY_API_KEY:-}
     ports:
       - "8007:8007"
+      - "8006:8006"
     healthcheck:
       test: ["CMD", "nc", "-z", "localhost", "8007"]
       interval: 10s

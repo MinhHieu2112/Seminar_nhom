@@ -23,9 +23,15 @@ interface PendingApprovalItem {
 
 interface Props {
   data?: PendingApprovalItem[];
+  stats?: {
+    pending: number;
+    reviewing: number;
+    completed: number;
+    overdue: number;
+  };
 }
 
-export const PendingApprovals = memo(function PendingApprovals({ data = [] }: Props) {
+export const PendingApprovals = memo(function PendingApprovals({ data = [], stats }: Props) {
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 h-full">
       <div className="flex items-center gap-2 mb-1">
@@ -36,6 +42,30 @@ export const PendingApprovals = memo(function PendingApprovals({ data = [] }: Pr
         </span>
       </div>
       <p className="text-xs text-gray-400 mb-5">Danh sách task cần leader xem xét</p>
+
+      {/* Thống kê trạng thái task nhóm */}
+      <div className="grid grid-cols-4 gap-2 mb-5 shrink-0">
+        {/* Đang chờ */}
+        <div className="bg-slate-50 border border-slate-100 rounded-xl p-2.5 text-center">
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Đang chờ</p>
+          <p className="text-lg font-black text-slate-700">{stats?.pending ?? 0}</p>
+        </div>
+        {/* Xét duyệt */}
+        <div className="bg-amber-50 border border-amber-100 rounded-xl p-2.5 text-center">
+          <p className="text-[10px] font-bold text-amber-500 uppercase tracking-wider mb-1">Xét duyệt</p>
+          <p className="text-lg font-black text-amber-600">{stats?.reviewing ?? 0}</p>
+        </div>
+        {/* Xong */}
+        <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-2.5 text-center">
+          <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider mb-1">Xong</p>
+          <p className="text-lg font-black text-emerald-600">{stats?.completed ?? 0}</p>
+        </div>
+        {/* Trễ hạn */}
+        <div className="bg-rose-50 border border-rose-100 rounded-xl p-2.5 text-center">
+          <p className="text-[10px] font-bold text-rose-500 uppercase tracking-wider mb-1">Trễ hạn</p>
+          <p className="text-lg font-black text-rose-600">{stats?.overdue ?? 0}</p>
+        </div>
+      </div>
 
       <div className="flex flex-col gap-3">
         {data.length === 0 ? (

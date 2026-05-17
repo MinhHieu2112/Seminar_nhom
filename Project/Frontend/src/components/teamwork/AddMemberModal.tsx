@@ -59,7 +59,7 @@ export function AddMemberModal({ group, onClose, onSuccess }: AddMemberModalProp
   };
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-9999 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
       <div className="bg-white rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
@@ -105,7 +105,7 @@ export function AddMemberModal({ group, onClose, onSuccess }: AddMemberModalProp
           </div>
 
           {/* Results List */}
-          <div className="flex-1 overflow-y-auto border border-gray-200 rounded-lg min-h-[200px] bg-gray-50/30">
+          <div className="flex-1 overflow-y-auto border border-gray-200 rounded-lg min-h-50 bg-gray-50/30">
             {results.length > 0 ? (
               <div className="divide-y divide-gray-100">
                 {results.map((user) => {
@@ -121,8 +121,9 @@ export function AddMemberModal({ group, onClose, onSuccess }: AddMemberModalProp
                         isSelected ? 'bg-blue-50 cursor-pointer' : 'hover:bg-white cursor-pointer'
                       }`}
                     >
-                      <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-200 flex-shrink-0">
+                      <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-200 shrink-0">
                         {user.avatar ? (
+                          // eslint-disable-next-line @next/next/no-img-element
                           <img src={user.avatar} alt="avatar" className="w-full h-full object-cover" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center bg-indigo-100 text-indigo-600">
@@ -136,7 +137,7 @@ export function AddMemberModal({ group, onClose, onSuccess }: AddMemberModalProp
                         </p>
                         <p className="text-xs text-gray-500 truncate">{user.email}</p>
                       </div>
-                      <div className="flex-shrink-0">
+                      <div className="shrink-0">
                         {alreadyMember ? (
                           <span className="text-[10px] font-black text-gray-400 border border-gray-200 px-2 py-1 rounded-md bg-gray-100">
                             ĐÃ TRONG NHÓM

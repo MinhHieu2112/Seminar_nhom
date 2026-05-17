@@ -32,8 +32,7 @@ import {
   useRejectTask,
 } from '@/hooks/useScheduler';
 import { UploadEvidenceModal } from '@/components/teamwork/UploadEvidenceModal';
-import { TaskAttachment } from '@/types/api';
-import { API_PUBLIC_ORIGIN } from '@/lib/api-client';
+import { ChatTab } from '@/components/teamwork/ChatTab';
 
 
 function getErrorMessage(error: unknown, fallback: string) {
@@ -85,7 +84,7 @@ export default function GroupDetailsPage() {
   const deleteGroupMutation = useDeleteGroup();
   const removeMemberMutation = useRemoveMember();
 
-  const [activeTab, setActiveTab] = useState<'tasks' | 'members'>('tasks');
+  const [activeTab, setActiveTab] = useState<'tasks' | 'members' | 'chat'>('tasks');
   const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
@@ -123,14 +122,6 @@ export default function GroupDetailsPage() {
     });
   }, [highlightedTaskId, orderedTasks]);
 
-  const buildAttachmentUrl = (fileUrl: string) => {
-    if (fileUrl.startsWith('http://') || fileUrl.startsWith('https://')) {
-      return fileUrl;
-    }
-
-    return `${API_PUBLIC_ORIGIN}${fileUrl}`;
-  };
-
   const handleDeleteGroup = async () => {
     if (!confirm('Bạn có chắc chắn muốn xóa nhóm này? Hành động này không thể hoàn tác.')) {
       return;
@@ -147,8 +138,10 @@ export default function GroupDetailsPage() {
     if (!confirm('Bạn có chắc chắn muốn xóa task này?')) return;
     try {
       await deleteTask.mutateAsync({ id: taskId, groupId: id });
-    } catch {
-      alert('Không thể xóa task. Vui lòng thử lại sau.');
+    } catch (err) {
+      const error = err as { response?: { data?: { message?: string | string[] } } };
+      const msg = error.response?.data?.message || 'Không thể xóa task. Vui lòng thử lại sau.';
+      alert(Array.isArray(msg) ? msg[0] : msg);
     }
   };
 
@@ -278,6 +271,15 @@ export default function GroupDetailsPage() {
           >
             Thành viên
           </button>
+          <button
+            onClick={() => setActiveTab('chat')}
+            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all relative ${activeTab === 'chat'
+                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
+                : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
+              }`}
+          >
+            Thảo luận
+          </button>
         </div>
       </div>
 
@@ -290,11 +292,11 @@ export default function GroupDetailsPage() {
                 <colgroup>
                   <col className="w-[5%]" />
                   <col className="w-[20%]" />
+                  <col className="w-[15%]" />
                   <col className="w-[11%]" />
                   <col className="w-[11%]" />
                   <col className="w-[11%]" />
-                  <col className="w-[9%]" />
-                  <col className="w-[10%]" />
+                  <col className="w-[11%]" />
                   <col className="w-[11%]" />
                   <col className="w-[12%]" />
                 </colgroup>
@@ -302,12 +304,12 @@ export default function GroupDetailsPage() {
                   <tr className="bg-slate-50 border-b border-gray-100">
                     <th className="px-4 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest">STT</th>
                     <th className="px-4 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest">Tên công việc</th>
-                    <th className="px-4 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest">Ngày giao</th>
+                    <th className="px-4 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest">Ngày phân công</th>
                     <th className="px-4 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest">Hạn chót</th>
-                    <th className="px-4 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest">Nội dung</th>
                     <th className="px-4 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest">Ưu tiên</th>
                     <th className="px-4 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest">Trạng thái</th>
                     <th className="px-4 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest">Phân công</th>
+                    <th className="px-4 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest">File tải lên</th>
                     <th className="px-4 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest text-center">Hành động</th>
                   </tr>
                 </thead>
@@ -347,15 +349,6 @@ export default function GroupDetailsPage() {
                             </div>
                           </td>
                           <td className="px-4 py-4">
-                            <button
-                              onClick={() => router.push(`/scheduler/teamwork/${id}/tasks/${task.id}`)}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 font-bold text-[10px] transition-all hover:scale-105 active:scale-95 shadow-sm"
-                            >
-                              <FileText size={12} weight="bold" />
-                              Chi tiết
-                            </button>
-                          </td>
-                          <td className="px-4 py-4">
                             <span className={`px-2 py-1 rounded-lg text-[10px] font-bold ${PRIORITY_COLORS[task.priority || 2]}`}>
                               {PRIORITY_LABELS[task.priority || 2]}
                             </span>
@@ -385,6 +378,15 @@ export default function GroupDetailsPage() {
                                 );
                               })}
                             </select>
+                          </td>
+                          <td className="px-4 py-4">
+                            <button
+                              onClick={() => router.push(`/scheduler/teamwork/${id}/tasks/${task.id}`)}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 font-bold text-[10px] transition-all hover:scale-105 active:scale-95 shadow-sm"
+                            >
+                              <FileText size={12} weight="bold" />
+                              Chi tiết
+                            </button>
                           </td>
                           <td className="px-4 py-4">
                             <div className="flex items-center justify-center gap-2">
@@ -430,7 +432,10 @@ export default function GroupDetailsPage() {
                                 </>
                               )}
 
-                              {isAdmin && (
+                              {isAdmin &&
+                                !task.submittedForReview &&
+                                task.status !== 'done' &&
+                                !(task.dueTime && new Date(task.dueTime) < new Date()) && (
                                 <button
                                   onClick={() => handleDeleteTask(task.id)}
                                   className="p-2 rounded-xl text-gray-300 hover:text-red-500 hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100"
@@ -491,6 +496,7 @@ export default function GroupDetailsPage() {
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold overflow-hidden ${member.role === 'admin' ? 'bg-yellow-400' : 'bg-blue-400'
                       }`}>
                       {profile?.avatar ? (
+                        // eslint-disable-next-line @next/next/no-img-element
                         <img src={profile.avatar} alt="avatar" className="w-full h-full object-cover" />
                       ) : (
                         member.role === 'admin' ? <Crown size={20} weight="fill" /> : <User size={20} weight="fill" />
@@ -502,7 +508,7 @@ export default function GroupDetailsPage() {
                           {profile ? `${profile.firstName} ${profile.lastName}` : `User ${member.userId.substring(0, 8)}...`}
                         </span>
                         {isSelf && <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded flex-shrink-0">Bạn</span>}
-                        {isCreator && <span className="text-[10px] bg-yellow-100 text-yellow-600 px-1.5 py-0.5 rounded flex-shrink-0">Chủ nhóm</span>}
+                        {isCreator && <span className="text-[10px] bg-yellow-100 text-yellow-600 px-1.5 py-0.5 rounded flex-shrink-0">Trưởng nhóm</span>}
                       </div>
                       <div className="text-xs text-gray-500 mt-0.5">{member.role === 'admin' ? 'Quản trị viên' : 'Thành viên'}</div>
                     </div>
@@ -524,6 +530,17 @@ export default function GroupDetailsPage() {
                 );
               })}
             </div>
+          </div>
+        )}
+
+        {activeTab === 'chat' && (
+          <div className="p-8">
+            <ChatTab
+              groupId={id}
+              groupName={group.name}
+              groupMembers={group.members || []}
+              tasks={orderedTasks}
+            />
           </div>
         )}
       </div>

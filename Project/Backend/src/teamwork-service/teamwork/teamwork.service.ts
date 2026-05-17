@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  BadRequestException,
   Inject,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
@@ -12,12 +13,14 @@ import {
   CreateGroupTaskAllocationDto,
 } from './dto/group-task.dto';
 import { ClientProxy } from '@nestjs/microservices';
+import { NotificationService } from '../notification/notification.service';
 
 @Injectable()
 export class TeamworkService {
   constructor(
     private prisma: PrismaService,
     @Inject('REDIS_CLIENT') private readonly redisClient: ClientProxy,
+    private readonly notificationService: NotificationService,
   ) {}
 
   // ============ Group Management ============
@@ -248,6 +251,13 @@ export class TeamworkService {
     // Notify assignee if any (Implementation of notification logic omitted for brevity or can be event-driven)
     if (assigneeId && assigneeId !== userId) {
       this.redisClient.emit('grouptask.assigned', task);
+      void this.notificationService.sendNotification({
+        userId: assigneeId,
+        title: 'Bạn được phân công công việc mới',
+        message: `Trưởng nhóm đã phân công công việc "${task.title}" cho bạn.`,
+        type: 'group',
+        taskId: task.id,
+      });
     }
 
     return task;
@@ -301,6 +311,39 @@ export class TeamworkService {
         }),
       },
     });
+
+    // 1. Phân công công việc mới
+    if (
+      dto.assigneeId !== undefined &&
+      dto.assigneeId !== task.assigneeId &&
+      dto.assigneeId &&
+      dto.assigneeId !== userId
+    ) {
+      void this.notificationService.sendNotification({
+        userId: dto.assigneeId,
+        title: 'Bạn được phân công công việc',
+        message: `Trưởng nhóm đã phân công công việc "${updatedTask.title}" cho bạn.`,
+        type: 'group',
+        taskId: updatedTask.id,
+      });
+    }
+
+    // 2. Nhận xét mới của trưởng nhóm
+    if (
+      dto.leaderComments !== undefined &&
+      dto.leaderComments !== task.leaderComments &&
+      dto.leaderComments &&
+      updatedTask.assigneeId &&
+      updatedTask.assigneeId !== userId
+    ) {
+      void this.notificationService.sendNotification({
+        userId: updatedTask.assigneeId,
+        title: 'Nhận xét mới từ trưởng nhóm',
+        message: `Trưởng nhóm đã thêm nhận xét góp ý cho công việc "${updatedTask.title}".`,
+        type: 'group',
+        taskId: updatedTask.id,
+      });
+    }
 
     if (updatedTask.status === 'done') {
       this.redisClient.emit('grouptask.completed', updatedTask);
@@ -359,6 +402,14 @@ export class TeamworkService {
       throw new ForbiddenException('Permission denied');
     }
 
+    if (task.status === 'done') {
+      throw new BadRequestException('Không thể xóa task nhóm đã hoàn thành!');
+    }
+
+    if (task.dueTime && task.dueTime < new Date() && task.status !== 'done') {
+      throw new BadRequestException('Không thể xóa task nhóm đã trễ hạn!');
+    }
+
     return await this.prisma.groupTask.delete({ where: { id } });
   }
 
@@ -399,7 +450,47 @@ export class TeamworkService {
       data: { status: 'done', submittedForReview: false },
     });
 
+    if (updatedTask.assigneeId && updatedTask.assigneeId !== userId) {
+      void this.notificationService.sendNotification({
+        userId: updatedTask.assigneeId,
+        title: 'Công việc đã được xét duyệt',
+        message: `Trưởng nhóm đã xét duyệt hoàn thành công việc "${updatedTask.title}" của bạn.`,
+        type: 'group',
+        taskId: updatedTask.id,
+      });
+    }
+
     this.redisClient.emit('grouptask.completed', updatedTask);
+    return updatedTask;
+  }
+
+  async rejectGroupTask(userId: string, taskId: string) {
+    const task = await this.prisma.groupTask.findUnique({
+      where: { id: taskId },
+      include: { group: true },
+    });
+    if (!task) throw new NotFoundException('Task not found');
+
+    if (task.group.creatorId !== userId) {
+      throw new ForbiddenException('Only group admin can reject tasks');
+    }
+
+    const updatedTask = await this.prisma.groupTask.update({
+      where: { id: taskId },
+      data: { status: 'pending', submittedForReview: false },
+    });
+
+    if (updatedTask.assigneeId && updatedTask.assigneeId !== userId) {
+      void this.notificationService.sendNotification({
+        userId: updatedTask.assigneeId,
+        title: 'Công việc bị từ chối',
+        message: `Trưởng nhóm đã từ chối xét duyệt công việc "${updatedTask.title}" của bạn.`,
+        type: 'group',
+        taskId: updatedTask.id,
+      });
+    }
+
+    this.redisClient.emit('grouptask.updated', updatedTask);
     return updatedTask;
   }
 
@@ -410,6 +501,7 @@ export class TeamworkService {
   ) {
     const task = await this.prisma.groupTask.findUnique({
       where: { id: taskId },
+      include: { group: true },
     });
     if (!task) throw new NotFoundException('Task not found');
 
@@ -439,6 +531,22 @@ export class TeamworkService {
       data: { submittedForReview: true },
       include: { attachments: true },
     });
+
+    // Notify group leader/creator
+    if (task.group && task.group.creatorId && userId !== task.group.creatorId) {
+      const uploader = await this.prisma.userProjection.findUnique({
+        where: { id: userId },
+      });
+      const uploaderName = uploader?.name || 'Thành viên';
+
+      void this.notificationService.sendNotification({
+        userId: task.group.creatorId,
+        title: 'Thành viên đã tải lên tài liệu',
+        message: `${uploaderName} đã tải lên tài liệu cho công việc "${task.title}".`,
+        type: 'group',
+        taskId: task.id,
+      });
+    }
 
     this.redisClient.emit('grouptask.updated', updatedTask);
     return updatedTask;

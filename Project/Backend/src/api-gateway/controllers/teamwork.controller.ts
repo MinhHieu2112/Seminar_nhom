@@ -11,6 +11,7 @@ import {
   UseInterceptors,
   UploadedFiles,
   BadRequestException,
+  Query,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -253,6 +254,20 @@ export class TeamworkGatewayController {
     );
   }
 
+  @Patch('tasks/:id/reject')
+  rejectTask(
+    @Headers('authorization') authHeader: string,
+    @Param('id') id: string,
+  ) {
+    return this.httpClient.request(
+      'teamwork-service',
+      'patch',
+      `/api/v1/teamwork/tasks/${id}/reject`,
+      null,
+      this.getUid(authHeader),
+    );
+  }
+
   // --- Teamwork Task Attachments ---
   @Post('tasks/:taskId/attachments')
   @UseInterceptors(
@@ -305,6 +320,95 @@ export class TeamworkGatewayController {
       'teamwork-service',
       'delete',
       `/api/v1/teamwork/tasks/${taskId}/attachments/${attachmentId}`,
+      null,
+      this.getUid(authHeader),
+    );
+  }
+
+  @Get('groups/:groupId/messages')
+  async getMessages(
+    @Headers('authorization') authHeader: string,
+    @Param('groupId') groupId: string,
+    @Query('taskId') taskId?: string,
+    @Query('limit') limit?: string,
+    @Query('cursor') cursor?: string,
+  ) {
+    const query = new URLSearchParams();
+    if (taskId) query.append('taskId', taskId);
+    if (limit) query.append('limit', limit);
+    if (cursor) query.append('cursor', cursor);
+    const queryString = query.toString();
+    const path = `/api/v1/teamwork/groups/${groupId}/messages${queryString ? `?${queryString}` : ''}`;
+
+    return this.httpClient.request(
+      'teamwork-service',
+      'get',
+      path,
+      null,
+      this.getUid(authHeader),
+    );
+  }
+
+  @Post('groups/:groupId/chat/upload')
+  @UseInterceptors(
+    FilesInterceptor('files', 5, {
+      storage: diskStorage({
+        destination: './uploads',
+        filename: (req, file, cb) => {
+          const uniqueSuffix =
+            Date.now() + '-' + Math.round(Math.random() * 1e9);
+          cb(null, `${uniqueSuffix}${extname(file.originalname)}`);
+        },
+      }),
+      limits: {
+        fileSize: 5 * 1024 * 1024, // 5MB limit
+      },
+    }),
+  )
+  uploadChatFiles(@UploadedFiles() files: Express.Multer.File[]) {
+    if (!files || files.length === 0) return [];
+    return files.map((f) => ({
+      fileName: f.originalname,
+      fileUrl: `/uploads/${f.filename}`,
+      fileSize: f.size,
+      mimeType: f.mimetype,
+    }));
+  }
+
+  @Delete('messages/:messageId')
+  async deleteMessage(
+    @Headers('authorization') authHeader: string,
+    @Param('messageId') messageId: string,
+  ) {
+    return this.httpClient.request(
+      'teamwork-service',
+      'delete',
+      `/api/v1/teamwork/messages/${messageId}`,
+      null,
+      this.getUid(authHeader),
+    );
+  }
+
+  @Get('stickers/trending')
+  async getStickersTrending(@Headers('authorization') authHeader: string) {
+    return this.httpClient.request(
+      'teamwork-service',
+      'get',
+      '/api/v1/teamwork/stickers/trending',
+      null,
+      this.getUid(authHeader),
+    );
+  }
+
+  @Get('stickers/search')
+  async getStickersSearch(
+    @Headers('authorization') authHeader: string,
+    @Query('q') query: string,
+  ) {
+    return this.httpClient.request(
+      'teamwork-service',
+      'get',
+      `/api/v1/teamwork/stickers/search?q=${encodeURIComponent(query || '')}`,
       null,
       this.getUid(authHeader),
     );

@@ -218,8 +218,14 @@ export default function GoalsPage() {
     const handleDeleteTask = async () => {
         if (!deleteTaskId) return;
         setTaskErr('');
-        try { await deleteTask.mutateAsync({ id: deleteTaskId }); setDeleteTaskId(null); }
-        catch { setTaskErr('Xóa công việc thất bại. Thử lại.'); }
+        try { 
+            await deleteTask.mutateAsync({ id: deleteTaskId }); 
+            setDeleteTaskId(null); 
+        } catch (err) { 
+            const error = err as { response?: { data?: { message?: string | string[] } } };
+            const msg = error.response?.data?.message || 'Xóa công việc thất bại. Thử lại.';
+            setTaskErr(Array.isArray(msg) ? msg[0] : msg); 
+        }
     };
 
 
@@ -513,10 +519,12 @@ export default function GoalsPage() {
                                                                                 className="p-1 rounded-md hover:bg-slate-200 text-slate-400 hover:text-indigo-600 transition-colors">
                                                                                 <PencilSimple size={14} weight="bold" />
                                                                             </button>
+                                                                            {task.status !== 'done' && !(task.dueTime && new Date(task.dueTime) < new Date()) && (
                                                                             <button onClick={(e) => { e.preventDefault(); setDeleteTaskId(task.id); setTaskErr(''); }}
                                                                                 className="p-1 rounded-md hover:bg-red-100 text-slate-400 hover:text-red-500 transition-colors">
                                                                                 <Trash size={14} weight="bold" />
                                                                             </button>
+                                                                            )}
                                                                         </div>
                                                                     </td>
                                                                 </tr>

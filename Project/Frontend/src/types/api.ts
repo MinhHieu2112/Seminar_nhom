@@ -284,6 +284,7 @@ export interface TaskStats {
   completed: number;
   pending: number;
   overdue: number;
+  reviewing?: number;
 }
 
 export interface AnalyticsSummary {
@@ -431,4 +432,52 @@ export interface Notification {
   status: 'unread' | 'read';
   createdAt: string;
   updatedAt: string;
+}
+
+export type GroupMessageType = 'TEXT' | 'IMAGE' | 'FILE' | 'STICKER';
+
+export interface GroupMessageAttachment {
+  id: string;
+  messageId: string;
+  fileName: string;
+  fileUrl: string;
+  fileSize: number;
+  mimeType: string;
+}
+
+export interface GroupMessageSticker {
+  id: string;
+  messageId: string;
+  stickerId: string;
+  stickerUrl: string;
+  packName?: string | null;
+}
+
+export interface GroupMessageMention {
+  id: string;
+  messageId: string;
+  mentionedUserId: string;
+}
+
+export interface GroupMessage {
+  id: string;
+  groupId: string;
+  taskId?: string | null;
+  senderId: string;
+  content: string;
+  messageType: GroupMessageType;
+  createdAt: string;
+  attachments?: GroupMessageAttachment[];
+  mentions?: GroupMessageMention[];
+  sticker?: GroupMessageSticker | null;
+  sender?: {
+    id: string;
+    name: string | null;
+    avatar: string | null;
+  } | null;
+}
+
+export interface PaginatedMessages {
+  messages: GroupMessage[];
+  nextCursor?: string;
 }

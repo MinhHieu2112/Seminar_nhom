@@ -29,6 +29,7 @@ model Group {
   members     GroupMember[]
   invitations GroupInvitation[]
   tasks       GroupTask[]
+  messages    GroupMessage[]
 }
 
 model GroupMember {
@@ -70,6 +71,7 @@ model GroupTask {
   leaderComments  String?
   allocations     GroupTaskAllocation[]
   attachments     GroupTaskAttachment[]
+  messages        GroupMessage[]
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 }
@@ -121,4 +123,53 @@ model MemberStats {
   updatedAt       DateTime @updatedAt
 
   @@unique([teamId, userId])
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  FILE
+  STICKER
+}
+
+model GroupMessage {
+  id          String                 @id @default(uuid())
+  groupId     String
+  group       Group                  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  taskId      String?
+  task        GroupTask?             @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  senderId    String
+  content     String
+  messageType MessageType            @default(TEXT)
+  createdAt   DateTime               @default(now())
+  
+  attachments GroupMessageAttachment[]
+  mentions    GroupMessageMention[]
+  sticker     GroupMessageSticker?
+}
+
+model GroupMessageAttachment {
+  id        String       @id @default(uuid())
+  messageId String
+  message   GroupMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  fileName  String
+  fileUrl   String
+  fileSize  Int
+  mimeType  String
+}
+
+model GroupMessageSticker {
+  id         String       @id @default(uuid())
+  messageId  String       @unique
+  message    GroupMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  stickerId  String
+  stickerUrl String
+  packName   String?
+}
+
+model GroupMessageMention {
+  id              String       @id @default(uuid())
+  messageId       String
+  message         GroupMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  mentionedUserId String
 }

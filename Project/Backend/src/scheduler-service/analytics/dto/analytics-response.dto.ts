@@ -40,6 +40,7 @@ export class TaskStatsDto {
   completed!: number;
   pending!: number;
   overdue!: number;
+  reviewing!: number;
 }
 
 export class AnalyticsSummaryDto {

@@ -1,4 +1,9 @@
-import { Injectable, Inject, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  Inject,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from './prisma/prisma.service';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
@@ -275,6 +280,18 @@ export class SchedulerService {
       const exists = await this.findTaskForAccess(userId, id);
       if (!exists) {
         throw new NotFoundException('Task not found');
+      }
+
+      if (exists.status === 'done') {
+        throw new BadRequestException('Không thể xóa task đã hoàn thành!');
+      }
+
+      if (
+        exists.dueTime &&
+        exists.dueTime < new Date() &&
+        exists.status !== 'done'
+      ) {
+        throw new BadRequestException('Không thể xóa task đã trễ hạn!');
       }
 
       return await this.prisma.task.delete({

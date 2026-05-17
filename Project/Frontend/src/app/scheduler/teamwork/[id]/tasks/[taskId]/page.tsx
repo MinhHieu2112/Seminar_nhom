@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -5,16 +6,15 @@ import { useParams, useRouter } from 'next/navigation';
 import {
   CaretLeft,
   FileText,
-  DownloadSimple,
   User,
   Calendar,
   Clock,
-  CheckCircle,
   ChatText,
   Spinner,
-  ArrowSquareOut,
   Image as ImageIcon,
   Check,
+  Eye,
+  X,
 } from '@phosphor-icons/react';
 import { useAuthStore } from '@/store/auth-store';
 import { useGetGroupDetails } from '@/hooks/useGroups';
@@ -55,13 +55,18 @@ export default function TaskDetailsPage() {
   const updateTask = useUpdateTask();
 
   const [commentText, setCommentText] = useState('');
+  const [prevLeaderComments, setPrevLeaderComments] = useState<string | null | undefined>(undefined);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [previewAttachment, setPreviewAttachment] = useState<{
+    url: string;
+    name: string;
+    mimeType: string;
+  } | null>(null);
 
-  useEffect(() => {
-    if (task?.leaderComments) {
-      setCommentText(task.leaderComments);
-    }
-  }, [task?.leaderComments]);
+  if (task?.leaderComments !== prevLeaderComments) {
+    setPrevLeaderComments(task?.leaderComments);
+    setCommentText(task?.leaderComments || '');
+  }
 
   const memberIds = React.useMemo(() => {
     return group?.members?.map((m) => m.userId) || [];
@@ -179,80 +184,81 @@ export default function TaskDetailsPage() {
             <div className="bg-white rounded-3xl border border-gray-100 p-6 shadow-sm">
               <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">Minh chứng & File đính kèm</h3>
               {task.attachments && task.attachments.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {task.attachments.map((att) => {
-                    const uploaderProf = getMemberProfile(att.uploaderId);
-                    return (
-                      <div key={att.id} className="border border-gray-100 rounded-2xl p-4 bg-slate-50/50 flex flex-col justify-between hover:shadow-md transition-all group">
-                        <div>
-                          {/* File Icon or Preview */}
-                          {isImageFile(att.mimeType) ? (
-                            <div className="w-full h-32 rounded-xl overflow-hidden bg-slate-100 mb-3 border border-gray-100 flex items-center justify-center relative">
-                              <img
-                                src={buildAttachmentUrl(att.fileUrl)}
-                                alt={att.fileName}
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                              />
-                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                <a
-                                  href={buildAttachmentUrl(att.fileUrl)}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="p-2 rounded-full bg-white/20 text-white backdrop-blur-sm hover:bg-white/40 transition-colors"
-                                  title="Xem ảnh lớn"
-                                >
-                                  <ArrowSquareOut size={20} />
-                                </a>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="w-full h-32 rounded-xl bg-slate-100/80 mb-3 border border-gray-100 flex flex-col items-center justify-center text-slate-400 gap-2">
-                              <FileText size={40} weight="light" />
-                              <span className="text-[10px] font-bold uppercase tracking-wider bg-slate-200 text-slate-600 px-2 py-0.5 rounded-md">
-                                {att.mimeType?.split('/')?.[1]?.toUpperCase() || 'FILE'}
-                              </span>
-                            </div>
-                          )}
+                <div className="flex flex-col border border-gray-100 rounded-2xl overflow-hidden bg-white shadow-sm">
+                  {/* List Header */}
+                  <div className="hidden sm:grid sm:grid-cols-12 gap-4 px-6 py-3.5 bg-slate-50/50 border-b border-gray-100 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
+                    <div className="col-span-5">Tên file</div>
+                    <div className="col-span-3">Ngày gửi</div>
+                    <div className="col-span-2">Kích thước</div>
+                    <div className="col-span-2 text-center">Xem trước</div>
+                  </div>
 
-                          <h4 className="font-bold text-gray-900 text-sm truncate" title={att.fileName}>
-                            {att.fileName}
-                          </h4>
-                          <p className="text-xs text-gray-400 mt-1 font-medium">{formatBytes(att.fileSize)}</p>
-                        </div>
+                  {/* Rows */}
+                  <div className="divide-y divide-gray-50 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+                    {task.attachments.map((att) => {
+                      const uploaderProf = getMemberProfile(att.uploaderId);
+                      const uploaderName = uploaderProf ? `${uploaderProf.firstName} ${uploaderProf.lastName}` : 'Thành viên';
+                      const uploadDate = new Date(att.uploadedAt).toLocaleString('vi-VN');
+                      const isImg = isImageFile(att.mimeType);
 
-                        <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-[10px] font-bold overflow-hidden flex-shrink-0">
-                              {uploaderProf?.avatar ? (
-                                <img src={uploaderProf.avatar} alt="avatar" className="w-full h-full object-cover" />
+                      return (
+                        <div key={att.id} className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center px-6 py-4 hover:bg-slate-50/40 transition-colors group">
+                          
+                          {/* File Name & Icon */}
+                          <div className="col-span-1 sm:col-span-5 flex items-center gap-3 min-w-0">
+                            <div className="w-9 h-9 rounded-xl bg-blue-50/60 flex items-center justify-center border border-blue-100/30 shrink-0 text-blue-500">
+                              {isImg ? (
+                                <ImageIcon size={18} weight="bold" />
                               ) : (
-                                <User size={12} weight="fill" />
+                                <FileText size={18} weight="bold" />
                               )}
                             </div>
                             <div className="min-w-0">
-                              <p className="text-[10px] font-bold text-gray-700 truncate">
-                                {uploaderProf ? `${uploaderProf.firstName} ${uploaderProf.lastName}` : 'Người dùng'}
+                              <p className="text-xs font-bold text-gray-800 truncate" title={att.fileName}>
+                                {att.fileName}
                               </p>
-                              <p className="text-[9px] text-gray-400 font-medium">
-                                {new Date(att.uploadedAt).toLocaleString('vi-VN')}
+                              {/* Mobile-only responsive subtext */}
+                              <p className="sm:hidden text-[9px] text-gray-400 mt-1 font-semibold">
+                                Gửi bởi {uploaderName} • {uploadDate} • {formatBytes(att.fileSize)}
                               </p>
                             </div>
                           </div>
 
-                          <a
-                            href={buildAttachmentUrl(att.fileUrl)}
-                            download={att.fileName}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="p-1.5 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
-                            title="Tải xuống"
-                          >
-                            <DownloadSimple size={16} weight="bold" />
-                          </a>
+                          {/* Sender & Date (sm and up) */}
+                          <div className="hidden sm:block sm:col-span-3 min-w-0">
+                            <span className="text-[11px] font-bold text-gray-700 truncate block" title={uploaderName}>
+                              {uploaderName}
+                            </span>
+                            <span className="text-[9px] font-medium text-gray-400 block mt-0.5">
+                              {uploadDate}
+                            </span>
+                          </div>
+
+                          {/* File Size (sm and up) */}
+                          <div className="hidden sm:block sm:col-span-2">
+                            <span className="text-xs font-semibold text-slate-500">
+                              {formatBytes(att.fileSize)}
+                            </span>
+                          </div>
+
+                          {/* Action Buttons */}
+                          <div className="col-span-1 sm:col-span-2 flex items-center justify-start sm:justify-center">
+                            <button
+                              onClick={() => setPreviewAttachment({
+                                url: buildAttachmentUrl(att.fileUrl),
+                                name: att.fileName,
+                                mimeType: att.mimeType
+                              })}
+                              className="p-2 rounded-xl bg-blue-50/60 text-blue-600 hover:bg-blue-100 hover:scale-105 active:scale-95 transition-all flex items-center justify-center shrink-0"
+                              title="Xem trước minh chứng"
+                            >
+                              <Eye size={15} weight="bold" />
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center py-12 border border-dashed border-gray-200 rounded-2xl bg-slate-50/30 text-center">
@@ -308,7 +314,7 @@ export default function TaskDetailsPage() {
                         &ldquo;{task.leaderComments}&rdquo;
                       </p>
                     ) : (
-                      <p className="text-sm text-gray-400 mt-1 italic">Chưa có nhận xét nào từ Trưởng nhóm.</p>
+                      <p className="text-sm text-gray-400 mt-1 italic">Chưa có nhận xét nào.</p>
                     )}
                   </div>
                 </div>
@@ -340,7 +346,7 @@ export default function TaskDetailsPage() {
                       {assigneeProfile ? `${assigneeProfile.firstName} ${assigneeProfile.lastName}` : 'Chưa phân công'}
                     </h4>
                     <p className="text-xs text-gray-500 font-medium">
-                      {task.assigneeId === currentUser?.id ? 'Bản thân bạn' : assigneeProfile ? 'Thành viên nhóm' : '--'}
+                      {task.assigneeId === currentUser?.id ? 'Bạn' : assigneeProfile ? 'Thành viên nhóm' : '--'}
                     </p>
                   </div>
                 </div>
@@ -372,6 +378,73 @@ export default function TaskDetailsPage() {
           </div>
         </div>
       </div>
+
+      {/* Interactive High-Fidelity Attachment Preview Modal */}
+      {previewAttachment && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div 
+            className="fixed inset-0" 
+            onClick={() => setPreviewAttachment(null)} 
+          />
+          <div className="bg-white rounded-3xl w-full max-w-4xl shadow-2xl overflow-hidden relative z-10 flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200 border border-gray-100">
+            
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-slate-50/50 shrink-0">
+              <div className="min-w-0 flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center border border-blue-100/30 text-blue-500 shrink-0">
+                  {isImageFile(previewAttachment.mimeType) ? <ImageIcon size={16} weight="bold" /> : <FileText size={16} weight="bold" />}
+                </div>
+                <h3 className="text-sm font-extrabold text-gray-800 truncate" title={previewAttachment.name}>
+                  {previewAttachment.name}
+                </h3>
+              </div>
+              <button 
+                onClick={() => setPreviewAttachment(null)}
+                className="p-2 rounded-xl hover:bg-slate-200/50 text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X size={18} weight="bold" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 overflow-auto flex items-center justify-center bg-slate-50/30 min-h-[300px] flex-1">
+              {isImageFile(previewAttachment.mimeType) ? (
+                <img
+                  src={previewAttachment.url}
+                  alt={previewAttachment.name}
+                  className="max-w-full max-h-[65vh] object-contain rounded-2xl shadow-md border border-gray-200/30"
+                />
+              ) : previewAttachment.mimeType === 'application/pdf' ? (
+                <iframe
+                  src={previewAttachment.url}
+                  title={previewAttachment.name}
+                  className="w-full h-[65vh] rounded-2xl border border-gray-200/50 shadow-md bg-white"
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center text-center p-12 max-w-sm">
+                  <div className="w-16 h-16 bg-orange-50 text-orange-500 rounded-full flex items-center justify-center border border-orange-100/50 mb-4 animate-pulse">
+                    <FileText size={32} weight="light" />
+                  </div>
+                  <p className="text-sm font-extrabold text-gray-800">Không thể xem trực tiếp định dạng này</p>
+                  <p className="text-xs text-gray-400 mt-1 mb-6 leading-relaxed">
+                    Trình duyệt không hỗ trợ xem trực tiếp trực tuyến cho file đính kèm này.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 bg-slate-50 border-t border-gray-100 flex items-center justify-end gap-3 shrink-0">
+              <button
+                onClick={() => setPreviewAttachment(null)}
+                className="px-4 py-2 border border-gray-200 rounded-xl hover:bg-white text-xs font-bold text-gray-500 transition-colors"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

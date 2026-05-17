@@ -1,6 +1,6 @@
 'use client';
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { schedulerService } from '@/services/scheduler.service';
 import type { ScheduleItem } from '@/types/api';
 
@@ -215,5 +215,21 @@ export function useRejectTask() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: SCHEDULER_QUERY_KEY });
         },
+    });
+}
+
+export function useGetGroupMessages(groupId: string, taskId?: string) {
+    return useInfiniteQuery({
+        queryKey: [...SCHEDULER_QUERY_KEY, 'messages', groupId, taskId || 'general'],
+        queryFn: async ({ pageParam }) => {
+            const response = await schedulerService.getGroupMessages(groupId, {
+                taskId: taskId || undefined,
+                limit: 30,
+                cursor: pageParam as string | undefined,
+            });
+            return response.data;
+        },
+        initialPageParam: undefined as string | undefined,
+        getNextPageParam: (lastPage) => lastPage.nextCursor || undefined,
     });
 }

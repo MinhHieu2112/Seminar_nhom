@@ -1,8 +1,26 @@
 import { Module } from '@nestjs/common';
+import { ClientsModule, Transport } from '@nestjs/microservices';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { NotificationService } from './notification.service';
-import { NotificationGateway } from './notification.gateway';
 
 @Module({
-  providers: [NotificationGateway, NotificationService],
+  imports: [
+    ClientsModule.registerAsync([
+      {
+        name: 'REDIS_CLIENT',
+        imports: [ConfigModule],
+        inject: [ConfigService],
+        useFactory: (configService: ConfigService) => ({
+          transport: Transport.REDIS,
+          options: {
+            host: configService.get<string>('REDIS_HOST', 'localhost'),
+            port: configService.get<number>('REDIS_PORT', 6379),
+          },
+        }),
+      },
+    ]),
+  ],
+  providers: [NotificationService],
+  exports: [NotificationService],
 })
 export class NotificationModule {}

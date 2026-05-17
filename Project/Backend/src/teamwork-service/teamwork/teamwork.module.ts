@@ -5,9 +5,11 @@ import { UserEventsController } from './user-events.controller';
 import { PrismaService } from '../prisma/prisma.service';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { NotificationModule } from '../notification/notification.module';
 
 @Module({
   imports: [
+    NotificationModule,
     ClientsModule.registerAsync([
       {
         name: 'REDIS_CLIENT',

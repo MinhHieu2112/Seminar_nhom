@@ -1,4 +1,5 @@
 import { Controller, Get, Post, Param, Headers } from '@nestjs/common';
+import { EventPattern, Payload } from '@nestjs/microservices';
 import { NotificationService } from './notification.service';
 
 @Controller('api/v1/scheduler/notifications')
@@ -18,5 +19,20 @@ export class NotificationController {
   @Post('read-all')
   markAllAsRead(@Headers('x-user-id') userId: string) {
     return this.notificationService.markAllAsRead(userId);
+  }
+
+  @EventPattern('notification.create')
+  async handleNotificationCreate(
+    @Payload()
+    data: {
+      userId: string;
+      title: string;
+      message: string;
+      type?: string;
+      taskId?: string;
+    },
+  ) {
+    console.log('[SchedulerService] Received notification.create event:', data);
+    return await this.notificationService.createNotification(data);
   }
 }

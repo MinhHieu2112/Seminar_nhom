@@ -150,7 +150,15 @@ export default function AnalyticsPage() {
             {/* Row 2: Radar + Pending approvals */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <PerformanceRadarChart data={dashboardData.performance} />
-              <PendingApprovals data={dashboardData.pendingApprovals} />
+              <PendingApprovals
+                data={dashboardData.pendingApprovals}
+                stats={{
+                  pending: dashboardData.summary.teamTasks.pending,
+                  reviewing: dashboardData.summary.teamTasks.reviewing ?? 0,
+                  completed: dashboardData.summary.teamTasks.completed,
+                  overdue: dashboardData.summary.teamTasks.overdue,
+                }}
+              />
             </div>
           </>
         )}

@@ -1,10 +1,15 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { Transport, MicroserviceOptions } from '@nestjs/microservices';
-import { TeamworkModule } from './teamwork-service/teamwork-service.module';
+import { TeamworkServiceModule } from './teamwork-service/teamwork-service.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(TeamworkModule);
+  const app = await NestFactory.create(TeamworkServiceModule);
+
+  app.enableCors({
+    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    credentials: true,
+  });
 
   app.useGlobalPipes(
     new ValidationPipe({

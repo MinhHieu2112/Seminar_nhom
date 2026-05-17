@@ -1,5 +1,5 @@
 import { apiClient } from '@/lib/api-client';
-import type { Task, Allocation, Category, Subject, ScheduleItem } from '@/types/api';
+import type { Task, Allocation, Category, Subject, ScheduleItem, PaginatedMessages } from '@/types/api';
 
 export const schedulerService = {
   getCategories: () => apiClient.get<Category[]>('/api/v1/scheduler/categories'),
@@ -79,4 +79,14 @@ export const schedulerService = {
     apiClient.patch<Task>(`/api/v1/teamwork/tasks/${taskId}/approve`),
   rejectTask: (taskId: string) =>
     apiClient.patch<Task>(`/api/v1/teamwork/tasks/${taskId}/reject`),
+
+  getGroupMessages: (groupId: string, params: { taskId?: string; limit?: number; cursor?: string }) =>
+    apiClient.get<PaginatedMessages>(`/api/v1/teamwork/groups/${groupId}/messages`, { params }),
+
+  uploadChatFiles: (groupId: string, formData: FormData) =>
+    apiClient.post<any[]>(`/api/v1/teamwork/groups/${groupId}/chat/upload`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    }),
 };

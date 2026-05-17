@@ -152,6 +152,11 @@ export class TeamworkController {
     return this.teamworkService.approveGroupTask(userId, id);
   }
 
+  @Patch('tasks/:id/reject')
+  rejectTask(@Headers('x-user-id') userId: string, @Param('id') id: string) {
+    return this.teamworkService.rejectGroupTask(userId, id);
+  }
+
   @Post('tasks/:id/attachments')
   uploadAttachments(
     @Headers('x-user-id') userId: string,

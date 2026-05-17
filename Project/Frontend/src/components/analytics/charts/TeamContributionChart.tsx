@@ -52,6 +52,7 @@ export const TeamContributionChart = memo(function TeamContributionChart({ metri
                 tickLine={false}
                 tick={{ fontSize: 11, fill: '#94a3b8' }}
                 unit={metric === 'hours' ? 'h' : ''}
+                allowDecimals={false}
               />
               <YAxis
                 dataKey="name"

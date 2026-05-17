@@ -13,9 +13,20 @@ export class AnalyticsController {
 
   @MessagePattern('analytics.dashboard.get')
   async getDashboard(
-    @Payload() data: { userId: string },
+    @Payload()
+    data: {
+      userId: string;
+      period?: string;
+      from?: string;
+      to?: string;
+    },
   ): Promise<{ success: boolean; data: AnalyticsDashboardResponseDto }> {
-    const result = await this.analyticsService.getUserDashboard(data.userId);
+    const result = await this.analyticsService.getUserDashboard(
+      data.userId,
+      data.period,
+      data.from,
+      data.to,
+    );
     return {
       success: true,
       data: result,

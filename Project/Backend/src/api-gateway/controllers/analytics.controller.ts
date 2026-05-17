@@ -20,13 +20,18 @@ export class AnalyticsGatewayController {
   ) {}
 
   @Get('dashboard')
-  getDashboard(@Headers('authorization') authHeader: string) {
+  getDashboard(
+    @Headers('authorization') authHeader: string,
+    @Query('period') period?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
     const userId = extractUserId(authHeader, this.jwtService);
     return safeSend(
       this.tcpClient,
       'scheduler-service',
       'analytics.dashboard.get',
-      { userId },
+      { userId, period, from, to },
     );
   }
 

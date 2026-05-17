@@ -67,50 +67,43 @@ export const AnalyticsFilters = memo(function AnalyticsFilters({
         </div>
       )}
 
-      {/* Scope toggle */}
-      <div className="flex items-center bg-white border border-gray-200 rounded-2xl p-1 shadow-sm gap-0.5">
-        {(['personal', 'team'] as FilterScope[]).map(s => (
-          <button
-            key={s}
-            onClick={() => onScope(s)}
-            className={`px-5 py-2 rounded-xl text-[13px] font-semibold transition-all duration-150 ${
-              scope === s
-                ? 'bg-violet-600 text-white shadow-sm'
-                : 'text-gray-500 hover:bg-gray-50'
-            }`}
-          >
-            {s === 'personal' ? '👤 Cá nhân' : '👥 Nhóm'}
-          </button>
-        ))}
-      </div>
-
-      {/* Team metric selector – only visible in team scope */}
-      {scope === 'team' && (
+      {/* Right-aligned selectors (Scope + Team Metrics) */}
+      <div className="ml-auto flex items-center gap-3">
+        {/* Scope toggle */}
         <div className="flex items-center bg-white border border-gray-200 rounded-2xl p-1 shadow-sm gap-0.5">
-          {(['tasks', 'hours'] as const).map(m => (
+          {(['personal', 'team'] as FilterScope[]).map(s => (
             <button
-              key={m}
-              onClick={() => onMetric(m)}
-              className={`px-4 py-2 rounded-xl text-[13px] font-semibold transition-all duration-150 ${
-                metric === m
-                  ? 'bg-emerald-600 text-white shadow-sm'
+              key={s}
+              onClick={() => onScope(s)}
+              className={`px-5 py-2 rounded-xl text-[13px] font-semibold transition-all duration-150 ${
+                scope === s
+                  ? 'bg-violet-600 text-white shadow-sm'
                   : 'text-gray-500 hover:bg-gray-50'
               }`}
             >
-              {m === 'tasks' ? 'Số Task' : 'Số Giờ'}
+              {s === 'personal' ? '👤 Cá nhân' : '👥 Nhóm'}
             </button>
           ))}
         </div>
-      )}
 
-      {/* Realtime badge */}
-      <div className={`ml-auto flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-full border ${
-        isConnected
-          ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
-          : 'bg-gray-50 border-gray-200 text-gray-400'
-      }`}>
-        <span className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-gray-300'}`} />
-        {isConnected ? 'Realtime' : 'Offline'}
+        {/* Team metric selector – only visible in team scope */}
+        {scope === 'team' && (
+          <div className="flex items-center bg-white border border-gray-200 rounded-2xl p-1 shadow-sm gap-0.5">
+            {(['tasks', 'hours'] as const).map(m => (
+              <button
+                key={m}
+                onClick={() => onMetric(m)}
+                className={`px-4 py-2 rounded-xl text-[13px] font-semibold transition-all duration-150 ${
+                  metric === m
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'text-gray-500 hover:bg-gray-50'
+                }`}
+              >
+                {m === 'tasks' ? 'Số Task' : 'Số Giờ'}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
