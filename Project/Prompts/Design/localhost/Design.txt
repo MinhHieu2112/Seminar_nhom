@@ -1,0 +1,28 @@
+Thiết kế giao diện landing page tiếng Việt theo phong cách modern illustration giống mẫu tham chiếu: tối giản, sáng, nhiều khoảng trắng, bố cục split-screen (text bên trái, illustration bên phải).
+
+Yêu cầu thiết kế:
+- Tone màu pastel hiện đại: trắng, tím gradient, cam nhạt, hồng pastel, xanh tím.
+- Background sáng (#f8f8f8 hoặc trắng ngà).
+- Font chữ mềm mại, hiện đại như Poppins hoặc Nunito Sans.
+- Heading lớn, mỏng, thanh lịch.
+- Nút CTA bo tròn lớn, gradient tím.
+- Có navbar tối giản phía trên gồm: Trang chủ, Công việc, Blog, Giới thiệu, Cộng đồng.
+- Hero section:
+  + Bên trái: tiêu đề lớn tiếng Việt, mô tả ngắn, nút hành động.
+  + Bên phải: illustration dạng vector/Lottie về công nghệ, lập kế hoạch, teamwork hoặc AI productivity.
+- Hiệu ứng motion nhẹ bằng lottie-react (đã cài sẵn).
+- UI responsive cho desktop/tablet/mobile.
+- Shadow mềm, bo góc lớn, icon outline tối giản.
+- Không dùng giao diện dark mode.
+- Phong cách giống startup SaaS hiện đại trên Dribbble/Behance.
+
+Nội dung tiếng Việt:
+Tiêu đề: “Quản lý công việc thông minh cùng AI”
+Mô tả: “Lập kế hoạch, theo dõi tiến độ và cộng tác hiệu quả trong một nền tảng duy nhất.”
+Nút CTA: “Bắt đầu ngay”
+
+Tech stack:
+- React + TailwindCSS
+- Dùng Framer Motion cho animation nhẹ
+- Dùng lottie-react cho animation hero
+- Thiết kế component sạch, hiện đại, tách section rõ ràng

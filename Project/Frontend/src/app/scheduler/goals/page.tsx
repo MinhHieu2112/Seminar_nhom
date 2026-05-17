@@ -218,7 +218,7 @@ export default function GoalsPage() {
     const handleDeleteTask = async () => {
         if (!deleteTaskId) return;
         setTaskErr('');
-        try { await deleteTask.mutateAsync(deleteTaskId); setDeleteTaskId(null); }
+        try { await deleteTask.mutateAsync({ id: deleteTaskId }); setDeleteTaskId(null); }
         catch { setTaskErr('Xóa công việc thất bại. Thử lại.'); }
     };
 

@@ -1,0 +1,32 @@
+@startuml
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultFontName "Arial"
+
+title Luồng Lập lịch cá nhân (Thủ công & AI)
+
+|Người dùng|
+start
+:Mở module Lịch biểu;
+
+if (Phương thức nhập?) then (Thủ công)
+    :Chọn Thêm/Sửa/Xóa;
+    :Nhập thông tin (Tên, Thời gian, Mô tả);
+    :Lưu thay đổi;
+else (AI/Quét ảnh)
+    :Tải lên ảnh (Thời khóa biểu/Ghi chú)
+    hoặc Nhập văn bản thô;
+    |Hệ thống AI|
+    :Phân tích dữ liệu (OCR/NLP);
+    :Trích xuất các sự kiện;
+    |Người dùng|
+    :Kiểm tra thông tin trích xuất;
+    if (Chính xác?) then (Không)
+        :Chỉnh sửa thủ công;
+    endif
+    :Xác nhận và Lưu;
+endif
+
+:Hệ thống cập nhật Lịch cá nhân;
+stop
+@enduml

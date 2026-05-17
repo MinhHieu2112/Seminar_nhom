@@ -6,7 +6,7 @@ import {
   ShieldCheck,
   GoogleLogo,
   GithubLogo,
-  FacebookLogo,
+  DiscordLogo,
   LinkedinLogo,
   CheckCircle,
   Link,
@@ -64,11 +64,11 @@ function SecurityTab({ user }: { user: User | null | undefined }) {
       loginUrl: '/api/v1/auth/github',
     },
     {
-      id: 'facebook',
-      name: 'Facebook',
-      icon: <FacebookLogo size={26} weight="fill" className="text-[#1877F2]" />,
-      linked: !!user?.facebookId,
-      loginUrl: '/api/v1/auth/facebook',
+      id: 'discord',
+      name: 'Discord',
+      icon: <DiscordLogo size={26} weight="fill" className="text-[#5865F2]" />,
+      linked: !!user?.discordId,
+      loginUrl: '/api/v1/auth/discord',
     },
     {
       id: 'linkedin',
@@ -340,7 +340,7 @@ function ProfileContent() {
           {/* VIEW: Thông tin cá nhân */}
           {activeTab === 'personal' && (
             <div className="space-y-6">
-              <PersonalInfoCard register={register} errors={errors} />
+              <PersonalInfoCard user={user ?? undefined} register={register} errors={errors} />
               <AddressCard register={register} errors={errors} />
             </div>
           )}

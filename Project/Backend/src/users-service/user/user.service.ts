@@ -1,17 +1,18 @@
 import {
+  Inject,
   Injectable,
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In, Like } from 'typeorm';
+import { ClientProxy, RpcException } from '@nestjs/microservices';
 import * as bcrypt from 'bcrypt';
-import { User, UserRole } from './user.entity';
+import { User, UserRole } from '@prisma/users-client';
+import { PrismaService } from '../prisma/prisma.service';
 import { UpdateProfileDto, ChangePasswordDto } from '../dto';
 
 /**
  * Utility function to strip sensitive data (password) before sending user payload to the caller.
- * @param user - The raw User entity object
+ * @param user - The raw User object
  * @returns - A sanitized user object without the password field
  */
 function stripPassword(user: User): Omit<User, 'password'> {
@@ -23,77 +24,62 @@ function stripPassword(user: User): Omit<User, 'password'> {
 @Injectable()
 export class UserService {
   constructor(
-    @InjectRepository(User)
-    private readonly userRepo: Repository<User>,
+    private readonly prisma: PrismaService,
+    @Inject('REDIS_CLIENT') private readonly redisClient: ClientProxy,
   ) {}
 
-  /**
-   * Retrieves the sanitized profile data for a given user.
-   *
-   * @param userId - UUID of the user
-   * @returns Sanitized User object
-   * @throws NotFoundException if user is not found
-   */
   async getProfile(userId: string): Promise<Omit<User, 'password'>> {
-    const user = await this.userRepo.findOne({ where: { id: userId } });
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException('User not found');
     }
     return stripPassword(user);
   }
 
-  /**
-   * Updates partial fields of a user's profile and returns the updated sanitized profile.
-   *
-   * @param userId - UUID of the user
-   * @param dto - Data Transfer Object containing updatable fields like avatar, bio, and coverPhoto
-   * @returns Updated sanitized User object
-   * @throws NotFoundException if user is not found
-   */
   async updateProfile(
     userId: string,
     dto: UpdateProfileDto,
   ): Promise<Omit<User, 'password'>> {
-    const user = await this.userRepo.findOne({ where: { id: userId } });
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException('User not found');
     }
 
-    if (dto.timezone !== undefined) user.timezone = dto.timezone;
-    if (dto.preferences !== undefined) user.preferences = dto.preferences;
-    if (dto.country !== undefined) user.country = dto.country;
-    if (dto.city !== undefined) user.city = dto.city;
-    if (dto.postalCode !== undefined) user.postalCode = dto.postalCode;
-    if (dto.firstName !== undefined) user.firstName = dto.firstName;
-    if (dto.lastName !== undefined) user.lastName = dto.lastName;
-    if (dto.dob !== undefined) user.dob = dto.dob;
-    if (dto.phone !== undefined) user.phone = dto.phone;
-    if (dto.avatar !== undefined) user.avatar = dto.avatar;
-    if (dto.coverPhoto !== undefined) user.coverPhoto = dto.coverPhoto;
-    if (dto.bio !== undefined) user.bio = dto.bio;
+    const updatedUser = await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        timezone: dto.timezone,
+        preferences: dto.preferences as any,
+        country: dto.country,
+        city: dto.city,
+        postalCode: dto.postalCode,
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        dob: dto.dob,
+        phone: dto.phone,
+        avatar: dto.avatar,
+        coverPhoto: dto.coverPhoto,
+        bio: dto.bio,
+      },
+    });
 
-    await this.userRepo.save(user);
-    return stripPassword(user);
+    // Emit profile updated event for local projection sync
+    this.redisClient.emit('user.profile.updated', {
+      id: updatedUser.id,
+      email: updatedUser.email,
+      name: `${updatedUser.firstName || ''} ${updatedUser.lastName || ''}`.trim(),
+      avatar: updatedUser.avatar,
+      isActive: updatedUser.isActive,
+    });
+
+    return stripPassword(updatedUser);
   }
 
-  /**
-   * Handles user password rotation. Validates old password and hashes the new one.
-   *
-   * @param userId - UUID of the user
-   * @param dto - ChangePasswordDto containing old and new passwords
-   * @returns Object indicating success flag
-   * @throws ForbiddenException if trying to change Google OAuth passwords or wrong old password
-   * @throws NotFoundException if user is not found
-   */
   async changePassword(
     userId: string,
     dto: ChangePasswordDto,
   ): Promise<{ success: boolean }> {
-    const user = await this.userRepo
-      .createQueryBuilder('user')
-      .where('user.id = :id', { id: userId })
-      .addSelect('user.password')
-      .getOne();
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
 
     if (!user) {
       throw new NotFoundException('User not found');
@@ -101,7 +87,7 @@ export class UserService {
 
     if (!user.password) {
       throw new ForbiddenException(
-        'Cannot change password for an account created with Google Sign-in',
+        'Cannot change password for an account created with Social Sign-in',
       );
     }
 
@@ -113,110 +99,94 @@ export class UserService {
       throw new ForbiddenException('Current password is incorrect');
     }
 
-    user.password = await bcrypt.hash(dto.newPassword, 12);
-    await this.userRepo.save(user);
+    const hashedPassword = await bcrypt.hash(dto.newPassword, 12);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { password: hashedPassword },
+    });
+
     return { success: true };
   }
 
-  /**
-   * Retrieves a paginated list of all users, typically utilized by admin dashboards.
-   *
-   * @param page - Current page number (1-indexed)
-   * @param limit - Count of items per page
-   * @returns Object containing a paginated array of sanitized users and the total count
-   */
   async adminListUsers(
     page = 1,
     limit = 20,
   ): Promise<{ data: Omit<User, 'password'>[]; total: number }> {
-    const [users, total] = await this.userRepo.findAndCount({
-      skip: (page - 1) * limit,
-      take: limit,
-      order: { createdAt: 'DESC' },
-    });
+    const [users, total] = await Promise.all([
+      this.prisma.user.findMany({
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.user.count(),
+    ]);
 
     const data = users.map(stripPassword);
     return { data, total };
   }
 
-  /**
-   * Toggles a user's active status (suspend/activate). Protects admin accounts from suspension.
-   *
-   * @param userId - UUID of the user
-   * @returns Updated sanitized User object
-   * @throws NotFoundException if user is not found
-   * @throws ForbiddenException if attempting to lock an admin scope account
-   */
   async adminToggleUser(userId: string): Promise<Omit<User, 'password'>> {
-    const user = await this.userRepo
-      .createQueryBuilder('user')
-      .where('user.id = :id', { id: userId })
-      .addSelect('user.password')
-      .getOne();
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
 
     if (!user) {
       throw new NotFoundException('User not found');
     }
-    if (user.role === UserRole.ADMIN) {
+    if (user.role === UserRole.admin) {
       throw new ForbiddenException('Cannot disable admin account');
     }
 
-    user.isActive = !user.isActive;
-    await this.userRepo.save(user);
-    return stripPassword(user);
+    const updatedUser = await this.prisma.user.update({
+      where: { id: userId },
+      data: { isActive: !user.isActive },
+    });
+
+    return stripPassword(updatedUser);
   }
 
-  /**
-   * Finds a user by their email address and returns a sanitized profile.
-   *
-   * @param email - Email address to search for
-   * @returns Sanitized User object or null
-   */
   async findByEmail(email: string): Promise<Omit<User, 'password'> | null> {
-    const user = await this.userRepo.findOne({ where: { email } });
+    const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user) return null;
     return stripPassword(user);
   }
 
-  /**
-   * Searches users by keyword (email, firstName, lastName).
-   *
-   * @param query - Search keyword
-   * @returns Array of sanitized User objects
-   */
   async search(query: string): Promise<Omit<User, 'password'>[]> {
-    const users = await this.userRepo.find({
-      where: [
-        { email: Like(`%${query}%`) },
-        { firstName: Like(`%${query}%`) },
-        { lastName: Like(`%${query}%`) },
-      ],
+    const users = await this.prisma.user.findMany({
+      where: {
+        OR: [
+          { email: { contains: query, mode: 'insensitive' } },
+          { firstName: { contains: query, mode: 'insensitive' } },
+          { lastName: { contains: query, mode: 'insensitive' } },
+        ],
+      },
       take: 10,
     });
     return users.map(stripPassword);
   }
 
-  /**
-   * Finds multiple users by their IDs.
-   *
-   * @param ids - Array of user UUIDs
-   * @returns Array of sanitized User objects
-   */
   async findManyByIds(ids: string[]): Promise<Omit<User, 'password'>[]> {
-    const users = await this.userRepo.find({
-      where: { id: In(ids) },
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: ids } },
     });
     return users.map(stripPassword);
   }
 
-  /**
-   * A low-level fetch utility useful for internal microservice pipeline interactions.
-   * Skips stripping password.
-   *
-   * @param userId - UUID of the user
-   * @returns Raw User entity or null
-   */
   async findById(userId: string): Promise<User | null> {
-    return this.userRepo.findOne({ where: { id: userId } });
+    return this.prisma.user.findUnique({ where: { id: userId } });
+  }
+
+  async resetPassword(email: string, newPassword: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      throw new RpcException({
+        statusCode: 404,
+        message: 'Account not found with this email',
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+    await this.prisma.user.update({
+      where: { email },
+      data: { password: hashedPassword },
+    });
   }
 }

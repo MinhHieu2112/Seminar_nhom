@@ -182,7 +182,7 @@ export function DashboardContent() {
 
         {/* Status Cards - SPLIT INDIVIDUAL VS TEAMWORK */}
         <div>
-          <h3 className="font-black text-gray-900 text-xl mb-6 ml-2">Trạng thái Tổng quan</h3>
+          <h3 className="font-black text-gray-900 text-xl mb-6 ml-2">Trạng thái tổng quan</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
             {/* Card 1: Tiến độ cá nhân */}

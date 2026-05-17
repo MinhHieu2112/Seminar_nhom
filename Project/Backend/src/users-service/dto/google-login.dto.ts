@@ -14,6 +14,14 @@ export class GoogleLoginDto {
 
   @IsOptional()
   @IsString()
+  firstName?: string;
+
+  @IsOptional()
+  @IsString()
+  lastName?: string;
+
+  @IsOptional()
+  @IsString()
   @Length(1, 2048)
   avatar?: string;
 }

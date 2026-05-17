@@ -17,14 +17,17 @@ interface Props {
   period:    FilterPeriod;
   scope:     FilterScope;
   metric:    'tasks' | 'hours';
-  onPeriod:  (v: FilterPeriod)          => void;
-  onScope:   (v: FilterScope)           => void;
-  onMetric:  (v: 'tasks' | 'hours')     => void;
+  customFrom?: string;
+  customTo?:   string;
+  onPeriod:    (v: FilterPeriod)          => void;
+  onScope:     (v: FilterScope)           => void;
+  onMetric:    (v: 'tasks' | 'hours')     => void;
+  onCustomRange: (from: string, to: string) => void;
   isConnected: boolean;
 }
 
 export const AnalyticsFilters = memo(function AnalyticsFilters({
-  period, scope, metric, onPeriod, onScope, onMetric, isConnected,
+  period, scope, metric, customFrom, customTo, onPeriod, onScope, onMetric, onCustomRange, isConnected,
 }: Props) {
   return (
     <div className="flex flex-wrap items-center gap-3 mb-8">
@@ -44,6 +47,25 @@ export const AnalyticsFilters = memo(function AnalyticsFilters({
           </button>
         ))}
       </div>
+
+      {/* Custom Range Picker */}
+      {period === 'custom' && (
+        <div className="flex items-center bg-white border border-gray-200 rounded-2xl p-1 shadow-sm gap-2 px-3">
+          <input
+            type="date"
+            value={customFrom?.split('T')[0] || ''}
+            onChange={(e) => onCustomRange(new Date(e.target.value).toISOString(), customTo || new Date().toISOString())}
+            className="text-[13px] font-semibold text-gray-600 outline-none bg-transparent"
+          />
+          <span className="text-gray-300">→</span>
+          <input
+            type="date"
+            value={customTo?.split('T')[0] || ''}
+            onChange={(e) => onCustomRange(customFrom || new Date().toISOString(), new Date(e.target.value).toISOString())}
+            className="text-[13px] font-semibold text-gray-600 outline-none bg-transparent"
+          />
+        </div>
+      )}
 
       {/* Scope toggle */}
       <div className="flex items-center bg-white border border-gray-200 rounded-2xl p-1 shadow-sm gap-0.5">

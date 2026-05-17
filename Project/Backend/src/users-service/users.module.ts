@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { BullModule } from '@nestjs/bull';
-import { User } from './user/user.entity';
+import { ClientsModule, Transport } from '@nestjs/microservices';
+import { PrismaService } from './prisma/prisma.service';
 import { UserService } from './user/user.service';
 import { AuthService } from './auth/auth.service';
 import { TokenService } from './auth/token.service';
@@ -14,20 +14,6 @@ import { InternalUsersController } from './user/users-internal.controller';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    TypeOrmModule.forRootAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        type: 'postgres',
-        url: configService.get('DATABASE_URL'),
-        autoLoadEntities: true,
-        synchronize: true,
-        retryAttempts: 10,
-        retryDelay: 3000,
-      }),
-    }),
-    // FIX: UsersController now injects UserRepository directly for password reset
-    TypeOrmModule.forFeature([User]),
     JwtModule.register({}),
     BullModule.forRootAsync({
       imports: [ConfigModule],
@@ -41,9 +27,29 @@ import { InternalUsersController } from './user/users-internal.controller';
       }),
     }),
     BullModule.registerQueue({ name: 'notification-jobs' }),
+    ClientsModule.registerAsync([
+      {
+        name: 'REDIS_CLIENT',
+        imports: [ConfigModule],
+        inject: [ConfigService],
+        useFactory: (configService: ConfigService) => ({
+          transport: Transport.REDIS,
+          options: {
+            host: configService.get('REDIS_HOST', 'localhost'),
+            port: configService.get<number>('REDIS_PORT', 6379),
+          },
+        }),
+      },
+    ]),
   ],
   controllers: [UsersController, InternalUsersController],
-  providers: [AuthService, TokenService, OtpService, UserService],
-  exports: [AuthService, UserService],
+  providers: [
+    AuthService,
+    TokenService,
+    OtpService,
+    UserService,
+    PrismaService,
+  ],
+  exports: [AuthService, UserService, PrismaService],
 })
 export class UsersModule {}

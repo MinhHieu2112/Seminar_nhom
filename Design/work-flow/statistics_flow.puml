@@ -1,0 +1,25 @@
+@startuml
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultFontName "Arial"
+
+title Luồng Thống kê trực quan dữ liệu
+
+|Người dùng|
+start
+:Yêu cầu xem thống kê;
+
+if (Loại thống kê?) then (Cá nhân)
+    :Hệ thống truy xuất dữ liệu cá nhân;
+    :Tính toán tỷ lệ hoàn thành, thời gian sử dụng;
+    :Hiển thị biểu đồ (Pie, Bar, Line) cá nhân;
+else (Nhóm)
+    :Hệ thống truy xuất dữ liệu nhóm;
+    :So sánh hiệu suất các thành viên;
+    :Thống kê tiến độ dự án chung;
+    :Hiển thị Dashboard trực quan cho Leader/Member;
+endif
+
+:Xuất báo cáo (nếu cần);
+stop
+@enduml

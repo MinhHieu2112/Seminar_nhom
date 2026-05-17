@@ -1,0 +1,27 @@
+@startuml use_case_diagram
+left to right direction
+skinparam packageStyle rectangle
+
+actor "Người dùng" as User
+
+rectangle "Hệ thống Quản lý Học tập" {
+    usecase "Đăng ký/Đăng nhập" as UC1
+    usecase "Quản lý Tác vụ Cá nhân" as UC2
+    usecase "Quản lý Môn học/Danh mục" as UC3
+    usecase "Tạo/Tham gia Nhóm" as UC4
+    usecase "Quản lý Tác vụ Nhóm" as UC5
+    usecase "Nộp Minh chứng" as UC6
+    usecase "Xem Biểu đồ Phân tích" as UC7
+    usecase "Nhận Gợi ý từ AI" as UC8
+}
+
+User --> UC1
+User --> UC2
+User --> UC3
+User --> UC4
+User --> UC5
+User --> UC6
+User --> UC7
+User --> UC8
+
+@enduml

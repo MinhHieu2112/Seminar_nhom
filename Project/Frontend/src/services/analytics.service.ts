@@ -36,11 +36,11 @@ export interface StudyInsightsResponse {
 }
 
 export const analyticsService = {
-  getDashboard: (period: 'weekly' | 'monthly' | 'yearly' = 'weekly') =>
+  getDashboard: (period: 'weekly' | 'monthly' | 'yearly' | 'custom' = 'weekly', from?: string, to?: string) =>
     apiClient.get<{
       success: boolean;
       data: AnalyticsDashboardResponse;
-    }>('/api/v1/analytics/dashboard', { params: { period } }).then(res => res.data),
+    }>('/api/v1/analytics/dashboard', { params: { period, from, to } }).then(res => res.data),
 
   getInsights: (from: string, to: string) =>
     apiClient.post<{

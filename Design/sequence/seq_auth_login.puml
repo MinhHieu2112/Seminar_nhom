@@ -1,0 +1,18 @@
+@startuml
+skinparam monochrome true
+actor "Người dùng" as User
+participant "Frontend" as FE
+participant "API Gateway" as GW
+participant "User Service" as US
+database "User DB" as DB
+
+User -> FE : Nhập Email/Password
+FE -> GW : POST /auth/login
+GW -> US : Validate Credentials
+US -> DB : Tìm User theo Email
+DB --> US : Trả về User & Hash Password
+US -> US : Kiểm tra Password
+US --> GW : Trả về JWT Token & User Info
+GW --> FE : Trả về Token (Success)
+FE -> User : Chuyển hướng vào Dashboard
+@enduml

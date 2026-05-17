@@ -1,0 +1,38 @@
+@startuml
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultFontName "Arial"
+
+title Luồng Xác thực người dùng (Đăng nhập, Đăng ký, Quên mật khẩu)
+
+|Người dùng|
+start
+:Truy cập hệ thống;
+
+if (Đã có tài khoản?) then (Có)
+    label login
+    :Nhập Email và Mật khẩu;
+    if (Thông tin đúng?) then (Sai)
+        if (Quên mật khẩu?) then (Có)
+            :Chọn "Quên mật khẩu";
+            :Nhập Email khôi phục;
+            :Hệ thống gửi mã OTP/Link;
+            :Đặt lại mật khẩu mới;
+            goto login
+        else (Không)
+            :Thông báo lỗi;
+            goto login
+        endif
+    else (Đúng)
+        :Đăng nhập thành công;
+    endif
+else (Không)
+    :Chọn "Đăng ký";
+    :Nhập thông tin cá nhân;
+    :Xác thực Email;
+    :Tạo tài khoản thành công;
+    goto login
+endif
+
+stop
+@enduml

@@ -6,6 +6,8 @@ export interface LinkedinProfile {
   linkedinId: string;
   email: string;
   name: string;
+  firstName: string;
+  lastName: string;
   avatar: string;
 }
 
@@ -75,6 +77,8 @@ export class LinkedinStrategy extends PassportStrategy(Strategy, 'linkedin') {
           : '') ||
         profile.displayName ||
         '',
+      firstName: profile.given_name || '',
+      lastName: profile.family_name || '',
       avatar: profile.picture || profile.photos?.[0]?.value || '',
     };
 

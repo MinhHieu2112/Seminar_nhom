@@ -7,36 +7,6 @@ import type { DashboardData } from '@/hooks/useAnalyticsDashboard';
 
 const KPI_CONFIG = [
   {
-    key: 'completionRate',
-    label: 'Tỷ lệ hoàn thành',
-    icon: CheckCircle,
-    gradient: 'from-emerald-400 to-teal-500',
-    bg: 'bg-emerald-50',
-    textColor: 'text-emerald-600',
-    suffix: '%',
-    getValue: (d: DashboardData) => d.completionRate,
-  },
-  {
-    key: 'productivityScore',
-    label: 'Điểm năng suất',
-    icon: Lightning,
-    gradient: 'from-violet-400 to-purple-600',
-    bg: 'bg-violet-50',
-    textColor: 'text-violet-600',
-    suffix: '%',
-    getValue: (d: DashboardData) => d.productivityScore,
-  },
-  {
-    key: 'studyHours',
-    label: 'Giờ học tuần này',
-    icon: Clock,
-    gradient: 'from-blue-400 to-indigo-500',
-    bg: 'bg-blue-50',
-    textColor: 'text-blue-600',
-    suffix: 'h',
-    getValue: (d: DashboardData) => d.weeklyOverview.studyHours,
-  },
-  {
     key: 'completedTasks',
     label: 'Task hoàn thành',
     icon: BookOpen,

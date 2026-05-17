@@ -6,12 +6,10 @@ import {
   Body,
   Get,
   Put,
-  Patch,
   Param,
   Headers,
   Delete,
   Query,
-  UseGuards,
 } from '@nestjs/common';
 import {
   CreateCategoryDto,
@@ -25,7 +23,6 @@ import {
   UpdateUserPreferenceDto,
 } from './dto/scheduler.dto';
 import { SchedulerService } from './scheduler.service';
-import { GroupGuard } from './guards/group.guard';
 
 // In a real microservice, we might use a shared JWT secret or internal API keys.
 @Controller('api/v1/scheduler')
@@ -96,31 +93,27 @@ export class SchedulerController {
   }
 
   @Get('schedules')
-  @UseGuards(GroupGuard)
-  getSchedules(@Headers() headers, @Query('groupId') groupId?: string) {
-    return this.schedulerService.getSchedules(this.getUserId(headers), groupId);
+  getSchedules(@Headers('x-user-id') userId: string) {
+    return this.schedulerService.getSchedules(userId);
   }
 
   @Post('schedules')
-  @UseGuards(GroupGuard)
-  createSchedule(@Headers() headers, @Body() dto: CreateScheduleDto) {
-    return this.schedulerService.createSchedule(this.getUserId(headers), dto);
+  createSchedule(
+    @Headers('x-user-id') userId: string,
+    @Body() dto: CreateScheduleDto,
+  ) {
+    return this.schedulerService.createSchedule(userId, dto);
   }
 
   // --- Tasks ---
   @Post('tasks')
-  @UseGuards(GroupGuard)
   createTask(@Headers('x-user-id') userId: string, @Body() dto: CreateTaskDto) {
     return this.schedulerService.createTask(userId, dto);
   }
 
   @Get('tasks')
-  @UseGuards(GroupGuard)
-  getTasks(
-    @Headers('x-user-id') userId: string,
-    @Query('groupId') groupId?: string,
-  ) {
-    return this.schedulerService.getTasks(userId, groupId);
+  getTasks(@Headers('x-user-id') userId: string) {
+    return this.schedulerService.getTasks(userId);
   }
 
   @Post('tasks/:id/status')
@@ -155,30 +148,23 @@ export class SchedulerController {
     return this.schedulerService.uploadAttachments(userId, id, attachments);
   }
 
-  @Patch('tasks/:id/approve')
-  approveTask(@Headers('x-user-id') userId: string, @Param('id') id: string) {
-    return this.schedulerService.approveTask(userId, id);
-  }
-
-  @Patch('tasks/:id/reject')
-  rejectTask(@Headers('x-user-id') userId: string, @Param('id') id: string) {
-    return this.schedulerService.rejectTask(userId, id);
-  }
-
   // --- Allocations ---
   @Post('allocations')
-  allocateTask(@Headers() headers, @Body() dto: CreateTaskAllocationDto) {
-    return this.schedulerService.allocateTask(this.getUserId(headers), dto);
+  allocateTask(
+    @Headers('x-user-id') userId: string,
+    @Body() dto: CreateTaskAllocationDto,
+  ) {
+    return this.schedulerService.allocateTask(userId, dto);
   }
 
   @Get('allocations')
   getAllocations(
-    @Headers() headers,
+    @Headers('x-user-id') userId: string,
     @Query('from') from: string,
     @Query('to') to: string,
   ) {
     return this.schedulerService.getAllocations(
-      this.getUserId(headers),
+      userId,
       new Date(from),
       new Date(to),
     );

@@ -6,6 +6,6 @@ export * from './change-password.dto';
 export * from './forgot-password.dto';
 export * from './reset-password.dto';
 export * from './google-login.dto';
-export * from './facebook-login.dto';
+export * from './discord-login.dto';
 export * from './github-login.dto';
 export * from './linkedin-login.dto';

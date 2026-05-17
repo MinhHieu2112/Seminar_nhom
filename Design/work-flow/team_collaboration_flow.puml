@@ -1,0 +1,19 @@
+@startuml team_collaboration_flow
+title Luồng Cộng tác Nhóm và Nộp Minh chứng
+
+start
+:Người dùng tạo Nhóm;
+:Mời thành viên qua Email/Link;
+:Trưởng nhóm tạo Tác vụ chung;
+:Thành viên nhận thông báo;
+fork
+    :Thành viên thực hiện công việc;
+    :Chuẩn bị file minh chứng;
+    :Tải lên hệ thống;
+fork again
+    :Trưởng nhóm theo dõi tiến độ;
+end fork
+:Hệ thống phê duyệt/ghi nhận minh chứng;
+:Cập nhật trạng thái hoàn thành nhóm;
+stop
+@enduml

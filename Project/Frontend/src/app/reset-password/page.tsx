@@ -243,8 +243,8 @@ export default function ResetPasswordPage() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '60px 0' }}>
           <div style={{
             width: 36, height: 36,
-            border: '3px solid #e8f5e9',
-            borderTop: '3px solid #4CAF50',
+            border: '3px solid #ede9fe',
+            borderTop: '3px solid #a78bfa',
             borderRadius: '50%',
             animation: 'authSpin 0.7s linear infinite',
           }} />

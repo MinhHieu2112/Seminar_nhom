@@ -5,7 +5,7 @@
 .auth-page {
   position: relative;
   min-height: 100vh;
-  background: #ffffff;
+  background: #faf9ff;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -63,7 +63,7 @@
 }
 
 .auth-logo svg {
-  filter: drop-shadow(0 4px 12px rgba(136, 189, 242, 0.3));
+  filter: drop-shadow(0 4px 12px rgba(167, 139, 250, 0.3));
 }
 
 .auth-footer {
@@ -164,7 +164,7 @@
 
 .lf-input:focus, .rf-input:focus, .rp-input:focus, .fp-input:focus {
   background: #fff;
-  box-shadow: 0 0 0 2px rgba(136, 189, 242, 0.3);
+  box-shadow: 0 0 0 2px rgba(167, 139, 250, 0.25);
 }
 
 .lf-input--error {
@@ -204,12 +204,12 @@
 }
 
 .lf-link--muted:hover {
-  color: #88BDF2;
+  color: #a78bfa;
 }
 
 .lf-btn-primary {
   width: 100%;
-  background: #88BDF2;
+  background: linear-gradient(to right, #a78bfa, #818cf8);
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -227,8 +227,8 @@
 }
 
 .lf-btn-primary:hover:not(:disabled) {
-  background: #6ba8e5;
-  box-shadow: 0 4px 16px rgba(136, 189, 242, 0.35);
+  background: linear-gradient(to right, #8b5cf6, #6366f1);
+  box-shadow: 0 4px 16px rgba(167, 139, 250, 0.35);
   transform: translateY(-1px);
 }
 
@@ -319,7 +319,7 @@
 
 .lf-link,
 .rf-link {
-  color: #88BDF2;
+  color: #8b5cf6;
   font-weight: 600;
   text-decoration: none;
   transition: color 0.2s;
@@ -327,7 +327,7 @@
 
 .lf-link:hover,
 .rf-link:hover {
-  color: #6ba8e5;
+  color: #7c3aed;
   text-decoration: underline;
 }
 
@@ -402,8 +402,8 @@
 }
 
 .rf-input:focus {
-  border-color: #88BDF2;
-  box-shadow: 0 0 0 3px rgba(136, 189, 242, 0.12);
+  border-color: #a78bfa;
+  box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.15);
 }
 
 .rf-input--error {
@@ -452,7 +452,7 @@
 
 .rf-btn-primary {
   width: 100%;
-  background: #88BDF2;
+  background: linear-gradient(to right, #a78bfa, #818cf8);
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -470,8 +470,8 @@
 }
 
 .rf-btn-primary:hover:not(:disabled) {
-  background: #6ba8e5;
-  box-shadow: 0 4px 16px rgba(136, 189, 242, 0.35);
+  background: linear-gradient(to right, #8b5cf6, #6366f1);
+  box-shadow: 0 4px 16px rgba(167, 139, 250, 0.35);
   transform: translateY(-1px);
 }
 
@@ -567,8 +567,8 @@
 }
 
 .fp-input:focus {
-  border-color: #88BDF2;
-  box-shadow: 0 0 0 3px rgba(136, 189, 242, 0.12);
+  border-color: #a78bfa;
+  box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.15);
 }
 
 .fp-input--error {
@@ -594,7 +594,7 @@
 
 .fp-btn-primary {
   width: 100%;
-  background: #88BDF2;
+  background: linear-gradient(to right, #a78bfa, #818cf8);
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -612,8 +612,8 @@
 }
 
 .fp-btn-primary:hover:not(:disabled) {
-  background: #6ba8e5;
-  box-shadow: 0 4px 16px rgba(136, 189, 242, 0.35);
+  background: linear-gradient(to right, #8b5cf6, #6366f1);
+  box-shadow: 0 4px 16px rgba(167, 139, 250, 0.35);
   transform: translateY(-1px);
 }
 
@@ -630,14 +630,14 @@
 }
 
 .fp-link {
-  color: #88BDF2;
+  color: #8b5cf6;
   font-weight: 600;
   text-decoration: none;
   transition: color 0.2s;
 }
 
 .fp-link:hover {
-  color: #6ba8e5;
+  color: #7c3aed;
   text-decoration: underline;
 }
 
@@ -653,12 +653,12 @@
 .fp-success-icon {
   width: 56px;
   height: 56px;
-  background: #BDDDFC;
+  background: #ede9fe;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #88BDF2;
+  color: #8b5cf6;
   margin-bottom: 4px;
 }
 
@@ -708,7 +708,7 @@
   justify-content: center;
   font-size: 12px;
   font-weight: 700;
-  background: #88BDF2;
+  background: #a78bfa;
   color: #fff;
   transition: background 0.3s;
 }
@@ -720,7 +720,7 @@
 
 .rp-step span {
   font-size: 11px;
-  color: #88BDF2;
+  color: #a78bfa;
   font-weight: 500;
   white-space: nowrap;
 }
@@ -801,8 +801,8 @@
 }
 
 .rp-input:focus {
-  border-color: #88BDF2;
-  box-shadow: 0 0 0 3px rgba(136, 189, 242, 0.12);
+  border-color: #a78bfa;
+  box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.15);
 }
 
 .rp-input--error {
@@ -837,7 +837,7 @@
 
 .rp-btn-primary {
   width: 100%;
-  background: #88BDF2;
+  background: linear-gradient(to right, #a78bfa, #818cf8);
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -853,8 +853,8 @@
 }
 
 .rp-btn-primary:hover:not(:disabled) {
-  background: #6ba8e5;
-  box-shadow: 0 4px 16px rgba(136, 189, 242, 0.35);
+  background: linear-gradient(to right, #8b5cf6, #6366f1);
+  box-shadow: 0 4px 16px rgba(167, 139, 250, 0.35);
   transform: translateY(-1px);
 }
 
@@ -889,14 +889,14 @@
 }
 
 .rp-link {
-  color: #88BDF2;
+  color: #8b5cf6;
   font-weight: 600;
   text-decoration: none;
   transition: color 0.2s;
 }
 
 .rp-link:hover {
-  color: #6ba8e5;
+  color: #7c3aed;
   text-decoration: underline;
 }
 
@@ -912,12 +912,12 @@
 .rp-success-icon {
   width: 56px;
   height: 56px;
-  background: #BDDDFC;
+  background: #ede9fe;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #88BDF2;
+  color: #8b5cf6;
 }
 
 .rp-success-title {
@@ -937,7 +937,7 @@
 .rp-redirect-bar {
   width: 100%;
   height: 3px;
-  background: #BDDDFC;
+  background: #ede9fe;
   border-radius: 2px;
   overflow: hidden;
   margin-top: 8px;
@@ -945,7 +945,7 @@
 
 .rp-redirect-fill {
   height: 100%;
-  background: #88BDF2;
+  background: #a78bfa;
   border-radius: 2px;
   animation: rpFillBar 3s linear forwards;
 }
@@ -960,7 +960,7 @@
    ========================================= */
 
 .auth-sliding-wrapper {
-  background: linear-gradient(135deg, #f6f5f7 0%, #e8effa 100%);
+  background: linear-gradient(135deg, #faf9ff 0%, #ede9fe 100%);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -968,7 +968,97 @@
   height: 100vh;
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  position: relative;
+  overflow: hidden;
 }
+
+/* ── Decorative background shapes ── */
+.as-deco {
+  position: fixed;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Rotating asterisk — top left */
+.as-deco--star-tl {
+  top: -70px;
+  left: -70px;
+  width: 260px;
+  height: 260px;
+  animation: asDecoRotate 25s linear infinite;
+}
+
+/* Rotating asterisk — bottom right */
+.as-deco--star-br {
+  bottom: -50px;
+  right: -50px;
+  width: 180px;
+  height: 180px;
+  animation: asDecoRotate 40s linear infinite reverse;
+}
+
+/* Floating blob — bottom left */
+.as-deco--blob-bl {
+  bottom: -60px;
+  left: -40px;
+  width: 300px;
+  height: 300px;
+  animation: asDecoFloat 9s ease-in-out infinite;
+}
+
+/* Floating blob — top right */
+.as-deco--blob-tr {
+  top: -40px;
+  right: -30px;
+  width: 220px;
+  height: 220px;
+  animation: asDecoFloat 7s ease-in-out infinite 1.5s;
+}
+
+/* Small floating dots */
+.as-deco--dot1,
+.as-deco--dot2,
+.as-deco--dot3 {
+  border-radius: 50%;
+}
+
+.as-deco--dot1 {
+  width: 14px;
+  height: 14px;
+  background: #c4b5fd;
+  top: 22%;
+  left: 12%;
+  animation: asDecoFloat 5s ease-in-out infinite;
+}
+
+.as-deco--dot2 {
+  width: 10px;
+  height: 10px;
+  background: #ddd6fe;
+  top: 65%;
+  right: 14%;
+  animation: asDecoFloat 6.5s ease-in-out infinite 0.8s;
+}
+
+.as-deco--dot3 {
+  width: 18px;
+  height: 18px;
+  background: #ede9fe;
+  bottom: 25%;
+  left: 8%;
+  animation: asDecoFloat 8s ease-in-out infinite 2s;
+}
+
+@keyframes asDecoRotate {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes asDecoFloat {
+  0%, 100% { transform: translateY(0px) scale(1); }
+  50%       { transform: translateY(-18px) scale(1.04); }
+}
+
 
 .as-container {
   background-color: #fff;
@@ -1012,6 +1102,29 @@
   animation: asShow 0.6s;
 }
 
+/* ── Forgot-password panel ── */
+.as-forgot-container {
+  left: 0;
+  width: 60%;
+  opacity: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.as-container.forgot-panel-active .as-forgot-container {
+  opacity: 1;
+  z-index: 5;
+  pointer-events: all;
+  animation: asShow 0.6s;
+}
+
+.as-container.forgot-panel-active .as-sign-in-container {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-24px);
+}
+
+
 @keyframes asShow {
   0%, 49.99% {
     opacity: 0;
@@ -1039,8 +1152,8 @@
 }
 
 .as-overlay {
-  background: #88BDF2;
-  background: linear-gradient(to right, #6ba8e5, #88BDF2);
+  background: #a78bfa;
+  background: linear-gradient(to right, #818cf8, #a78bfa);
   background-repeat: no-repeat;
   background-size: cover;
   background-position: 0 0;
@@ -1178,8 +1291,8 @@
 }
 
 .as-social-icon:hover {
-  border-color: #88BDF2;
-  background-color: #f8faff;
+  border-color: #a78bfa;
+  background-color: #faf9ff;
 }
 
 .as-mobile-toggle {
@@ -1229,7 +1342,7 @@
   }
   
   .as-mobile-toggle span {
-    color: #88BDF2;
+    color: #8b5cf6;
     font-weight: 600;
     cursor: pointer;
   }

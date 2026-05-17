@@ -18,9 +18,11 @@ export default function AnalyticsPage() {
   const [period, setPeriod]   = useState<FilterPeriod>('weekly');
   const [scope,  setScope]    = useState<FilterScope>('personal');
   const [metric, setMetric]   = useState<'tasks' | 'hours'>('tasks');
+  const [customFrom, setCustomFrom] = useState<string | undefined>(undefined);
+  const [customTo,   setCustomTo]   = useState<string | undefined>(undefined);
 
   const { dashboardData, insightsData, isLoading, error, isConnected } =
-    useAnalyticsDashboard(period);
+    useAnalyticsDashboard(period, customFrom, customTo);
 
   // ─── Loading ─────────────────────────────────────────────────────────────
   if (isLoading) {
@@ -59,7 +61,7 @@ export default function AnalyticsPage() {
 
   return (
     <div className="min-h-screen bg-[#f8f9fc]">
-      <div className="max-w-[1400px] mx-auto p-6 lg:p-10 space-y-8">
+      <div className="max-w-350 mx-auto p-6 lg:p-10 space-y-8">
 
         {/* ── Header ───────────────────────────────────────────────── */}
         <header className="flex flex-col sm:flex-row sm:items-end gap-4">
@@ -94,6 +96,12 @@ export default function AnalyticsPage() {
           period={period}   onPeriod={setPeriod}
           scope={scope}     onScope={setScope}
           metric={metric}   onMetric={setMetric}
+          customFrom={customFrom}
+          customTo={customTo}
+          onCustomRange={(from, to) => {
+            setCustomFrom(from);
+            setCustomTo(to);
+          }}
           isConnected={isConnected}
         />
 
@@ -112,7 +120,7 @@ export default function AnalyticsPage() {
 
             {/* Row 2: Suggestions */}
             {(dashboardData.suggestions.length > 0 || insightsData?.recommendations?.length) && (
-              <div className="bg-gradient-to-br from-indigo-50 to-violet-50 border border-indigo-100 rounded-2xl p-6">
+              <div className="bg-linear-to-br from-indigo-50 to-violet-50 border border-indigo-100 rounded-2xl p-6">
                 <h3 className="text-base font-bold text-indigo-900 mb-3 flex items-center gap-2">
                   <Lightbulb className="w-4 h-4 text-indigo-500" />
                   Gợi ý cải thiện

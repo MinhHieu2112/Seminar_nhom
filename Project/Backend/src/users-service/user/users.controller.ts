@@ -2,13 +2,9 @@ import { Controller, Logger } from '@nestjs/common';
 import { MessagePattern, Payload, RpcException } from '@nestjs/microservices';
 import { InjectQueue } from '@nestjs/bull';
 import type { Queue } from 'bull';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import * as bcrypt from 'bcrypt';
 import { AuthService } from '../auth/auth.service';
 import { UserService } from './user.service';
 import { OtpService } from '../auth/otp.service';
-import { User } from './user.entity';
 import {
   RegisterDto,
   LoginDto,
@@ -18,7 +14,7 @@ import {
   ForgotPasswordDto,
   ResetPasswordDto,
   GoogleLoginDto,
-  FacebookLoginDto,
+  DiscordLoginDto,
   GithubLoginDto,
   LinkedinLoginDto,
 } from '../dto';
@@ -31,8 +27,6 @@ export class UsersController {
     private readonly authService: AuthService,
     private readonly userService: UserService,
     private readonly otpService: OtpService,
-    @InjectRepository(User)
-    private readonly userRepo: Repository<User>,
     @InjectQueue('notification-jobs')
     private readonly notificationQueue: Queue,
   ) {}
@@ -62,11 +56,11 @@ export class UsersController {
   }
 
   /**
-   * Handle Facebook OAuth login RPC call
+   * Handle Discord OAuth login RPC call
    */
-  @MessagePattern('user.facebook.login')
-  facebookLogin(@Payload() dto: FacebookLoginDto) {
-    return this.authService.facebookLogin(dto);
+  @MessagePattern('user.discord.login')
+  discordLogin(@Payload() dto: DiscordLoginDto) {
+    return this.authService.discordLogin(dto);
   }
 
   /**
@@ -182,13 +176,7 @@ export class UsersController {
       });
     }
 
-    const user = await this.userRepo.findOne({ where: { email: dto.email } });
-    if (!user) {
-      return { success: true, message: 'Password reset successful' };
-    }
-
-    user.password = await bcrypt.hash(dto.newPassword, 12);
-    await this.userRepo.save(user);
+    await this.userService.resetPassword(dto.email, dto.newPassword);
 
     this.logger.log(`Password reset for ${dto.email}`);
     return { success: true, message: 'Password reset successful' };

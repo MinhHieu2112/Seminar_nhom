@@ -1,7 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { SchedulerController } from './scheduler.controller';
 import { SchedulerService } from './scheduler.service';
-import { GroupGuard } from './guards/group.guard';
 
 describe('SchedulerController', () => {
   let controller: SchedulerController;
@@ -11,8 +10,9 @@ describe('SchedulerController', () => {
     getSchedules: jest.fn(),
     getTasks: jest.fn(),
     uploadAttachments: jest.fn(),
-    approveTask: jest.fn(),
     getAllocations: jest.fn(),
+    getPreferences: jest.fn(),
+    updatePreferences: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -21,10 +21,7 @@ describe('SchedulerController', () => {
       providers: [
         { provide: SchedulerService, useValue: schedulerServiceMock },
       ],
-    })
-      .overrideGuard(GroupGuard)
-      .useValue({ canActivate: () => true })
-      .compile();
+    }).compile();
 
     controller = module.get<SchedulerController>(SchedulerController);
   });
@@ -56,28 +53,22 @@ describe('SchedulerController', () => {
   });
 
   describe('getSchedules', () => {
-    it('extracts x-user-id from headers and forwards groupId', async () => {
+    it('forwards x-user-id from headers', async () => {
       schedulerServiceMock.getSchedules.mockResolvedValueOnce([]);
 
-      await controller.getSchedules({ 'x-user-id': 'user-1' }, 'group-1');
+      await controller.getSchedules('user-1');
 
-      expect(schedulerServiceMock.getSchedules).toHaveBeenCalledWith(
-        'user-1',
-        'group-1',
-      );
+      expect(schedulerServiceMock.getSchedules).toHaveBeenCalledWith('user-1');
     });
   });
 
   describe('getTasks', () => {
-    it('forwards x-user-id header param and groupId query', async () => {
+    it('forwards x-user-id header param', async () => {
       schedulerServiceMock.getTasks.mockResolvedValueOnce([]);
 
-      await controller.getTasks('user-1', 'group-1');
+      await controller.getTasks('user-1');
 
-      expect(schedulerServiceMock.getTasks).toHaveBeenCalledWith(
-        'user-1',
-        'group-1',
-      );
+      expect(schedulerServiceMock.getTasks).toHaveBeenCalledWith('user-1');
     });
   });
 
@@ -100,29 +91,12 @@ describe('SchedulerController', () => {
     });
   });
 
-  describe('approveTask', () => {
-    it('forwards userId and task id to service', async () => {
-      schedulerServiceMock.approveTask.mockResolvedValueOnce({
-        id: 'task-1',
-        status: 'done',
-      });
-
-      const result = await controller.approveTask('user-1', 'task-1');
-
-      expect(schedulerServiceMock.approveTask).toHaveBeenCalledWith(
-        'user-1',
-        'task-1',
-      );
-      expect(result).toEqual({ id: 'task-1', status: 'done' });
-    });
-  });
-
   describe('getAllocations', () => {
     it('converts from and to query params into Date objects', async () => {
       schedulerServiceMock.getAllocations.mockResolvedValueOnce([]);
 
       await controller.getAllocations(
-        { 'x-user-id': 'user-1' },
+        'user-1',
         '2026-05-01T00:00:00.000Z',
         '2026-05-07T00:00:00.000Z',
       );

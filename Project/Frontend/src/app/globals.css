@@ -18,6 +18,8 @@
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --font-outfit: var(--font-outfit);
+  --font-poppins: var(--font-poppins);
+  --font-nunito: var(--font-nunito-sans);
 }
 
 @media (prefers-color-scheme: dark) {

@@ -19,6 +19,13 @@ export class HttpClientService {
         'http://scheduler-service-app:8003',
       ),
     );
+    this.registerService(
+      'teamwork-service',
+      this.configService.get(
+        'TEAMWORK_SERVICE_URL',
+        'http://teamwork-service-app:8006',
+      ),
+    );
   }
 
   private registerService(name: string, url: string) {
@@ -50,13 +57,25 @@ export class HttpClientService {
       );
       return response.data;
     } catch (error: any) {
-      const errorData = error.response?.data || error.message;
+      const statusCode = error.response?.status || 500;
+      const errorData = error.response?.data || { message: error.message };
+
       this.logger.error(
         `HTTP request to ${serviceName} failed [${method.toUpperCase()} ${path}]: ${
           typeof errorData === 'object' ? JSON.stringify(errorData) : errorData
         }`,
       );
-      throw error;
+
+      const sanitizedError: any = new Error(
+        typeof errorData === 'object'
+          ? errorData.message || 'Internal Server Error'
+          : errorData,
+      );
+      sanitizedError.response = errorData;
+      sanitizedError.status = statusCode;
+      sanitizedError.statusCode = statusCode;
+
+      throw sanitizedError;
     }
   }
 }

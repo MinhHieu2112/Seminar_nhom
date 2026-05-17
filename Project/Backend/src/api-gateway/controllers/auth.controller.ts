@@ -16,7 +16,7 @@ import { TcpClientService } from '../tcp-client.service';
 import { JwtService } from '@nestjs/jwt';
 import { safeSend, extractUserId } from '../gateway.utils';
 import type { GoogleProfile } from '../strategies/google.strategy';
-import type { FacebookProfile } from '../strategies/facebook.strategy';
+import type { DiscordProfile } from '../strategies/discord.strategy';
 import type { GithubProfile } from '../strategies/github.strategy';
 import type { LinkedinProfile } from '../strategies/linkedin.strategy';
 
@@ -136,24 +136,24 @@ export class AuthGatewayController {
     }
   }
 
-  // ── Facebook OAuth ──────────────────────────────────────────────────────────
+  // ── Discord OAuth ───────────────────────────────────────────────────────────
 
   /**
-   * Redirect người dùng đến Facebook login screen.
+   * Redirect người dùng đến Discord login screen.
    */
-  @Get('facebook')
-  @UseGuards(AuthGuard('facebook'))
-  facebookAuth() {
+  @Get('discord')
+  @UseGuards(AuthGuard('discord'))
+  discordAuth() {
     // Passport handles the redirect
   }
 
   /**
-   * Facebook redirect về đây sau khi người dùng đồng ý.
+   * Discord redirect về đây sau khi người dùng đồng ý.
    */
-  @Get('facebook/callback')
-  @UseGuards(AuthGuard('facebook'))
-  async facebookCallback(
-    @Req() req: Request & { user: FacebookProfile },
+  @Get('discord/callback')
+  @UseGuards(AuthGuard('discord'))
+  async discordCallback(
+    @Req() req: Request & { user: DiscordProfile },
     @Res() res: Response,
   ) {
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
@@ -163,7 +163,7 @@ export class AuthGatewayController {
         accessToken: string;
         refreshToken: string;
         user: Record<string, unknown>;
-      }>(this.tcpClient, 'user-service', 'user.facebook.login', req.user);
+      }>(this.tcpClient, 'user-service', 'user.discord.login', req.user);
 
       const userEncoded = encodeURIComponent(JSON.stringify(result.user));
 
@@ -175,7 +175,7 @@ export class AuthGatewayController {
       );
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : 'Facebook login failed';
+        error instanceof Error ? error.message : 'Discord login failed';
       return res.redirect(
         `${frontendUrl}/login?error=${encodeURIComponent(message)}`,
       );

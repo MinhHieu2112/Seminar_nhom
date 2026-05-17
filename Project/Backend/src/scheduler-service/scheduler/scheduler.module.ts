@@ -3,12 +3,11 @@ import { HttpModule } from '@nestjs/axios';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { SchedulerService } from './scheduler.service';
-import { GroupsService } from './groups.service';
 import { PrismaService } from './prisma/prisma.service';
-import { GroupsController } from './groups.controller';
-import { GroupGuard } from './guards/group.guard';
+
 import { AnalyticsModule } from '../analytics/analytics.module';
 import { SchedulerController } from './scheduler.controller';
+import { UserEventsController } from './user-events.controller';
 import { NotificationModule } from '../notification/notification.module';
 
 @Module({
@@ -32,8 +31,8 @@ import { NotificationModule } from '../notification/notification.module';
       },
     ]),
   ],
-  controllers: [SchedulerController, GroupsController],
-  providers: [SchedulerService, GroupsService, PrismaService, GroupGuard],
-  exports: [SchedulerService, GroupsService],
+  controllers: [SchedulerController, UserEventsController],
+  providers: [SchedulerService, PrismaService],
+  exports: [SchedulerService],
 })
 export class SchedulerModule {}

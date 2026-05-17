@@ -1,0 +1,105 @@
+# Kế hoạch Refactor Hệ thống Teamwork sang Microservice riêng với MongoDB
+
+Kế hoạch này nhằm chia tách domain **Teamwork** khỏi `scheduler-service` sang một microservice độc lập `teamwork-service`. Điều này giúp hệ thống áp dụng đúng nguyên tắc Clean Architecture, module hóa cao, dễ scale và bảo trì, đồng thời chuyển đổi database của domain này từ PostgreSQL sang MongoDB.
+
+## Open Questions
+> [!WARNING]
+> **1. Quản lý Task:** 
+> Hiện tại `Task` phục vụ cho cả cá nhân (`userId`) và nhóm (`groupId`). Nếu chuyển domain teamwork sang MongoDB, toàn bộ dữ liệu về `Task`, `TaskAttachment`, `TaskAllocation` nên chuyển hẳn sang `teamwork-service` (biến nó thành một Task & Teamwork Service) hay chỉ tách `GroupTask`? 
+> *Khuyến nghị: Chuyển toàn bộ Entity `Task` sang MongoDB để tránh duplicate logic quản lý Task ở cả 2 nơi.*
+>
+> **2. Kiểu dữ liệu ID (PostgreSQL UUID vs MongoDB ObjectId):**
+> Trong PostgreSQL, các record dùng UUID (String). Bạn muốn duy trì trường `_id` của MongoDB dưới dạng String UUID để giữ backward compatibility với data cũ, hay dùng `ObjectId` của Mongo và sinh script mapping?
+> *Khuyến nghị: Lưu UUID dạng `String` làm khóa chính ở Mongo để dễ dàng reference qua lại giữa các service.*
+
+---
+
+## 1. Phân tích hiện trạng
+- **Code Teamwork hiện tại nằm trong `scheduler-service`:**
+  - Logic về Group: `groups.controller.ts`, `groups.service.ts`.
+  - Logic về Task (được xài chung cá nhân/nhóm): `scheduler.controller.ts`, `scheduler.service.ts`.
+- **Database (Prisma/PostgreSQL):**
+  - Các bảng thuần teamwork: `Group`, `GroupMember`, `GroupInvitation`, `TeamWorkload`, `MemberStats`.
+  - Các bảng dính dáng: `Task`, `TaskAttachment`, `TaskAllocation` (Có foreign key tới Group).
+- **Dependency chéo:** `Schedule` và `Subject` ở Postgres có foreign key sang `Group` và `Task`. Khi tách ra, ta sẽ phải loại bỏ database-level constraints (Foreign Keys) và chuyển thành Application-level constraints.
+
+---
+
+## 2. Danh sách file cần di chuyển/tạo mới
+
+- **Tạo mới `teamwork-service`:**
+  - `Backend/src/teamwork-service/teamwork/teamwork.controller.ts`
+  - `Backend/src/teamwork-service/teamwork/teamwork.service.ts`
+  - `Backend/src/teamwork-service/schemas/*` (Chứa các Mongoose schemas: `Group.schema.ts`, `Task.schema.ts`, v.v.)
+  - `Backend/src/teamwork-service/teamwork-service.module.ts`
+- **Tạo mới trong API Gateway:**
+  - `Backend/src/api-gateway/controllers/teamwork.controller.ts` (Điều hướng các request `/api/v1/teamwork` tới `teamwork-service`).
+
+---
+
+## 3. Kiến trúc mới (Architecture)
+- **API Gateway:** Sẽ phân luồng HTTP Requests.
+  - Các route `/api/v1/scheduler` đi vào `scheduler-service`.
+  - Các route `/api/v1/teamwork` đi vào `teamwork-service`.
+- **Scheduler Service (PostgreSQL):** Chuyên trách xử lý lịch học cá nhân, quản lý Category, Subject, DailySummary. Không còn biết về "Group" hay "Team". Nếu cần liên kết (ví dụ `Schedule` có `groupId`), nó chỉ lưu một `String` tham chiếu.
+- **Teamwork Service (MongoDB):** Quản lý toàn bộ vòng đời của Group, Lời mời (Invitation), Thành viên (Member), Phân công Task (Assignment), và Upload Evidence.
+
+---
+
+## 4. Refactor Backend Step-by-Step
+
+### Bước 1: Infrastructure Setup
+- Thêm MongoDB vào `docker-compose.yml`. Cấu hình env variables (`TEAMWORK_DATABASE_URL`).
+- Khởi tạo thư mục và setup một NestJS microservice cơ bản `teamwork-service`.
+
+### Bước 2: Thiết kế Schema MongoDB
+- Tạo các Mongoose Schema ánh xạ chính xác từ Prisma Model cũ: `Group`, `GroupMember`, `GroupInvitation`, `Task`, `TaskAttachment`. 
+- Đảm bảo mapping các reference (VD: `userId` là String).
+
+### Bước 3: Porting Logic (Di chuyển Code)
+- Dời toàn bộ logic CRUD nhóm, thêm/xoá member từ `groups.service.ts` sang `teamwork-service`.
+- Dời logic tạo task, assign task, upload evidence từ `scheduler.service.ts` sang.
+- Thiết lập controller cho `teamwork-service`.
+
+### Bước 4: Refactor Gateway & Dependencies
+- Trong `api-gateway`, tách các endpoint teamwork (như `POST /groups`) từ `scheduler.controller.ts` sang `teamwork.controller.ts`.
+- Ở `scheduler-service`, loại bỏ các đoạn xử lý lấy Task/Group, loại bỏ các Guard về Teamwork.
+
+### Bước 5: Cập nhật Prisma Schema
+- Xóa các model Group, GroupMember, GroupInvitation khỏi `schema.prisma`.
+- Loại bỏ relation ràng buộc `@relation` từ `Schedule` tới `Group`, từ `Subject` tới `Task`. Chỉ để lại ID dạng String (ví dụ: `groupId String?`).
+- Chạy `npx prisma format` và tạo migration dọn dẹp.
+
+---
+
+## 5. Communication Flow giữa các Services
+- API Gateway sẽ nói chuyện với `teamwork-service` qua HTTP/TCP (giống như các service khác).
+- Nếu `scheduler-service` cần data của task (VD: tính DailySummary), nó sẽ gọi RPC (TCP message pattern) tới `teamwork-service` để truy xuất danh sách Task hoàn thành trong ngày thay vì join trực tiếp ở Database.
+
+---
+
+## 6. Migration & Database Changes
+- **Cơ sở dữ liệu:** Cần tạo một script Node.js (ETL) để đọc toàn bộ dữ liệu teamwork đang có ở PostgreSQL (nếu có dữ liệu live) và insert vào MongoDB *trước khi* chạy Prisma Migration drop table ở Postgres. Đảm bảo zero data loss.
+
+---
+
+## 7. Các Risk tiềm ẩn
+> [!CAUTION]
+> - **Distributed Transaction / Data Consistency:** Postgres và Mongo không có transaction chéo. Nếu hệ thống tạo 1 Schedule (Postgres) cho 1 Task (Mongo), nếu một cái thất bại, cái kia sẽ trở thành rác. Cần áp dụng cơ chế Retry hoặc Saga pattern để đảm bảo tính nhất quán.
+> - **Data Fragmentation:** Join data trở nên khó khăn. Frontend cần render Lịch bao gồm cả Tên Group, lúc này Gateway phải gọi `scheduler-service` lấy lịch, sau đó gom các `groupId` gọi sang `teamwork-service` để lấy tên Group rồi mới merge lại trả về (API Composition).
+
+---
+
+## 8. Checklist test sau refactor
+- [ ] Chạy lệnh migrate db cho Postgres không gây lỗi schema.
+- [ ] Connect MongoDB thành công từ Docker.
+- [ ] API Tạo Group và Thêm thành viên hoạt động.
+- [ ] Upload evidence (File attachment) được trỏ đúng đường dẫn và lưu trong Mongo.
+- [ ] API Gateway lấy dữ liệu tổng hợp (Composition) hoạt động đúng, không tăng latency đáng kể.
+- [ ] Frontend gọi `/api/v1/teamwork/...` thành công, không bị 404 (do đã đổi endpoint).
+
+---
+
+## 9. Đề xuất cải thiện Architecture
+- **Sử dụng CQRS (Command Query Responsibility Segregation):** Cho những endpoint yêu cầu query dữ liệu hỗn hợp (ví dụ Dashboard hiển thị Lịch học cá nhân lẫn Task của Team), thay vì gọi API Composition mỗi lần (chậm), hãy publish các sự kiện (Message Queue) để cập nhật một Materialized View Read-Database chuyên dụng.
+- **Sử dụng Kafka / RabbitMQ:** Hiện tại project đang dùng TCP direct message. Việc chuyển qua RabbitMQ Pub/Sub sẽ giúp các events (như `task.completed`, `user.deleted`) được các service liên quan lắng nghe và tự động dọn dẹp data đồng bộ, giải quyết bài toán Data Consistency.

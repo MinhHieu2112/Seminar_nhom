@@ -6,6 +6,8 @@ export interface GoogleProfile {
   googleId: string;
   email: string;
   name: string;
+  firstName: string;
+  lastName: string;
   avatar: string;
 }
 
@@ -33,12 +35,14 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     profile: Profile,
     done: VerifyCallback,
   ): void {
-    const { id, displayName, emails, photos } = profile;
+    const { id, displayName, emails, photos, name } = profile;
 
     const googleProfile: GoogleProfile = {
       googleId: id,
       email: emails?.[0]?.value ?? '',
       name: displayName ?? '',
+      firstName: name?.givenName ?? '',
+      lastName: name?.familyName ?? '',
       avatar: photos?.[0]?.value ?? '',
     };
 

@@ -15,7 +15,7 @@ import {
   EyeSlash, 
   Warning,
   GoogleLogo,
-  FacebookLogo,
+  DiscordLogo,
   GithubLogo,
   LinkedinLogo,
   CircleNotch
@@ -25,9 +25,9 @@ const GOOGLE_AUTH_URL =
   process.env.NEXT_PUBLIC_GOOGLE_AUTH_URL ||
   'http://localhost:8000/api/v1/auth/google';
 
-const FACEBOOK_AUTH_URL =
-  process.env.NEXT_PUBLIC_FACEBOOK_AUTH_URL ||
-  'http://localhost:8000/api/v1/auth/facebook';
+const DISCORD_AUTH_URL =
+  process.env.NEXT_PUBLIC_DISCORD_AUTH_URL ||
+  'http://localhost:8000/api/v1/auth/discord';
 
 const GITHUB_AUTH_URL =
   process.env.NEXT_PUBLIC_GITHUB_AUTH_URL ||
@@ -40,9 +40,10 @@ const LINKEDIN_AUTH_URL =
 
 interface LoginFormProps {
   isSliding?: boolean;
+  onForgotPassword?: () => void;
 }
 
-export function LoginForm({ isSliding = false }: LoginFormProps) {
+export function LoginForm({ isSliding = false, onForgotPassword }: LoginFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const login = useAuthStore((state) => state.login);
@@ -56,8 +57,8 @@ export function LoginForm({ isSliding = false }: LoginFormProps) {
     window.location.href = GOOGLE_AUTH_URL;
   };
 
-  const handleFacebookLogin = () => {
-    window.location.href = FACEBOOK_AUTH_URL;
+  const handleDiscordLogin = () => {
+    window.location.href = DISCORD_AUTH_URL;
   };
 
   const handleGithubLogin = () => {
@@ -170,9 +171,20 @@ export function LoginForm({ isSliding = false }: LoginFormProps) {
 
         {/* Forgot Password */}
         <div className="lf-forgot" style={isSliding ? { textAlign: 'center', margin: '5px 0' } : {}}>
-          <Link href="/forgot-password" className="lf-link--muted" style={isSliding ? { fontSize: '12px' } : {}}>
-            Quên mật khẩu?
-          </Link>
+          {isSliding && onForgotPassword ? (
+            <button
+              type="button"
+              onClick={onForgotPassword}
+              className="lf-link--muted"
+              style={{ fontSize: '12px', background: 'none', border: 'none', cursor: 'pointer', padding: 0, font: 'inherit' }}
+            >
+              Quên mật khẩu?
+            </button>
+          ) : (
+            <Link href="/forgot-password" className="lf-link--muted" style={isSliding ? { fontSize: '12px' } : {}}>
+              Quên mật khẩu?
+            </Link>
+          )}
         </div>
 
         {/* Submit */}
@@ -197,8 +209,8 @@ export function LoginForm({ isSliding = false }: LoginFormProps) {
           <div className="as-social-icon" title="Google" onClick={handleGoogleLogin}>
             <GoogleLogo size={20} weight="bold" className="text-[#4285F4]" />
           </div>
-          <div className="as-social-icon" title="Facebook" onClick={handleFacebookLogin}>
-            <FacebookLogo size={20} weight="fill" className="text-[#1877F2]" />
+          <div className="as-social-icon" title="Discord" onClick={handleDiscordLogin}>
+            <DiscordLogo size={20} weight="fill" className="text-[#5865F2]" />
           </div>
           <div className="as-social-icon" title="Github" onClick={handleGithubLogin}>
             <GithubLogo size={20} weight="fill" className="text-[#181717]" />

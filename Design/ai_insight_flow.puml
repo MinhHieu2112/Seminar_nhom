@@ -1,0 +1,17 @@
+@startuml ai_insight_flow
+title Luồng Phân tích Dữ liệu và Gợi ý AI
+
+start
+:Hệ thống thu thập dữ liệu học tập;
+note right: Thời gian học, Số tác vụ hoàn thành, \nĐộ ưu tiên, Tần suất hoạt động...
+:Gửi dữ liệu đến AI Service;
+:AI phân tích xu hướng và hiệu suất;
+if (Phát hiện vấn đề/cơ hội?) then (Có)
+    :Tạo các gợi ý thông minh;
+    :Hiển thị Insight trên Dashboard;
+    :Gửi thông báo nhắc nhở/động viên;
+else (Ổn định)
+    :Ghi nhận báo cáo tuần/tháng;
+endif
+stop
+@enduml

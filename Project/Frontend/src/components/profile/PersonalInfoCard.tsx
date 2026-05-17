@@ -14,35 +14,35 @@ export function PersonalInfoCard({ user, register, errors }: PersonalInfoCardPro
   return (
     <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
       <div className="flex justify-between items-center mb-10">
-        <h3 className="text-xl font-bold text-[#024230]">Personal Information</h3>
+        <h3 className="text-xl font-bold text-[#024230]">Thông tin cá nhân</h3>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-y-8 gap-x-12">
         <InfoInput
-          label="First Name"
+          label="Họ"
           name="firstName"
           register={register}
           error={errors.firstName?.message}
         />
         <InfoInput
-          label="Last Name"
+          label="Tên"
           name="lastName"
           register={register}
           error={errors.lastName?.message}
         />
         <InfoInput
-          label="Date of Birth"
+          label="Ngày sinh"
           name="dob"
           type="date"
           register={register}
           error={errors.dob?.message}
         />
         <div className="space-y-1.5 opacity-60">
-          <p className="text-gray-400 text-sm font-medium">Email Address</p>
-          <p className="text-gray-900 font-bold">{user?.email || 'hh@gmail.com'}</p>
+          <p className="text-gray-400 text-sm font-medium">Email</p>
+          <p className="text-gray-900 font-bold">{user?.email || ''}</p>
         </div>
         <InfoInput
-          label="Phone Number"
+          label="Số điện thoại"
           name="phone"
           register={register}
           error={errors.phone?.message}

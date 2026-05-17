@@ -16,7 +16,7 @@ import {
   EyeSlash, 
   Warning,
   GoogleLogo,
-  FacebookLogo,
+  DiscordLogo,
   GithubLogo,
   LinkedinLogo,
   CircleNotch
@@ -26,9 +26,9 @@ const GOOGLE_AUTH_URL =
   process.env.NEXT_PUBLIC_GOOGLE_AUTH_URL ||
   'http://localhost:8000/api/v1/auth/google';
 
-const FACEBOOK_AUTH_URL =
-  process.env.NEXT_PUBLIC_FACEBOOK_AUTH_URL ||
-  'http://localhost:8000/api/v1/auth/facebook';
+const DISCORD_AUTH_URL =
+  process.env.NEXT_PUBLIC_DISCORD_AUTH_URL ||
+  'http://localhost:8000/api/v1/auth/discord';
 
 const GITHUB_AUTH_URL =
   process.env.NEXT_PUBLIC_GITHUB_AUTH_URL ||
@@ -55,8 +55,8 @@ export function RegisterForm({ isSliding = false }: RegisterFormProps) {
     window.location.href = GOOGLE_AUTH_URL;
   };
 
-  const handleFacebookLogin = () => {
-    window.location.href = FACEBOOK_AUTH_URL;
+  const handleDiscordLogin = () => {
+    window.location.href = DISCORD_AUTH_URL;
   };
 
   const handleGithubLogin = () => {
@@ -249,8 +249,8 @@ export function RegisterForm({ isSliding = false }: RegisterFormProps) {
           <div className="as-social-icon" title="Google" onClick={handleGoogleLogin}>
             <GoogleLogo size={20} weight="bold" className="text-[#4285F4]" />
           </div>
-          <div className="as-social-icon" title="Facebook" onClick={handleFacebookLogin}>
-            <FacebookLogo size={20} weight="fill" className="text-[#1877F2]" />
+          <div className="as-social-icon" title="Discord" onClick={handleDiscordLogin}>
+            <DiscordLogo size={20} weight="fill" className="text-[#5865F2]" />
           </div>
           <div className="as-social-icon" title="Github" onClick={handleGithubLogin}>
             <GithubLogo size={20} weight="fill" className="text-[#181717]" />

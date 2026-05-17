@@ -96,7 +96,7 @@ export function useCreateSchedule() {
 export function useUpdateTask() {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: ({ id, data }: { id: string; data: Partial<{ title: string; description: string; dueTime: string | null; subjectId: string; assigneeId: string | null; priority: number; status: string }> }) =>
+        mutationFn: ({ id, data }: { id: string; data: Partial<{ title: string; description: string; dueTime: string | null; subjectId: string; assigneeId: string | null; priority: number; status: string; leaderComments?: string | null; groupId?: string }> }) =>
             schedulerService.updateTask(id, data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: [...SCHEDULER_QUERY_KEY, 'tasks'] });
@@ -104,10 +104,21 @@ export function useUpdateTask() {
     });
 }
 
+export function useGetGroupTaskDetails(taskId: string) {
+    return useQuery({
+        queryKey: [...SCHEDULER_QUERY_KEY, 'tasks', 'details', taskId],
+        queryFn: async () => {
+            const response = await schedulerService.getGroupTaskDetails(taskId);
+            return response.data;
+        },
+        enabled: !!taskId,
+    });
+}
+
 export function useDeleteTask() {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: (id: string) => schedulerService.deleteTask(id),
+        mutationFn: ({ id, groupId }: { id: string; groupId?: string }) => schedulerService.deleteTask(id, { groupId }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: [...SCHEDULER_QUERY_KEY, 'tasks'] });
         },
@@ -168,8 +179,19 @@ export function useSchedulerSubjects() {
 export function useUploadAttachments() {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: ({ taskId, formData }: { taskId: string; formData: FormData }) =>
-            schedulerService.uploadAttachments(taskId, formData),
+        mutationFn: ({ taskId, formData, groupId }: { taskId: string; formData: FormData; groupId?: string }) =>
+            schedulerService.uploadAttachments(taskId, formData, groupId),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: SCHEDULER_QUERY_KEY });
+        },
+    });
+}
+
+export function useDeleteAttachment() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ taskId, attachmentId, groupId }: { taskId: string; attachmentId: string; groupId?: string }) =>
+            schedulerService.deleteAttachment(taskId, attachmentId, groupId),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: SCHEDULER_QUERY_KEY });
         },

@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   postgres-db:
     image: postgres:15-alpine
@@ -37,7 +35,8 @@ services:
   user-service:
     build:
       context: .
-      dockerfile: Dockerfile.user-service
+      dockerfile: Dockerfile
+      target: user-service
     container_name: user-service-app
     environment:
       NODE_ENV: production
@@ -56,6 +55,11 @@ services:
       TCP_PORT: 8001
     ports:
       - "8001:8001"
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "8001"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     depends_on:
       postgres-db:
         condition: service_healthy
@@ -68,7 +72,8 @@ services:
   scheduler-service:
     build:
       context: .
-      dockerfile: Dockerfile.scheduler-service
+      dockerfile: Dockerfile
+      target: scheduler-service
     container_name: scheduler-service-app
     environment:
       NODE_ENV: production
@@ -82,6 +87,11 @@ services:
       REDIS_PORT: 6379
     ports:
       - "8004:8004"
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "8004"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     depends_on:
       postgres-db:
         condition: service_healthy
@@ -94,13 +104,52 @@ services:
   ai-service:
     build:
       context: .
-      dockerfile: Dockerfile.ai-service
+      dockerfile: Dockerfile
+      target: ai-service
     container_name: ai-service-app
     environment:
       NODE_ENV: production
       TCP_PORT: 8005
     ports:
       - "8005:8005"
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "8005"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - user-service-network
+    restart: unless-stopped
+
+  teamwork-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: teamwork-service
+    container_name: teamwork-service-app
+    environment:
+      NODE_ENV: production
+      TZ: Asia/Ho_Chi_Minh
+      TEAMWORK_DATABASE_URL: postgresql://${DB_USERNAME:-studyplan}:${DB_PASSWORD:-secret}@postgres-db:5432/db_teamwork
+      DATABASE_URL: postgresql://${DB_USERNAME:-studyplan}:${DB_PASSWORD:-secret}@postgres-db:5432/db_teamwork
+      USER_SERVICE_URL: http://user-service-app:8011
+      HTTP_PORT: 8006
+      TCP_PORT: 8007
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    ports:
+      - "8007:8007"
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "8007"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - user-service-network
     restart: unless-stopped
@@ -109,6 +158,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: api-gateway
     container_name: api-gateway-app
     environment:
       NODE_ENV: production
@@ -118,12 +168,17 @@ services:
       JWT_SECRET: ${JWT_SECRET:-dev_jwt_secret_change_in_production}
       REFRESH_TOKEN_SECRET: ${REFRESH_TOKEN_SECRET:-dev_refresh_secret_change_in_production}
       # Microservice TCP connections (user + analytics + ai use TCP)
-      USER_SERVICE_HOST: user-service
+      USER_SERVICE_URL: http://user-service-app:8001
+      USER_SERVICE_HOST: user-service-app
       USER_SERVICE_PORT: 8001
       SCHEDULER_SERVICE_URL: http://scheduler-service-app:8003
       SCHEDULER_SERVICE_HOST: scheduler-service-app
       SCHEDULER_SERVICE_PORT: 8004
-      AI_SERVICE_HOST: ai-service
+      TEAMWORK_SERVICE_URL: http://teamwork-service-app:8006
+      TEAMWORK_SERVICE_HOST: teamwork-service-app
+      TEAMWORK_SERVICE_PORT: 8007
+      AI_SERVICE_URL: http://ai-service-app:8005
+      AI_SERVICE_HOST: ai-service-app
       AI_SERVICE_PORT: 8005
       # Google OAuth
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
@@ -133,10 +188,10 @@ services:
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
       GITHUB_CALLBACK_URL: ${GITHUB_CALLBACK_URL:-http://localhost:8000/api/v1/auth/github/callback}
-      # Facebook OAuth
-      FACEBOOK_APP_ID: ${FACEBOOK_APP_ID:-}
-      FACEBOOK_APP_SECRET: ${FACEBOOK_APP_SECRET:-}
-      FACEBOOK_CALLBACK_URL: ${FACEBOOK_CALLBACK_URL:-http://localhost:8000/api/v1/auth/facebook/callback}
+      # Discord OAuth
+      DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID:-}
+      DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET:-}
+      DISCORD_CALLBACK_URL: ${DISCORD_CALLBACK_URL:-http://localhost:8000/api/v1/auth/discord/callback}
       # LinkedIn OAuth
       LINKEDIN_CLIENT_ID: ${LINKEDIN_CLIENT_ID:-}
       LINKEDIN_CLIENT_SECRET: ${LINKEDIN_CLIENT_SECRET:-}
@@ -144,9 +199,14 @@ services:
     ports:
       - "8000:8000"
     depends_on:
-      - user-service
-      - scheduler-service
-      - ai-service
+      user-service:
+        condition: service_healthy
+      scheduler-service:
+        condition: service_healthy
+      teamwork-service:
+        condition: service_healthy
+      ai-service:
+        condition: service_healthy
     networks:
       - user-service-network
     restart: unless-stopped

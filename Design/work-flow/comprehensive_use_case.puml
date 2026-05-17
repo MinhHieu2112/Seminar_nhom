@@ -1,0 +1,61 @@
+@startuml
+skinparam monochrome true
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam defaultFontName "Arial"
+
+actor "Người dùng" as User
+actor "Trưởng nhóm" as Leader
+actor "Hệ thống AI" as AISystem
+
+rectangle "Hệ thống Quản lý Lịch biểu & Cộng tác" {
+    package "Xác thực người dùng" {
+        usecase "Đăng nhập" as UC_Login
+        usecase "Đăng ký" as UC_Register
+        usecase "Quên mật khẩu" as UC_ForgotPwd
+    }
+
+    package "Lập lịch cá nhân" {
+        usecase "Thêm lịch biểu" as UC_AddSch
+        usecase "Sửa lịch biểu" as UC_EditSch
+        usecase "Xóa lịch biểu" as UC_DelSch
+        usecase "Nhập liệu qua AI/Quét ảnh" as UC_AISch
+    }
+
+    package "Cộng tác nhóm" {
+        usecase "Quản lý nhóm & Thành viên" as UC_ManageGroup
+        usecase "Giao việc (Assign Task)" as UC_AssignTask
+        usecase "Tải lên tài liệu/kết quả" as UC_UploadFile
+        usecase "Xét duyệt/Góp ý task" as UC_ApproveTask
+        usecase "Nhận thông báo" as UC_Notify
+    }
+
+    package "Thống kê & Báo cáo" {
+        usecase "Xem thống kê cá nhân" as UC_StatPersonal
+        usecase "Xem thống kê nhóm" as UC_StatGroup
+    }
+}
+
+' Relationships
+User --> UC_Login
+User --> UC_Register
+User --> UC_ForgotPwd
+
+User --> UC_AddSch
+User --> UC_EditSch
+User --> UC_DelSch
+User --> UC_AISch
+UC_AISch ..> AISystem : <<include>>
+
+User --> UC_ManageGroup
+User --> UC_UploadFile
+User --> UC_StatPersonal
+User --> UC_StatGroup
+
+Leader --|> User
+Leader --> UC_AssignTask
+Leader --> UC_ApproveTask
+UC_ApproveTask ..> UC_Notify : <<include>>
+UC_AssignTask ..> UC_Notify : <<include>>
+
+@enduml

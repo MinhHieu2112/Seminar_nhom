@@ -8,12 +8,15 @@ import type { User, UpdateProfileRequest } from '@/types/api';
 const PROFILE_QUERY_KEY = ['profile'];
 
 export function useProfile() {
+  const user = useAuthStore((state) => state.user);
+
   return useQuery({
-    queryKey: PROFILE_QUERY_KEY,
+    queryKey: [...PROFILE_QUERY_KEY, user?.id],
     queryFn: async () => {
       const response = await profileService.get();
       return response.data;
     },
+    enabled: !!user,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }
@@ -29,7 +32,7 @@ export function useUpdateProfile() {
       return response.data;
     },
     onSuccess: (updatedUser: User) => {
-      queryClient.setQueryData(PROFILE_QUERY_KEY, updatedUser);
+      queryClient.setQueryData([...PROFILE_QUERY_KEY, updatedUser.id], updatedUser);
       setUser(updatedUser);
     },
   });
@@ -73,7 +76,7 @@ export function useUploadAvatar() {
       return response.data;
     },
     onSuccess: (updatedUser: User) => {
-      queryClient.setQueryData(PROFILE_QUERY_KEY, updatedUser);
+      queryClient.setQueryData([...PROFILE_QUERY_KEY, updatedUser.id], updatedUser);
       setUser(updatedUser);
     },
   });

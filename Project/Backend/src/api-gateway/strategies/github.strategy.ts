@@ -6,6 +6,8 @@ export interface GithubProfile {
   githubId: string;
   email: string;
   name: string;
+  firstName: string;
+  lastName: string;
   avatar: string;
 }
 
@@ -22,18 +24,20 @@ export class GithubStrategy extends PassportStrategy(Strategy, 'github') {
     });
   }
 
-  async validate(
+  validate(
     _accessToken: string,
     _refreshToken: string,
     profile: Profile,
     done: (err: any, user: any, info?: any) => void,
-  ): Promise<any> {
+  ): void {
     const { id, displayName, emails, photos } = profile;
 
     const githubProfile: GithubProfile = {
       githubId: id,
       email: emails?.[0]?.value ?? '',
       name: displayName ?? '',
+      firstName: ' ',
+      lastName: '',
       avatar: photos?.[0]?.value ?? '',
     };
 

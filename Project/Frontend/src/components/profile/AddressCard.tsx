@@ -12,24 +12,24 @@ export function AddressCard({ register, errors }: AddressCardProps) {
   return (
     <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
       <div className="flex justify-between items-center mb-10">
-        <h3 className="text-xl font-bold text-[#024230]">Address</h3>
+        <h3 className="text-xl font-bold text-[#024230]">Địa chỉ</h3>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-y-8 gap-x-12">
         <InfoInput 
-          label="Country" 
+          label="Quốc gia" 
           name="country"
           register={register}
           error={errors.country?.message}
         />
         <InfoInput 
-          label="City" 
+          label="Nơi sinh sống" 
           name="city"
           register={register}
           error={errors.city?.message}
         />
         <InfoInput 
-          label="Postal Code" 
+          label="Mã bưu chính" 
           name="postalCode"
           register={register}
           error={errors.postalCode?.message}

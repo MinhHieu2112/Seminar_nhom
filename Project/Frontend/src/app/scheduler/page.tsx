@@ -41,7 +41,7 @@ const TimeBlock = memo(({ event, phaseStart }: { event: Allocation; phaseStart: 
 
     return (
         <div
-            className={`absolute left-1 right-1 rounded-xl border-l-[4px] p-2 shadow-sm flex flex-col overflow-hidden ${style.bg} ${style.border} ${style.text} transition-transform hover:scale-[1.02] hover:z-20 cursor-pointer`}
+            className={`absolute left-1 right-1 rounded-xl border-l-4 p-2 shadow-sm flex flex-col overflow-hidden ${style.bg} ${style.border} ${style.text} transition-transform hover:scale-[1.02] hover:z-20 cursor-pointer`}
             style={{ top: `${top}px`, height: `${height}px`, minHeight: '30px' }}
         >
             <span className="text-[10px] font-extrabold leading-tight uppercase truncate">{event.task?.title}</span>
@@ -124,12 +124,12 @@ export default function SchedulerPage() {
                 </div>
             </header>
 
-            <main className="max-w-[1400px] mx-auto px-6 mt-4 flex flex-col gap-8">
+            <main className="max-w-350 mx-auto px-6 mt-4 flex flex-col gap-8">
                 {TIME_PHASES.map((phase) => (
                     <section key={phase.id} className={`${phase.bg} rounded-4xl border border-slate-200/60 shadow-xl shadow-slate-200/20 overflow-hidden`}>
                         <div className="px-8 py-4 border-b border-slate-100 flex items-center justify-between bg-white/50">
                             <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.3em]">{phase.label}</h3>
-                            <div className="h-[1px] flex-1 mx-6 bg-slate-100"></div>
+                            <div className="h-px flex-1 mx-6 bg-slate-100"></div>
                             <span className="text-[10px] font-bold text-slate-400 tabular-nums">{phase.start}:00 – {phase.end}:00</span>
                         </div>
 

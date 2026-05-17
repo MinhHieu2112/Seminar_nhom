@@ -22,8 +22,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { user } = useAuthStore();
-  const { isSidebarCollapsed, toggleSidebar } = useUIStore();
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const { isSidebarCollapsed, toggleSidebar, setCreateGroupModalOpen } = useUIStore();
   const { data: groups, isLoading: isGroupsLoading } = useGetGroups();
 
   const personalItems = [
@@ -126,7 +125,7 @@ export function Sidebar() {
             })}
 
             <button
-              onClick={() => setIsCreateModalOpen(true)}
+              onClick={() => setCreateGroupModalOpen(true)}
               className={`w-full flex items-center gap-3 rounded-2xl px-4 py-3 text-gray-600 hover:bg-gray-50 transition-all group ${isSidebarCollapsed ? 'justify-center px-0' : ''
                 }`}
             >
@@ -184,15 +183,6 @@ export function Sidebar() {
         )}
       </div>
 
-      {isCreateModalOpen && (
-        <CreateGroupModal
-          onClose={() => setIsCreateModalOpen(false)}
-          onSuccess={(groupId) => {
-            setIsCreateModalOpen(false);
-            router.push(`/scheduler/teamwork/${groupId}`);
-          }}
-        />
-      )}
     </aside>
   );
 }

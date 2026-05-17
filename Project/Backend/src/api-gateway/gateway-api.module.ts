@@ -9,8 +9,9 @@ import { AdminGatewayController } from './controllers/admin.controller';
 import { SchedulerGatewayController } from './controllers/scheduler.controller';
 import { AiGatewayController } from './controllers/ai.controller';
 import { AnalyticsGatewayController } from './controllers/analytics.controller';
+import { TeamworkGatewayController } from './controllers/teamwork.controller';
 import { GoogleStrategy } from './strategies/google.strategy';
-import { FacebookStrategy } from './strategies/facebook.strategy';
+import { DiscordStrategy } from './strategies/discord.strategy';
 import { GithubStrategy } from './strategies/github.strategy';
 import { LinkedinStrategy } from './strategies/linkedin.strategy';
 import { CloudinaryService } from './cloudinary.service';
@@ -32,12 +33,13 @@ import { HttpClientService } from './http-client.service';
     SchedulerGatewayController,
     AiGatewayController,
     AnalyticsGatewayController,
+    TeamworkGatewayController,
   ],
   providers: [
     TcpClientService,
     HttpClientService,
     GoogleStrategy,
-    FacebookStrategy,
+    DiscordStrategy,
     GithubStrategy,
     LinkedinStrategy,
     CloudinaryService,

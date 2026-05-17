@@ -1,0 +1,124 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../../node_modules/@prisma/teamwork-client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("TEAMWORK_DATABASE_URL")
+}
+
+model UserProjection {
+  id        String   @id
+  email     String
+  name      String?
+  avatar    String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Group {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  creatorId   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members     GroupMember[]
+  invitations GroupInvitation[]
+  tasks       GroupTask[]
+}
+
+model GroupMember {
+  id        String   @id @default(uuid())
+  groupId   String
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId    String
+  role      String   @default("member")
+  joinedAt  DateTime @default(now())
+
+  @@unique([groupId, userId])
+}
+
+model GroupInvitation {
+  id        String   @id @default(uuid())
+  groupId   String
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId    String   // Target user
+  inviterId String   // Source user
+  status    String   @default("PENDING") // PENDING, ACCEPTED, REJECTED
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([groupId, userId])
+}
+
+model GroupTask {
+  id              String           @id @default(uuid())
+  creatorId       String
+  groupId         String
+  group           Group            @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  assigneeId      String?
+  title           String
+  description     String?
+  dueTime         DateTime?
+  priority        Int              @default(3)
+  status          String           @default("pending")
+  submittedForReview Boolean       @default(false)
+  leaderComments  String?
+  allocations     GroupTaskAllocation[]
+  attachments     GroupTaskAttachment[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+}
+
+model GroupTaskAttachment {
+  id           String   @id @default(uuid())
+  taskId       String
+  task         GroupTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  uploaderId   String
+  fileName     String
+  fileUrl      String
+  fileSize     Int
+  mimeType     String
+  uploadedAt   DateTime @default(now())
+}
+
+model GroupTaskAllocation {
+  id        String   @id @default(uuid())
+  taskId    String
+  task      GroupTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  startTime DateTime
+  endTime   DateTime
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TeamWorkload {
+  id              String   @id @default(uuid())
+  teamId          String
+  date            DateTime // Start of Day
+  totalTasks      Int      @default(0)
+  completedTasks  Int      @default(0)
+  remainingPoints Int      @default(0) // Simplified representation for burndown
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([teamId, date])
+}
+
+model MemberStats {
+  id              String   @id @default(uuid())
+  teamId          String
+  userId          String
+  tasksCompleted  Int      @default(0)
+  totalStudyMins  Int      @default(0)
+  lastActiveTime  DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([teamId, userId])
+}

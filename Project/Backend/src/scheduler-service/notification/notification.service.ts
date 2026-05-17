@@ -27,12 +27,6 @@ export class NotificationService {
       select: {
         id: true,
         title: true,
-        groupId: true,
-        group: {
-          select: {
-            name: true,
-          },
-        },
       },
     });
 
@@ -42,8 +36,6 @@ export class NotificationService {
         {
           id: task.id,
           title: task.title,
-          groupId: task.groupId,
-          groupName: task.group?.name ?? null,
         },
       ]),
     );

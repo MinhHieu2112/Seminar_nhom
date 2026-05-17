@@ -78,7 +78,7 @@ export default function GroupDetailsPage() {
   const getMemberProfile = (userId: string) => {
     return profiles.find((p) => p.id === userId);
   };
-  
+
   const createTask = useCreateTask();
   const deleteTask = useDeleteTask();
   const updateTask = useUpdateTask();
@@ -91,10 +91,10 @@ export default function GroupDetailsPage() {
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [uploadModalTaskId, setUploadModalTaskId] = useState<string | null>(null);
   const [taskError, setTaskError] = useState<string | null>(null);
-  
+
   const approveTask = useApproveTask();
   const rejectTask = useRejectTask();
-  
+
   const [taskForm, setTaskForm] = useState({
     title: '',
     description: '',
@@ -146,7 +146,7 @@ export default function GroupDetailsPage() {
   const handleDeleteTask = async (taskId: string) => {
     if (!confirm('Bạn có chắc chắn muốn xóa task này?')) return;
     try {
-      await deleteTask.mutateAsync(taskId);
+      await deleteTask.mutateAsync({ id: taskId, groupId: id });
     } catch {
       alert('Không thể xóa task. Vui lòng thử lại sau.');
     }
@@ -262,21 +262,19 @@ export default function GroupDetailsPage() {
         <div className="flex items-center gap-2 mt-8">
           <button
             onClick={() => setActiveTab('tasks')}
-            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all relative ${
-              activeTab === 'tasks'
+            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all relative ${activeTab === 'tasks'
                 ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
                 : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
-            }`}
+              }`}
           >
-            Quản lý Task
+            Phân công
           </button>
           <button
             onClick={() => setActiveTab('members')}
-            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all relative ${
-              activeTab === 'members'
+            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all relative ${activeTab === 'members'
                 ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
                 : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
-            }`}
+              }`}
           >
             Thành viên
           </button>
@@ -290,19 +288,23 @@ export default function GroupDetailsPage() {
             <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
               <table className="w-full text-left table-fixed">
                 <colgroup>
-                  <col className="w-[8%]" />
-                  <col className="w-[25%]" />
-                  <col className="w-[15%]" />
+                  <col className="w-[5%]" />
+                  <col className="w-[20%]" />
+                  <col className="w-[11%]" />
+                  <col className="w-[11%]" />
+                  <col className="w-[11%]" />
+                  <col className="w-[9%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[11%]" />
                   <col className="w-[12%]" />
-                  <col className="w-[13%]" />
-                  <col className="w-[12%]" />
-                  <col className="w-[15%]" />
                 </colgroup>
                 <thead>
                   <tr className="bg-slate-50 border-b border-gray-100">
                     <th className="px-4 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest">STT</th>
                     <th className="px-4 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest">Tên công việc</th>
+                    <th className="px-4 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest">Ngày giao</th>
                     <th className="px-4 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest">Hạn chót</th>
+                    <th className="px-4 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest">Nội dung</th>
                     <th className="px-4 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest">Ưu tiên</th>
                     <th className="px-4 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest">Trạng thái</th>
                     <th className="px-4 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest">Phân công</th>
@@ -318,11 +320,10 @@ export default function GroupDetailsPage() {
                           ref={(node) => {
                             taskRowRefs.current[task.id] = node;
                           }}
-                          className={`transition-colors group ${
-                            highlightedTaskId === task.id
+                          className={`transition-colors group ${highlightedTaskId === task.id
                               ? 'bg-blue-50/70 ring-1 ring-inset ring-blue-200'
                               : 'hover:bg-gray-50/50'
-                          }`}
+                            }`}
                         >
                           <td className="px-4 py-4 text-sm font-bold text-gray-400">{index + 1}</td>
                           <td className="px-4 py-4">
@@ -335,9 +336,24 @@ export default function GroupDetailsPage() {
                           </td>
                           <td className="px-4 py-4">
                             <div className="flex items-center gap-1.5 text-xs text-gray-500 font-medium">
+                              <Calendar size={13} />
+                              <span className="truncate">{task.createdAt ? new Date(task.createdAt).toLocaleDateString('vi-VN') : '---'}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-4">
+                            <div className="flex items-center gap-1.5 text-xs text-gray-500 font-medium">
                               <Clock size={13} />
                               <span className="truncate">{task.dueTime ? new Date(task.dueTime).toLocaleDateString('vi-VN') : '---'}</span>
                             </div>
+                          </td>
+                          <td className="px-4 py-4">
+                            <button
+                              onClick={() => router.push(`/scheduler/teamwork/${id}/tasks/${task.id}`)}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 font-bold text-[10px] transition-all hover:scale-105 active:scale-95 shadow-sm"
+                            >
+                              <FileText size={12} weight="bold" />
+                              Chi tiết
+                            </button>
                           </td>
                           <td className="px-4 py-4">
                             <span className={`px-2 py-1 rounded-lg text-[10px] font-bold ${PRIORITY_COLORS[task.priority || 2]}`}>
@@ -345,37 +361,17 @@ export default function GroupDetailsPage() {
                             </span>
                           </td>
                           <td className="px-4 py-4">
-                            <div className="flex flex-col gap-1">
-                              <span className={`flex items-center gap-1 text-xs font-bold ${
-                                task.status === 'done' ? 'text-emerald-500' : 
+                            <span className={`flex items-center gap-1 text-xs font-bold ${task.status === 'done' ? 'text-emerald-500' :
                                 task.submittedForReview ? 'text-blue-500' : 'text-amber-500'
                               }`}>
-                                {task.status === 'done' ? <CheckCircle size={13} weight="fill" /> : <Clock size={13} weight="fill" />}
-                                {task.status === 'done' ? 'Xong' : task.submittedForReview ? 'Chờ duyệt' : 'Chờ'}
-                              </span>
-                              {task.attachments && task.attachments.length > 0 && (
-                                <div className="flex flex-wrap gap-1 mt-1">
-                                  {task.attachments.map((att: TaskAttachment) => (
-                                    <a 
-                                      key={att.id} 
-                                      href={buildAttachmentUrl(att.fileUrl)}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="inline-flex max-w-full items-center gap-1 rounded-full bg-gray-100 px-2 py-1 text-[10px] font-semibold text-gray-600 transition-colors hover:bg-gray-200"
-                                      title={att.fileName}
-                                    >
-                                      <FileText size={12} />
-                                      <span className="truncate max-w-[110px]">{att.fileName}</span>
-                                    </a>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
+                              {task.status === 'done' ? <CheckCircle size={13} weight="fill" /> : <Clock size={13} weight="fill" />}
+                              {task.status === 'done' ? 'Xong' : task.submittedForReview ? 'Chờ duyệt' : 'Chờ'}
+                            </span>
                           </td>
                           <td className="px-4 py-4">
                             <select
                               value={task.assigneeId ?? ''}
-                              onChange={(e) => updateTask.mutate({ id: task.id, data: { assigneeId: e.target.value || null } })}
+                              onChange={(e) => updateTask.mutate({ id: task.id, data: { assigneeId: e.target.value || null, groupId: id } })}
                               disabled={!isAdmin || task.status === 'done'}
                               className={`w-full text-xs font-semibold text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 outline-none transition-all truncate ${isAdmin && task.status !== 'done' ? 'focus:border-blue-400 focus:ring-1 focus:ring-blue-400/20 cursor-pointer' : 'cursor-not-allowed opacity-70'}`}
                             >
@@ -410,15 +406,28 @@ export default function GroupDetailsPage() {
                                   </button>
                                 </>
                               )}
-                              
-                              {!isAdmin && task.assigneeId === currentUser?.id && task.status !== 'done' && !task.submittedForReview && (
-                                <button
-                                  onClick={() => setUploadModalTaskId(task.id)}
-                                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 font-bold text-[10px] transition-all"
-                                >
-                                  <UploadSimple size={14} weight="bold" />
-                                  NỘP FILE
-                                </button>
+
+                              {!isAdmin && task.assigneeId === currentUser?.id && task.status !== 'done' && (
+                                <>
+                                  {(!task.attachments || task.attachments.length === 0) ? (
+                                    <button
+                                      onClick={() => setUploadModalTaskId(task.id)}
+                                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 font-bold text-[10px] transition-all"
+                                    >
+                                      <UploadSimple size={14} weight="bold" />
+                                      NỘP FILE
+                                    </button>
+                                  ) : (
+                                    <button
+                                      onClick={() => setUploadModalTaskId(task.id)}
+                                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 font-bold text-[10px] transition-all hover:scale-105 active:scale-95 shadow-sm"
+                                      title="Sửa / Cập nhật minh chứng"
+                                    >
+                                      <PencilSimple size={14} weight="bold" />
+                                      CẬP NHẬT
+                                    </button>
+                                  )}
+                                </>
                               )}
 
                               {isAdmin && (
@@ -437,7 +446,7 @@ export default function GroupDetailsPage() {
                     })
                   ) : (
                     <tr>
-                      <td colSpan={7} className="px-6 py-12 text-center text-gray-400 text-sm italic">
+                      <td colSpan={9} className="px-6 py-12 text-center text-gray-400 text-sm italic">
                         Chưa có task nhóm nào được tạo. Nhấn &quot;Thêm task mới&quot; để bắt đầu.
                       </td>
                     </tr>
@@ -448,10 +457,12 @@ export default function GroupDetailsPage() {
           </div>
         )}
 
-        <UploadEvidenceModal 
-          isOpen={!!uploadModalTaskId} 
-          onClose={() => setUploadModalTaskId(null)} 
-          taskId={uploadModalTaskId || ''} 
+        <UploadEvidenceModal
+          isOpen={!!uploadModalTaskId}
+          onClose={() => setUploadModalTaskId(null)}
+          taskId={uploadModalTaskId || ''}
+          groupId={id}
+          existingAttachments={orderedTasks.find((t) => t.id === uploadModalTaskId)?.attachments || []}
         />
 
         {activeTab === 'members' && (
@@ -477,9 +488,8 @@ export default function GroupDetailsPage() {
                 const canRemove = isAdmin && !isSelf && !isCreator;
                 return (
                   <div key={member.id} className="p-4 border border-gray-100 rounded-2xl flex items-center gap-4 bg-white hover:shadow-md transition-all group/member">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold overflow-hidden ${
-                      member.role === 'admin' ? 'bg-yellow-400' : 'bg-blue-400'
-                    }`}>
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold overflow-hidden ${member.role === 'admin' ? 'bg-yellow-400' : 'bg-blue-400'
+                      }`}>
                       {profile?.avatar ? (
                         <img src={profile.avatar} alt="avatar" className="w-full h-full object-cover" />
                       ) : (

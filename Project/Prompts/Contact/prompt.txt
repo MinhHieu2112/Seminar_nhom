@@ -1,44 +1,30 @@
-# Five S Prompt — Refactor Scheduler-Service for Team Collaboration
+1.Scope
+Mở rộng `scheduler-service` bằng NestJS để hỗ trợ chức năng cộng tác nhóm theo mô hình 
+microservices.
 
-## Scope
+2.Structure
+Cập nhật `schema.prisma`:
+  Thêm `Group`, `GroupMember`.
+  Thêm `groupId` vào `Schedule`.
+Viết Guard kiểm tra user có thuộc group của schedule hay không.
+Sử dụng Prisma Client cho toàn bộ truy vấn dữ liệu.
 
-Mở rộng scheduler-service bằng NestJS để hỗ trợ cộng tác nhóm theo mô hình Database-per-service.
+3.Style
+Áp dụng clean architecture theo NestJS.
+Tách riêng module, service, DTO, guard và business logic.
+Tối ưu Prisma query và tránh duplicate code.
 
-## Structure
+4.Safety
 
-* Cập nhật `schema.prisma`:
+Không sử dụng TypeORM.
+Handle các trường hợp:
+  Group không tồn tại.
+  Schedule không tồn tại.
+  User không có quyền truy cập.
+Trả về HTTP exception phù hợp (`403`, `404`).
 
-  * Thêm bảng `Group`.
-  * Thêm bảng `GroupMember`.
-* Chỉnh sửa bảng `Schedule`:
-
-  * Thêm `groupId`.
-  * Thiết lập relation với `Group`.
-* Viết NestJS Guard:
-
-  * Kiểm tra User hiện tại có thuộc `Group` của `Schedule` đang truy cập hay không.
-* Sử dụng Prisma Client cho toàn bộ database access.
-
-## Style
-
-* Áp dụng clean architecture, module/service/repository rõ ràng.
-* Viết code TypeScript chuẩn NestJS.
-* Tách Guard, DTO, Prisma query và business logic riêng biệt.
-* Tối ưu query Prisma và tránh duplicate logic.
-
-## Safety
-
-* Không dùng TypeORM.
-* Handle các trường hợp:
-
-  * Group không tồn tại.
-  * User không thuộc group.
-  * Schedule không tồn tại.
-* Trả về HTTP exception phù hợp (`403`, `404`).
-
-## Success
-
-* User chỉ truy cập được Schedule thuộc Group của mình.
-* Prisma schema migration chạy thành công.
-* Guard hoạt động đúng với JWT user context.
-* Code dễ mở rộng cho role/permission trong tương lai.
+5.Success
+User chỉ truy cập được schedule thuộc group của mình.
+Prisma migration hoạt động đúng.
+Guard hoạt động với JWT user context.
+Dễ mở rộng thêm role/permission trong tương lai.

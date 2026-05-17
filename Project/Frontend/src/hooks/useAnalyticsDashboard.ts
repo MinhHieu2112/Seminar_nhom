@@ -46,13 +46,21 @@ export type FilterScope  = 'personal' | 'team';
 
 // ─── Main hook ────────────────────────────────────────────────────────────────
 
-export function useAnalyticsDashboard(period: FilterPeriod = 'weekly') {
+export function useAnalyticsDashboard(
+  period: FilterPeriod = 'weekly',
+  customFrom?: string,
+  customTo?: string,
+) {
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
   const [isConnected, setIsConnected] = useState(false);
 
   // Compute date range based on selected period
   const getDateRange = useCallback(() => {
+    if (period === 'custom' && customFrom && customTo) {
+      return { from: customFrom, to: customTo };
+    }
+
     const now   = new Date();
     const to    = now.toISOString();
     let   from  = now.toISOString();
@@ -60,11 +68,11 @@ export function useAnalyticsDashboard(period: FilterPeriod = 'weekly') {
     if (period === 'monthly') { const d = new Date(now); d.setMonth(d.getMonth() - 1); from = d.toISOString(); }
     if (period === 'yearly')  { const d = new Date(now); d.setFullYear(d.getFullYear() - 1); from = d.toISOString(); }
     return { from, to };
-  }, [period]);
+  }, [period, customFrom, customTo]);
 
   const { data: dashboardResp, isLoading: loadingDashboard, error: dashboardError } = useQuery({
-    queryKey: ['analytics-dashboard', period],
-    queryFn:  () => analyticsService.getDashboard(period === 'custom' ? 'weekly' : period),
+    queryKey: ['analytics-dashboard', period, customFrom, customTo],
+    queryFn:  () => analyticsService.getDashboard(period, customFrom, customTo),
     staleTime: 60_000,
   });
 

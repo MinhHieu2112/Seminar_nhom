@@ -1,134 +1,192 @@
 'use client';
 
+import React from 'react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
+import { motion } from 'framer-motion';
+
+// Dynamic import Lottie to prevent SSR hydration mismatches
+const Lottie = dynamic(() => import('lottie-react'), { ssr: false });
+
+// Helper load local JSON animation safely
+import heroAnimationData from '../../public/lottie-hero.json';
 
 export default function HomePage() {
-  const features = [
-    { icon: '🎯', title: 'Thiết Lập Mục Tiêu', desc: 'Xác định mục tiêu học tập rõ ràng và để AI vạch ra chi tiết.' },
-    { icon: '🤖', title: 'AI Phân Tách Nhiệm Vụ', desc: 'Tự động chia nhỏ mục tiêu lớn thành các nhiệm vụ dễ quản lý.' },
-    { icon: '📅', title: 'Lên Lịch Thông Minh', desc: 'Tự động xếp lịch vào thời gian rảnh với phương pháp Pomodoro.' },
-    { icon: '📊', title: 'Phân Tích Tiến Độ', desc: 'Theo dõi chi tiết quá trình học tập và đánh giá hiệu suất.' },
-    { icon: '⏰', title: 'Tập Trung Cao Độ', desc: 'Đồng hồ Pomodoro tích hợp giúp bạn luôn giữ sự tập trung.' },
+  // Navigation Links
+  const navLinks = [
+    { name: 'Blog', href: '#blog' },
+    { name: 'Giới thiệu', href: '#about' },
+    { name: 'Cộng đồng', href: '#community' },
   ];
 
-  // Nhân đôi mảng để tạo hiệu ứng cuộn vô tận mượt mà
-  const carouselItems = [...features, ...features];
-
   return (
-    <div className="min-h-screen bg-white flex flex-col font-sans text-gray-800 selection:bg-blue-100">
-      <style>{`
-        @keyframes slide {
-          0% { transform: translateX(0); }
-          100% { transform: translateX(-50%); }
-        }
-        .carousel-track {
-          display: flex;
-          width: 200%;
-          animation: slide 25s linear infinite;
-        }
-        .carousel-track:hover {
-          animation-play-state: paused;
-        }
-        .blue-gradient-text {
-          background: linear-gradient(to right, #6ba8e5, #88BDF2);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-        }
-      `}</style>
+    <div className="min-h-screen bg-[#faf9ff] flex flex-col font-nunito selection:bg-violet-100/80 text-gray-800 antialiased overflow-x-hidden">
+      {/* Top Minimalism Navbar */}
+      <header className="w-full max-w-8xl mx-auto px-6 md:px-12 py-6 flex items-center justify-between sticky top-0 bg-[#faf9ff]/85 backdrop-blur-md z-50">
+        <div className="flex items-center gap-10">
+          {/* Logo / Brand */}
+          <Link href="/" className="flex items-center gap-2 group">
+            <div className="w-9 h-9 rounded-xl bg-linear-to-tr from-violet-400 via-indigo-300 to-pink-300 flex items-center justify-center text-white font-bold text-lg shadow-md shadow-violet-100 group-hover:scale-105 transition-transform duration-300">
+              S
+            </div>
+            <span className="font-poppins font-semibold text-lg text-gray-800 tracking-tight group-hover:text-violet-500 transition-colors">
+              StudyPlan
+            </span>
+          </Link>
 
-      {/* Header */}
-      <header className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-white/80 backdrop-blur-md sticky top-0 z-50">
-        <div className="flex items-center gap-2">
-          <span className="font-bold text-gray-900 text-xl tracking-tight">StudyPlan</span>
+          {/* Nav Links (Desktop) */}
+          <nav className="hidden md:flex items-center gap-8">
+            {navLinks.map((link) => (
+              <Link
+                key={link.name}
+                href={link.href}
+                className="font-nunito font-semibold text-[15px] text-gray-400 hover:text-gray-700 transition-all duration-300 relative group py-1"
+              >
+                {link.name}
+                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-violet-400 group-hover:w-full transition-all duration-300" />
+              </Link>
+            ))}
+          </nav>
         </div>
+
+        {/* Action Controls & Account buttons */}
         <div className="flex items-center gap-4">
           <Link
             href="/login"
-            className="text-sm font-semibold text-gray-600 hover:text-[#88BDF2] transition-colors"
+            className="font-nunito font-semibold text-[15px] text-gray-400 hover:text-violet-500 transition-colors px-4 py-2"
           >
             Đăng nhập
           </Link>
           <Link
             href="/register"
-            className="text-sm font-semibold bg-[#88BDF2] text-white px-5 py-2.5 rounded-lg hover:bg-[#6ba8e5] transition-all shadow-md shadow-blue-200"
+            className="font-nunito font-semibold text-[14px] bg-linear-to-r from-violet-500 to-indigo-400 hover:from-violet-600 hover:to-indigo-500 text-white px-6 py-2.5 rounded-full transition-all shadow-md shadow-violet-100 hover:shadow-lg hover:shadow-violet-200 hover:-translate-y-0.5"
           >
             Bắt đầu ngay
           </Link>
         </div>
       </header>
 
-      {/* Body */}
-      <main className="flex-1 flex flex-col overflow-hidden">
-        {/* Hero Section */}
-        <section className="flex flex-col items-center justify-center px-4 text-center py-20 sm:py-28">
-          <div className="inline-flex items-center gap-2 bg-[#BDDDFC] text-[#6ba8e5] text-xs font-bold px-3 py-1.5 rounded-full mb-8 border border-[#BDDDFC]">
-            <span className="w-2 h-2 rounded-full bg-[#88BDF2] animate-pulse" />
-            AI-Powered Study Planning
-          </div>
-
-          <h1 className="text-5xl sm:text-7xl font-extrabold text-gray-900 leading-tight max-w-4xl mb-6 tracking-tight">
-            Lên kế hoạch thông minh,<br/>
-            <span className="blue-gradient-text">học tập hiệu quả hơn</span>
-          </h1>
-
-          <p className="text-lg sm:text-xl text-gray-500 max-w-2xl mb-10 leading-relaxed">
-            Đặt ra mục tiêu, để AI tự động chia nhỏ thành các nhiệm vụ và sắp xếp lịch học hoàn hảo cho bạn bằng phương pháp Pomodoro.
-          </p>
-
-          <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto px-4">
-            <Link
-              href="/register"
-              className="w-full sm:w-auto px-8 py-4 bg-[#88BDF2] text-white font-bold rounded-xl shadow-lg shadow-blue-200 hover:shadow-xl hover:shadow-blue-300 hover:-translate-y-0.5 transition-all text-base"
-            >
-              Trải nghiệm miễn phí
-            </Link>
-            <Link
-              href="/login"
-              className="w-full sm:w-auto px-8 py-4 bg-white border-2 border-gray-200 text-gray-700 font-bold rounded-xl hover:border-[#88BDF2] hover:text-[#88BDF2] transition-all text-base"
-            >
-              Đăng nhập tài khoản
-            </Link>
-          </div>
-        </section>
-
-        {/* Carousel Section (Ảnh động trượt qua lại) */}
-        <section className="py-12 bg-gray-50 border-y border-gray-100 relative overflow-hidden flex flex-col items-center">
-          {/* Gradients tạo hiệu ứng mờ 2 bên */}
-          <div className="absolute inset-y-0 left-0 w-16 sm:w-32 bg-gradient-to-r from-gray-50 to-transparent z-10 pointer-events-none"></div>
-          <div className="absolute inset-y-0 right-0 w-16 sm:w-32 bg-gradient-to-l from-gray-50 to-transparent z-10 pointer-events-none"></div>
+      {/* Main Container */}
+      <main className="flex-1 flex flex-col justify-center max-w-8xl mx-auto w-full px-6 md:px-12 py-6 md:py-10">
+        
+        {/* HERO SECTION - SPLIT-SCREEN LAYOUT */}
+        <section className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
           
-          <div className="w-full overflow-hidden">
-            <div className="carousel-track gap-6 px-6">
-              {carouselItems.map((f, i) => (
-                <div
-                  key={i}
-                  className="flex-shrink-0 w-72 sm:w-80 bg-white border border-gray-100 rounded-2xl p-6 shadow-sm hover:shadow-md hover:border-[#88BDF2] transition-all cursor-default"
-                >
-                  <div className="w-12 h-12 bg-[#BDDDFC] rounded-xl flex items-center justify-center text-2xl mb-4">
-                    {f.icon}
-                  </div>
-                  <h3 className="font-bold text-gray-900 text-lg mb-2">{f.title}</h3>
-                  <p className="text-gray-500 text-sm leading-relaxed">{f.desc}</p>
-                </div>
-              ))}
+          {/* LEFT COLUMN: Premium Copywriting, Call to Action */}
+          <motion.div
+            initial={{ opacity: 0, x: -40 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.8, ease: 'easeOut' }}
+            className="lg:col-span-6 flex flex-col items-start text-left space-y-6"
+          >
+
+            {/* Premium Thin Elegant Heading */}
+            <h1 className="font-poppins font-light text-5xl md:text-6xl xl:text-7xl text-gray-800 leading-[1.15] tracking-tight">
+              Lập kế hoạch<br />
+              <span className="font-light bg-linear-to-r from-violet-400 via-fuchsia-300 to-indigo-400 bg-clip-text text-transparent whitespace-nowrap">
+                Kiến tạo tương lai
+              </span>
+            </h1>
+
+            {/* Clean soft descriptive text */}
+            <p className="font-nunito font-light text-lg md:text-xl text-gray-400 max-w-xl leading-relaxed">
+              Lập kế hoạch, theo dõi tiến độ và cộng tác hiệu quả trong một nền tảng duy nhất giúp bạn đạt hiệu suất đỉnh cao.
+            </p>
+
+            {/* Premium Curved CTA Button with subtle hover micro-animations */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full sm:w-auto pt-2">
+              <Link
+                href="/register"
+                className="group relative inline-flex items-center justify-center font-poppins font-medium text-base bg-linear-to-r from-violet-500 to-indigo-400 hover:from-violet-600 hover:to-indigo-500 text-white px-8 py-4 rounded-full shadow-lg shadow-violet-100 hover:shadow-xl hover:shadow-violet-200 transition-all duration-300 hover:-translate-y-0.5 text-center overflow-hidden"
+              >
+                <span className="relative z-10 flex items-center gap-2">
+                  Bắt đầu ngay
+                  <svg
+                    className="w-5 h-5 group-hover:translate-x-1 transition-transform"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M13 7l5 5m0 0l-5 5m5-5H6"
+                    />
+                  </svg>
+                </span>
+                <span className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+              </Link>
+
+              <Link
+                href="#features"
+                className="font-poppins font-medium text-base text-gray-500 hover:text-violet-500 border border-gray-200 hover:border-violet-200 bg-white hover:bg-violet-50/30 px-8 py-4 rounded-full transition-all text-center"
+              >
+                Tìm hiểu thêm
+              </Link>
             </div>
-          </div>
+          </motion.div>
+
+          {/* RIGHT COLUMN: Modern Vector / Lottie Illustration */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 1, ease: 'easeOut', delay: 0.2 }}
+            className="lg:col-span-6 flex items-center justify-center relative w-full h-full min-h-64 md:min-h-96"
+          >
+            {/* Dynamic soft background gradient glow shapes behind animation */}
+            <div className="absolute -top-10 -left-10 w-72 h-72 bg-violet-100/50 rounded-full blur-3xl -z-10 animate-pulse" />
+            <div className="absolute -bottom-10 -right-10 w-72 h-72 bg-pink-100/40 rounded-full blur-3xl -z-10" />
+            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-indigo-100/30 rounded-full blur-3xl -z-10" />
+
+            {/* Lottie Animation Display */}
+            <div className="w-full max-w-lg lg:max-w-xl xl:max-w-2xl px-4 select-none">
+              <Lottie
+                animationData={heroAnimationData}
+                loop={true}
+                autoplay={true}
+                className="w-full h-auto drop-shadow-[0_20px_50px_rgba(167,139,250,0.08)]"
+              />
+            </div>
+
+            {/* Floating UI Elements (Dribbble Glassmorphism Style) */}
+            <motion.div
+              animate={{ y: [0, -10, 0] }}
+              transition={{ repeat: Infinity, duration: 6, ease: 'easeInOut' }}
+              className="absolute top-12 left-4 md:-left-6 bg-white/80 backdrop-blur-md border border-white/60 shadow-lg shadow-violet-100/30 px-4 py-3 rounded-2xl hidden sm:flex items-center gap-3"
+            >
+              <div className="w-8 h-8 rounded-lg bg-violet-50 flex items-center justify-center text-lg">🌸</div>
+              <div>
+                <p className="font-poppins font-semibold text-[13px] text-gray-700">Thiết kế sáng tạo</p>
+                <p className="font-nunito text-[11px] text-gray-400">Pastel Color UI</p>
+              </div>
+            </motion.div>
+          </motion.div>
+
         </section>
+
       </main>
 
-      {/* Footer */}
-      <footer className="bg-white py-12">
-        <div className="max-w-6xl mx-auto px-6 flex flex-col items-center gap-6">
-          <div className="w-10 h-10 rounded-xl bg-[#88BDF2] flex items-center justify-center text-white font-bold text-xl opacity-90 shadow-sm">
-            S
+      {/* Modern Wave Footer */}
+      <footer className="w-full bg-[#f5f3ff] border-t border-violet-100/50 py-12 mt-auto">
+        <div className="max-w-8xl mx-auto px-6 md:px-12 flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-linear-to-tr from-violet-400 to-indigo-400 flex items-center justify-center text-white font-bold text-sm shadow-md shadow-violet-100">
+              S
+            </div>
+            <span className="font-poppins font-semibold text-sm text-gray-700 tracking-tight">
+              StudyPlan
+            </span>
           </div>
-          <p className="text-sm text-gray-400 text-center font-medium">
-            © {new Date().getFullYear()} StudyPlan.<br/>Nền tảng hỗ trợ học tập tích hợp AI thông minh.
+
+          <p className="font-nunito text-sm text-gray-400 text-center md:text-left">
+            © {new Date().getFullYear()} StudyPlan. Bản quyền thuộc về đội ngũ sáng tạo.
           </p>
-          <div className="flex gap-6 mt-2">
-            <Link href="#" className="text-sm text-gray-400 hover:text-[#88BDF2] transition-colors">Điều khoản</Link>
-            <Link href="#" className="text-sm text-gray-400 hover:text-[#88BDF2] transition-colors">Bảo mật</Link>
-            <Link href="#" className="text-sm text-gray-400 hover:text-[#88BDF2] transition-colors">Liên hệ</Link>
+
+          <div className="flex items-center gap-6">
+            <Link href="#" className="font-nunito text-sm text-gray-400 hover:text-violet-500 transition-colors">Điều khoản</Link>
+            <Link href="#" className="font-nunito text-sm text-gray-400 hover:text-violet-500 transition-colors">Bảo mật</Link>
+            <Link href="#" className="font-nunito text-sm text-gray-400 hover:text-violet-500 transition-colors">Liên hệ</Link>
           </div>
         </div>
       </footer>

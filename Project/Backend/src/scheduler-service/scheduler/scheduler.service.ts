@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  Inject,
-  ForbiddenException,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, Inject, NotFoundException } from '@nestjs/common';
 import { PrismaService } from './prisma/prisma.service';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
@@ -174,25 +169,11 @@ export class SchedulerService {
     });
   }
 
-  async getSchedules(userId: string, groupId?: string) {
-    const where = groupId
-      ? {
-          groupId,
-          group: {
-            members: {
-              some: { userId },
-            },
-          },
-        }
-      : { userId, groupId: null };
-
+  async getSchedules(userId: string) {
     return await this.prisma.schedule.findMany({
-      where,
+      where: { userId },
       include: {
         subject: true,
-        group: {
-          select: { id: true, name: true },
-        },
       },
     });
   }
@@ -203,42 +184,21 @@ export class SchedulerService {
     return this.prisma.task.findFirst({
       where: {
         id,
-        OR: [
-          { userId },
-          {
-            group: {
-              members: {
-                some: { userId },
-              },
-            },
-          },
-        ],
+        userId,
       },
     });
   }
 
   async createTask(userId: string, dto: CreateTaskDto) {
     try {
-      const { dueTime, groupId, assigneeId, ...rest } = dto;
+      const { dueTime, ...rest } = dto;
       const task = await this.prisma.task.create({
         data: {
           ...rest,
           userId,
-          groupId,
-          assigneeId: assigneeId ?? null,
           dueTime: dueTime ? new Date(dueTime) : null,
         },
       });
-
-      if (assigneeId && assigneeId !== userId) {
-        await this.notificationService.createNotification({
-          userId: assigneeId,
-          title: `📌 Bạn được phân công công việc`,
-          message: `Bạn đã được phân công công việc "${task.title}"`,
-          type: 'group',
-          taskId: task.id,
-        });
-      }
 
       this.redisClient.emit('task.created', task);
       return task;
@@ -248,27 +208,13 @@ export class SchedulerService {
     }
   }
 
-  async getTasks(userId: string, groupId?: string) {
-    const where = groupId
-      ? {
-          groupId,
-          group: {
-            members: {
-              some: { userId },
-            },
-          },
-        }
-      : { userId, groupId: null };
-
+  async getTasks(userId: string) {
     return await this.prisma.task.findMany({
-      where,
+      where: { userId },
       include: {
         subject: true,
         allocations: true,
         attachments: true,
-        group: {
-          select: { id: true, name: true, creatorId: true },
-        },
       },
       orderBy: [{ dueTime: 'asc' }, { createdAt: 'desc' }],
     });
@@ -311,26 +257,10 @@ export class SchedulerService {
             dueTime: dto.dueTime ? new Date(dto.dueTime) : null,
           }),
           ...(dto.subjectId !== undefined && { subjectId: dto.subjectId }),
-          ...(dto.assigneeId !== undefined && { assigneeId: dto.assigneeId }),
           ...(dto.priority !== undefined && { priority: dto.priority }),
           ...(dto.status && { status: dto.status }),
         },
       });
-
-      if (
-        dto.assigneeId !== undefined &&
-        dto.assigneeId !== null &&
-        dto.assigneeId !== exists.assigneeId &&
-        dto.assigneeId !== userId
-      ) {
-        await this.notificationService.createNotification({
-          userId: dto.assigneeId,
-          title: `📌 Bạn được phân công công việc`,
-          message: `Bạn đã được phân công công việc "${task.title}"`,
-          type: 'group',
-          taskId: task.id,
-        });
-      }
 
       this.redisClient.emit('task.updated', task);
       return task;
@@ -364,10 +294,6 @@ export class SchedulerService {
       throw new NotFoundException('Task not found');
     }
 
-    if (!task.groupId && task.userId !== userId) {
-      throw new ForbiddenException('You cannot allocate this task');
-    }
-
     const allocation = await this.prisma.taskAllocation.create({
       data: {
         userId,
@@ -391,23 +317,11 @@ export class SchedulerService {
     });
   }
 
-  // ============ Task Attachments & Review ============
+  // ============ Task Attachments ============
 
   async uploadAttachments(userId: string, taskId: string, attachments: any[]) {
     const task = await this.findTaskForAccess(userId, taskId);
     if (!task) throw new NotFoundException('Task not found');
-    if (task.assigneeId !== userId) {
-      throw new ForbiddenException('Only the assignee can upload evidence');
-    }
-
-    // Determine admin of the group (creator)
-    let adminId = task.userId; // Default to task creator if no group
-    if (task.groupId) {
-      const group = await this.prisma.group.findUnique({
-        where: { id: task.groupId },
-      });
-      if (group) adminId = group.creatorId;
-    }
 
     await this.prisma.$transaction(
       attachments.map((att) =>
@@ -429,82 +343,6 @@ export class SchedulerService {
       data: { submittedForReview: true },
       include: { attachments: true },
     });
-
-    if (adminId && adminId !== userId) {
-      await this.notificationService.createNotification({
-        userId: adminId,
-        title: `✅ Minh chứng đã được nộp`,
-        message: `Thành viên đã nộp file minh chứng cho công việc "${task.title}". Vui lòng kiểm tra và duyệt.`,
-        type: 'group',
-        taskId: task.id,
-      });
-    }
-
-    this.redisClient.emit('task.updated', updatedTask);
-    return updatedTask;
-  }
-
-  async approveTask(userId: string, taskId: string) {
-    const task = await this.prisma.task.findUnique({
-      where: { id: taskId },
-      include: { group: true },
-    });
-    if (!task) throw new NotFoundException('Task not found');
-
-    const isAdmin = task.group
-      ? task.group.creatorId === userId
-      : task.userId === userId;
-    if (!isAdmin) {
-      throw new ForbiddenException('Only admin can approve tasks');
-    }
-
-    const updatedTask = await this.prisma.task.update({
-      where: { id: taskId },
-      data: { status: 'done', submittedForReview: false },
-    });
-
-    if (task.assigneeId && task.assigneeId !== userId) {
-      await this.notificationService.createNotification({
-        userId: task.assigneeId,
-        title: `🎉 Công việc đã được duyệt`,
-        message: `Minh chứng cho công việc "${task.title}" đã được duyệt thành công!`,
-        type: 'group',
-        taskId: task.id,
-      });
-    }
-
-    this.redisClient.emit('task.updated', updatedTask);
-    return updatedTask;
-  }
-
-  async rejectTask(userId: string, taskId: string) {
-    const task = await this.prisma.task.findUnique({
-      where: { id: taskId },
-      include: { group: true },
-    });
-    if (!task) throw new NotFoundException('Task not found');
-
-    const isAdmin = task.group
-      ? task.group.creatorId === userId
-      : task.userId === userId;
-    if (!isAdmin) {
-      throw new ForbiddenException('Only admin can reject tasks');
-    }
-
-    const updatedTask = await this.prisma.task.update({
-      where: { id: taskId },
-      data: { submittedForReview: false },
-    });
-
-    if (task.assigneeId && task.assigneeId !== userId) {
-      await this.notificationService.createNotification({
-        userId: task.assigneeId,
-        title: `⚠️ Minh chứng bị từ chối`,
-        message: `Minh chứng cho công việc "${task.title}" không đạt yêu cầu. Vui lòng nộp lại.`,
-        type: 'group',
-        taskId: task.id,
-      });
-    }
 
     this.redisClient.emit('task.updated', updatedTask);
     return updatedTask;

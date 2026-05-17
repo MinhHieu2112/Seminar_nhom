@@ -53,7 +53,7 @@ describe('NotificationService', () => {
       expect(prismaMock.notification.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ where: { userId: 'u1' } }),
       );
-      expect(result[0].task.title).toBe('Test Task');
+      expect(result[0].task?.title).toBe('Test Task');
     });
 
     it('should return notifications without task info if no taskId', async () => {

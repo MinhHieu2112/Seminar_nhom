@@ -18,36 +18,65 @@ export const schedulerService = {
   deleteSubject: (id: string) =>
     apiClient.delete(`/api/v1/scheduler/subjects/${id}`),
 
-  getSchedules: (params?: { groupId?: string }) =>
-    apiClient.get<ScheduleItem[]>('/api/v1/scheduler/schedules', { params }),
+  getSchedules: (params?: { groupId?: string }) => {
+    const url = params?.groupId ? '/api/v1/teamwork/schedules' : '/api/v1/scheduler/schedules';
+    return apiClient.get<ScheduleItem[]>(url, { params });
+  },
   createSchedule: (data: {
     subjectId: string;
     startTime: string;
     endTime: string;
     dayOfWeek: number;
     groupId?: string;
-  }) => apiClient.post<ScheduleItem>('/api/v1/scheduler/schedules', data),
+  }) => {
+    const url = data.groupId ? '/api/v1/teamwork/schedules' : '/api/v1/scheduler/schedules';
+    return apiClient.post<ScheduleItem>(url, data);
+  },
 
-  createTask: (data: { title: string; description?: string; dueTime?: string; subjectId?: string; priority?: number; groupId?: string }) =>
-    apiClient.post<Task>('/api/v1/scheduler/tasks', data),
-  updateTask: (id: string, data: Partial<{ title: string; description: string; dueTime: string | null; subjectId: string; priority: number; status: string }>) =>
-    apiClient.put<Task>(`/api/v1/scheduler/tasks/${id}`, data),
-  deleteTask: (id: string) =>
-    apiClient.delete(`/api/v1/scheduler/tasks/${id}`),
+  // --- Tasks ---
+  createTask: (data: { title: string; description?: string; dueTime?: string; subjectId?: string; priority?: number; groupId?: string }) => {
+    const url = data.groupId ? '/api/v1/teamwork/tasks' : '/api/v1/scheduler/tasks';
+    return apiClient.post<Task>(url, data);
+  },
+  updateTask: (id: string, data: Partial<{ title: string; description: string; dueTime: string | null; subjectId: string; priority: number; status: string; leaderComments?: string | null; groupId?: string }>) => {
+    const { groupId, ...dto } = data;
+    const url = groupId ? `/api/v1/teamwork/tasks/${id}` : `/api/v1/scheduler/tasks/${id}`;
+    return apiClient.put<Task>(url, dto);
+  },
+  getGroupTaskDetails: (taskId: string) =>
+    apiClient.get<Task>(`/api/v1/teamwork/tasks/${taskId}`),
+  deleteTask: (id: string, params?: { groupId?: string }) => {
+    const url = params?.groupId ? `/api/v1/teamwork/tasks/${id}` : `/api/v1/scheduler/tasks/${id}`;
+    return apiClient.delete(url);
+  },
 
-  getTasks: (params?: { groupId?: string }) => apiClient.get<Task[]>('/api/v1/scheduler/tasks', { params }),
+  getTasks: (params?: { groupId?: string }) => {
+    const url = params?.groupId ? `/api/v1/teamwork/groups/${params.groupId}/tasks` : '/api/v1/scheduler/tasks';
+    return apiClient.get<Task[]>(url);
+  },
   getAllocations: (from: string, to: string) =>
     apiClient.get<Allocation[]>(`/api/v1/scheduler/allocations`, { params: { from, to } }),
   getPreferences: () => apiClient.get('/api/v1/scheduler/preferences'),
 
-  uploadAttachments: (taskId: string, formData: FormData) =>
-    apiClient.post<Task>(`/api/v1/scheduler/tasks/${taskId}/attachments`, formData, {
+  uploadAttachments: (taskId: string, formData: FormData, groupId?: string) => {
+    const url = groupId 
+      ? `/api/v1/teamwork/tasks/${taskId}/attachments` 
+      : `/api/v1/scheduler/tasks/${taskId}/attachments`;
+    return apiClient.post<Task>(url, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
-    }),
+    });
+  },
+
+  deleteAttachment: (taskId: string, attachmentId: string, groupId?: string) => {
+    const url = groupId
+      ? `/api/v1/teamwork/tasks/${taskId}/attachments/${attachmentId}`
+      : `/api/v1/scheduler/tasks/${taskId}/attachments/${attachmentId}`;
+    return apiClient.delete<Task>(url);
+  },
   approveTask: (taskId: string) =>
-    apiClient.patch<Task>(`/api/v1/scheduler/tasks/${taskId}/approve`),
+    apiClient.patch<Task>(`/api/v1/teamwork/tasks/${taskId}/approve`),
   rejectTask: (taskId: string) =>
-    apiClient.patch<Task>(`/api/v1/scheduler/tasks/${taskId}/reject`),
+    apiClient.patch<Task>(`/api/v1/teamwork/tasks/${taskId}/reject`),
 };

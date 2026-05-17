@@ -28,7 +28,7 @@ export interface User {
   updatedAt: string;
   googleId?: string | null;
   githubId?: string | null;
-  facebookId?: string | null;
+  discordId?: string | null;
   linkedinId?: string | null;
 }
 
@@ -135,6 +135,7 @@ export interface TaskAttachment {
   fileSize: number;
   mimeType: string;
   uploadedAt: string;
+  uploader?: User | null;
 }
 
 export interface Task {
@@ -153,6 +154,7 @@ export interface Task {
   subject?: Pick<Subject, 'id' | 'name' | 'categoryId'>;
   group?: Pick<Group, 'id' | 'name' | 'creatorId'> | null;
   attachments?: TaskAttachment[];
+  leaderComments?: string | null;
 }
 
 export interface ScheduleItem {
