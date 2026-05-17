@@ -9,7 +9,6 @@ import type { GroupMessage, GroupMessageType, GroupMember } from '@/types/api';
 import { io, Socket } from 'socket.io-client';
 import {
   PaperPlaneRight,
-  Paperclip,
   Smiley,
   DownloadSimple,
   File,
@@ -36,8 +35,8 @@ export function ChatArea({ groupId, groupName, groupMembers, activeChannel }: Ch
   const { user: currentUser } = useAuthStore();
   const [liveMessages, setLiveMessages] = useState<GroupMessage[]>([]);
   const [inputText, setInputText] = useState('');
-  const [attachments, setAttachments] = useState<any[]>([]);
-  const [isUploading, setIsUploading] = useState(false);
+  const [selectedMentions, setSelectedMentions] = useState<{ id: string; name: string }[]>([]);
+  const [attachments] = useState<any[]>([]);
   const [showStickers, setShowStickers] = useState(false);
   const [deletedMessageIds, setDeletedMessageIds] = useState<Set<string>>(() => {
     if (typeof window !== 'undefined') {
@@ -63,7 +62,6 @@ export function ChatArea({ groupId, groupName, groupMembers, activeChannel }: Ch
   const socketRef = useRef<Socket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const taskId = activeChannel.type === 'task' ? activeChannel.id : undefined;
 
@@ -233,33 +231,16 @@ export function ChatArea({ groupId, groupName, groupMembers, activeChannel }: Ch
 
   // Trigger @Mention selection insert
   const handleSelectMention = (user: { id: string; name: string }) => {
-    if (!fileInputRef.current) return;
     const value = inputText;
     const cursor = value.slice(0, value.length).lastIndexOf('@');
     const textBefore = value.slice(0, cursor);
-    const updatedVal = `${textBefore}@[${user.name}](${user.id}) `;
+    const updatedVal = `${textBefore}@${user.name} `;
     setInputText(updatedVal);
-    setShowMention(false);
-  };
-
-  // Upload attachments service trigger
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || e.target.files.length === 0) return;
-    setIsUploading(true);
-
-    const formData = new FormData();
-    Array.from(e.target.files).forEach((file) => {
-      formData.append('files', file);
+    setSelectedMentions((prev) => {
+      if (prev.some((m) => m.id === user.id)) return prev;
+      return [...prev, user];
     });
-
-    try {
-      const response = await schedulerService.uploadChatFiles(groupId, formData);
-      setAttachments((prev) => [...prev, ...response.data]);
-    } catch (err) {
-      console.error('Lỗi khi tải file chat lên:', err);
-    } finally {
-      setIsUploading(false);
-    }
+    setShowMention(false);
   };
 
   // Submit new standard text message
@@ -267,10 +248,15 @@ export function ChatArea({ groupId, groupName, groupMembers, activeChannel }: Ch
     if (e) e.preventDefault();
     if (!inputText.trim() && attachments.length === 0) return;
 
+    let finalContent = inputText;
+    selectedMentions.forEach((mention) => {
+      finalContent = finalContent.split(`@${mention.name}`).join(`@[${mention.name}](${mention.id})`);
+    });
+
     const payload = {
       groupId,
       taskId,
-      content: inputText,
+      content: finalContent,
       messageType: (attachments.length > 0 ? (attachments[0].mimeType.startsWith('image/') ? 'IMAGE' : 'FILE') : 'TEXT') as GroupMessageType,
       attachments: attachments.length > 0 ? attachments : undefined,
     };
@@ -280,7 +266,7 @@ export function ChatArea({ groupId, groupName, groupMembers, activeChannel }: Ch
     }
 
     setInputText('');
-    setAttachments([]);
+    setSelectedMentions([]);
     if (socketRef.current) {
       socketRef.current.emit('typingEnd', { groupId, taskId });
     }
@@ -292,7 +278,7 @@ export function ChatArea({ groupId, groupName, groupMembers, activeChannel }: Ch
       groupId,
       taskId,
       content: `[Sticker: ${sticker.packName}]`,
-      messageType: 'STICKER' as any,
+      messageType: 'STICKER' as GroupMessageType,
       sticker: {
         stickerId: sticker.id,
         stickerUrl: sticker.url,
@@ -574,51 +560,12 @@ export function ChatArea({ groupId, groupName, groupMembers, activeChannel }: Ch
       {/* Input panel & Attachments Preview */}
       <div className="p-4 bg-white border-t border-gray-100 flex flex-col gap-2 relative shadow-md">
         
-        {/* Upload Attachments Preview Bar */}
-        {attachments.length > 0 && (
-          <div className="flex gap-2 flex-wrap pb-2 border-b border-gray-50 animate-in fade-in duration-100">
-            {attachments.map((att, idx) => (
-              <div
-                key={idx}
-                className="flex items-center gap-2 px-3 py-1.5 bg-blue-50/60 border border-blue-100 rounded-xl text-[10px] text-blue-600 font-bold"
-              >
-                {att.mimeType.startsWith('image/') ? <FileImage size={14} /> : <File size={14} />}
-                <span className="truncate max-w-[120px]">{att.fileName}</span>
-                <button
-                  onClick={() => setAttachments((prev) => prev.filter((_, i) => i !== idx))}
-                  className="w-4 h-4 rounded-full bg-blue-200/50 hover:bg-blue-200 flex items-center justify-center transition-colors text-blue-800"
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
+
 
         {/* Input Bar layout */}
         <form onSubmit={handleSendMessage} className="flex items-center gap-3 relative">
           
-          {/* File input */}
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileUpload}
-            className="hidden"
-            multiple
-          />
-          <button
-            type="button"
-            disabled={isUploading}
-            onClick={() => fileInputRef.current?.click()}
-            className="p-2.5 rounded-xl hover:bg-slate-100 text-gray-500 border border-gray-100 hover:border-gray-200 transition-all flex items-center justify-center shrink-0 disabled:opacity-50"
-            title="Đính kèm file"
-          >
-            {isUploading ? (
-              <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <Paperclip size={16} weight="bold" />
-            )}
-          </button>
+
 
           {/* Textarea Workspace */}
           <div className="flex-1 bg-slate-50 border border-gray-100 rounded-2xl p-2 focus-within:bg-white focus-within:border-blue-400 transition-all relative flex items-center">

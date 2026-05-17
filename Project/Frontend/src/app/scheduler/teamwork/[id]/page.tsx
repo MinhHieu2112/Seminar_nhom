@@ -409,7 +409,7 @@ export default function GroupDetailsPage() {
                                 </>
                               )}
 
-                              {!isAdmin && task.assigneeId === currentUser?.id && task.status !== 'done' && (
+                              {task.assigneeId === currentUser?.id && task.status !== 'done' && (
                                 <>
                                   {(!task.attachments || task.attachments.length === 0) ? (
                                     <button
@@ -417,7 +417,6 @@ export default function GroupDetailsPage() {
                                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 font-bold text-[10px] transition-all"
                                     >
                                       <UploadSimple size={14} weight="bold" />
-                                      NỘP FILE
                                     </button>
                                   ) : (
                                     <button

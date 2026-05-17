@@ -197,7 +197,7 @@ export function RegisterForm({ isSliding = false }: RegisterFormProps) {
               tabIndex={-1}
               aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
             >
-              {showPassword ? <EyeSlash size={18} /> : <Eye size={18} />}
+              {showPassword ? <Eye size={18} /> : <EyeSlash size={18} />}
             </button>
           </div>
           {errors.password && <p className="rf-field-error">{errors.password.message}</p>}
@@ -221,7 +221,7 @@ export function RegisterForm({ isSliding = false }: RegisterFormProps) {
               tabIndex={-1}
               aria-label={showConfirm ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
             >
-              {showConfirm ? <EyeSlash size={18} /> : <Eye size={18} />}
+              {showConfirm ? <Eye size={18} /> : <EyeSlash size={18} />}
             </button>
           </div>
           {errors.confirmPassword && <p className="rf-field-error">{errors.confirmPassword.message}</p>}

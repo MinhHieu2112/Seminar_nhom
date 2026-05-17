@@ -139,16 +139,14 @@ export class MessageService {
         });
 
         // Send notifications
-        await Promise.all(
-          otherMembers.map((m) =>
-            this.notificationService.sendNotification({
-              userId: m.userId,
-              title: `Tin nhắn mới từ nhóm ${groupName}`,
-              message: notificationMessage,
-              type: 'group',
-              taskId: taskId || undefined,
-            }),
-          ),
+        otherMembers.forEach((m) =>
+          this.notificationService.sendNotification({
+            userId: m.userId,
+            title: `Tin nhắn mới từ nhóm ${groupName}`,
+            message: notificationMessage,
+            type: 'group',
+            taskId: taskId || undefined,
+          }),
         );
       } catch (err) {
         console.error(

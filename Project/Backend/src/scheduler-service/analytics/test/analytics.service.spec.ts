@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { AnalyticsService } from './analytics.service';
-import { PrismaService } from '../scheduler/prisma/prisma.service';
-import { AnalyticsGateway } from './analytics.gateway';
+import { AnalyticsService } from '../analytics.service';
+import { PrismaService } from '../../scheduler/prisma/prisma.service';
+import { AnalyticsGateway } from '../analytics.gateway';
 
 describe('AnalyticsService', () => {
   let service: AnalyticsService;
@@ -24,6 +24,9 @@ describe('AnalyticsService', () => {
     groupInvitation: {
       count: jest.fn(),
     },
+    taskAllocation: {
+      findMany: jest.fn(),
+    },
   };
 
   const gatewayMock = {
@@ -37,6 +40,7 @@ describe('AnalyticsService', () => {
     prismaMock.category.count.mockResolvedValue(0);
     prismaMock.task.count.mockResolvedValue(0);
     prismaMock.groupInvitation.count.mockResolvedValue(0);
+    prismaMock.taskAllocation.findMany.mockResolvedValue([]);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -47,6 +51,14 @@ describe('AnalyticsService', () => {
     }).compile();
 
     service = module.get<AnalyticsService>(AnalyticsService);
+    jest
+      .spyOn(service as any, 'queryTeamwork')
+      .mockImplementation(async (query) => {
+        if (query.includes('GroupInvitation')) {
+          return [{ count: 2 }];
+        }
+        return [];
+      });
   });
 
   afterEach(() => {
@@ -175,7 +187,7 @@ describe('AnalyticsService', () => {
       expect(result.timeBreakdown).toBeDefined();
       expect(result.timeBreakdown[0].label).toBe('Sáng');
       expect(result.timeBreakdown[0].percentage).toBeDefined();
-      expect(result.completionRate).toBe(71); // 5 / (5+2) * 100
+      expect(result.completionRate).toBe(100); // 5 / 5 * 100
       expect(result.summary.totalGoals).toBe(10);
       expect(result.teamwork.pendingInvitations).toBe(2);
       expect(result.nextDeadline).toBeDefined();

@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { AgentAiController } from './agent-ai.controller';
-import { AgentAiService } from './agent-ai.service';
-import { AiScheduleGeneratorService } from './ai-schedule-generator.service';
+import { AgentAiController } from '../agent-ai.controller';
+import { AiScheduleGeneratorService } from '../ai-schedule-generator.service';
+import { AgentAiService } from '../agent-ai.service';
 
 describe('AgentAiController', () => {
   let controller: AgentAiController;

@@ -110,9 +110,11 @@ export default function TaskDetailsPage() {
   }
 
   const currentUserMember = group.members?.find((member) => member.userId === currentUser?.id);
-  const isAdmin = currentUserMember?.role === 'admin';
-  const isAssignee = task.assigneeId === currentUser?.id;
+  const isAdmin = currentUserMember?.role === 'admin' || group.creatorId === currentUser?.id;
   const assigneeProfile = task.assigneeId ? getMemberProfile(task.assigneeId) : null;
+  const assigneeMember = group.members?.find((member) => member.userId === task.assigneeId);
+  const isAssigneeAdmin = assigneeMember?.role === 'admin' || group.creatorId === task.assigneeId;
+  const canWriteComment = isAdmin || isAssigneeAdmin;
   const isImageFile = (mimeType: string) => mimeType?.toLowerCase()?.startsWith('image/');
 
   const handleSaveComment = async () => {
@@ -273,17 +275,27 @@ export default function TaskDetailsPage() {
             <div className="bg-white rounded-3xl border border-gray-100 p-6 shadow-sm">
               <div className="flex items-center gap-2 mb-4 border-b border-gray-50 pb-3">
                 <ChatText size={20} className="text-blue-500" />
-                <h3 className="text-sm font-bold text-slate-600 uppercase tracking-wider">Ý kiến phản hồi / Nhận xét của Trưởng nhóm</h3>
+                <h3 className="text-sm font-bold text-slate-600 uppercase tracking-wider">
+                  {isAssigneeAdmin ? 'Ý kiến đóng góp của thành viên' : 'Ý kiến nhận xét của Trưởng nhóm'}
+                </h3>
               </div>
 
-              {isAdmin ? (
+              {canWriteComment ? (
                 <div className="space-y-4">
-                  <p className="text-xs text-gray-500">Bạn là Trưởng nhóm. Hãy để lại ý kiến đóng góp, nhận xét hoặc hướng dẫn sửa chữa tại đây.</p>
+                  <p className="text-xs text-gray-500">
+                    {isAdmin
+                      ? 'Bạn là Trưởng nhóm. Hãy để lại ý kiến đóng góp, nhận xét hoặc hướng dẫn sửa chữa tại đây.'
+                      : 'Đây là công việc của Trưởng nhóm. Bạn có thể đóng góp ý kiến hoặc phản hồi tại đây.'}
+                  </p>
                   <textarea
                     value={commentText}
                     onChange={(e) => setCommentText(e.target.value)}
                     className="w-full min-h-[120px] rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-sm text-gray-700 leading-relaxed placeholder-gray-400"
-                    placeholder="VD: Minh chứng rất tốt, slide đầy đủ thông tin hoặc Cần sửa lại bố cục slide số 3 nhé..."
+                    placeholder={
+                      isAdmin
+                        ? "VD: Minh chứng rất tốt, slide đầy đủ thông tin hoặc Cần sửa lại bố cục slide số 3 nhé..."
+                        : "VD: Trưởng nhóm làm slide rất đẹp, bố cục rõ ràng..."
+                    }
                     disabled={updateTask.isPending}
                   />
                   <div className="flex items-center justify-end gap-3">
@@ -346,7 +358,9 @@ export default function TaskDetailsPage() {
                       {assigneeProfile ? `${assigneeProfile.firstName} ${assigneeProfile.lastName}` : 'Chưa phân công'}
                     </h4>
                     <p className="text-xs text-gray-500 font-medium">
-                      {task.assigneeId === currentUser?.id ? 'Bạn' : assigneeProfile ? 'Thành viên nhóm' : '--'}
+                      {task.assigneeId === currentUser?.id
+                        ? (isAssigneeAdmin ? 'Bạn (Trưởng nhóm)' : 'Bạn')
+                        : (isAssigneeAdmin ? 'Trưởng nhóm' : assigneeProfile ? 'Thành viên nhóm' : '--')}
                     </p>
                   </div>
                 </div>

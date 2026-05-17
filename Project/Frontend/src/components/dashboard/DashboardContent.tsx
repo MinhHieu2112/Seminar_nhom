@@ -350,24 +350,7 @@ export function DashboardContent() {
 
       {/* RIGHT COLUMN */}
       <div className="lg:col-span-1 space-y-8">
-
-        {/* Urgent Deadline Alert - RE-STLYED FOR SIDEBAR */}
-        {analytics.nextDeadline && (
-          <div className="bg-rose-50 border border-rose-100 rounded-3xl p-6 relative overflow-hidden group">
-            <div className="absolute -right-4 -top-4 opacity-10">
-              <Warning size={60} weight="fill" className="text-rose-600" />
-            </div>
-            <div className="flex items-center gap-2 mb-4">
-              <span className="w-2 h-2 bg-rose-500 rounded-full animate-ping"></span>
-              <span className="text-[10px] font-black text-rose-500 uppercase tracking-widest">GẤP</span>
-            </div>
-            <h4 className="text-sm font-black text-slate-900 mb-1 truncate">{analytics.nextDeadline.title}</h4>
-            <p className="text-[10px] font-bold text-rose-600">
-              Còn {formatDistanceToNow(parseISO(analytics.nextDeadline.dueTime), { locale: vi })}
-            </p>
-          </div>
-        )}
-
+        
         {/* Calendar Widget */}
         <div className={glassCardClass}>
           <div className="flex justify-between items-center mb-8">

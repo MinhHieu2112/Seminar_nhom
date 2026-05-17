@@ -1,31 +1,55 @@
-# Simple
-Sinh các file kiểm thử backend cho microservice sử dụng NestJS.
+# Five S Prompt — Backend Testing Architecture
 
-# Specific
-- Viết unit test và integration test cho controller và service.
-- Sử dụng Jest và TestingModule của NestJS.
-- Mock repository, TCP/RPC service và external dependency nếu cần.
-- Kiểm thử đầy đủ các trường hợp:
-  + Thành công
-  + Dữ liệu không hợp lệ
-  + Không tìm thấy dữ liệu
-  + Exception handling
-  + Edge cases
+## 1. Simple
+Sinh đầy đủ Unit Test, Integration Test và E2E Test cho backend hiện tại mà không thay đổi business logic.
 
-# Structured
-Bao gồm:
-1. File *.spec.ts cho service.
-2. File *.spec.ts cho controller.
-3. Mock data và mock provider.
-4. Validate response structure.
-5. Kiểm tra business logic và exception.
+## 2. Specific
+- Unit Test:
+  + Test từng service/function riêng lẻ
+  + Mock repository, external API, database, socket, cache
+  + Coverage cho success/failure/edge cases
 
-# Scalable
-- Code test dễ mở rộng cho các module khác.
-- Tái sử dụng mock và helper function.
-- Tuân thủ cấu trúc microservices hiện tại.
+- Integration Test:
+  + Test flow giữa service + repository + database
+  + Test authentication, authorization, transaction, validation
 
-# Secure
-- Không bypass validate logic.
-- Kiểm tra authorization/role nếu có.
-- Đảm bảo test đúng luồng xử lý thực tế.
+- E2E Test:
+  + Test toàn bộ API flow thực tế
+  + Test login, teamwork, task, upload file, notification, discussion realtime
+
+## 3. Structured
+Testing architecture:
+- Co-location cho Unit/Integration Test:
+  + Đặt file test cạnh service/module tương ứng
+  + Ví dụ:
+    src/modules/task/task.service.spec.ts
+    src/modules/task/task.integration.spec.ts
+
+- Centralized cho E2E:
+  + Gom toàn bộ vào:
+    /test/e2e
+  + Ví dụ:
+    test/e2e/auth.e2e-spec.ts
+    test/e2e/task.e2e-spec.ts
+
+Tech stack:
+- Jest
+- Supertest
+- TestingModule
+- Test database riêng
+- Mock external services
+
+## 4. Scalable
+- Reusable test utilities
+- Factory pattern cho seed data
+- Global setup/teardown
+- Test isolation
+- CI/CD ready
+- Dễ mở rộng khi thêm module mới
+
+## 5. Safe
+- Không sửa business logic hiện tại
+- Không dùng production database
+- Cleanup data sau mỗi test
+- Tránh flaky test
+- Validate coverage và stability trước khi hoàn thành

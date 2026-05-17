@@ -289,10 +289,27 @@ export class TeamworkService {
     });
     if (!member) throw new ForbiddenException('Not a member of this group');
 
-    if (dto.leaderComments !== undefined && member.role !== 'admin') {
-      throw new ForbiddenException(
-        'Only group admins can update leader comments',
-      );
+    if (dto.leaderComments !== undefined) {
+      let isAssigneeAdmin = false;
+      if (task.assigneeId) {
+        const assigneeMember = await this.prisma.groupMember.findUnique({
+          where: {
+            groupId_userId: { groupId: task.groupId, userId: task.assigneeId },
+          },
+        });
+        const groupDetail = await this.prisma.group.findUnique({
+          where: { id: task.groupId },
+        });
+        isAssigneeAdmin =
+          assigneeMember?.role === 'admin' ||
+          groupDetail?.creatorId === task.assigneeId;
+      }
+
+      if (!isAssigneeAdmin && member.role !== 'admin') {
+        throw new ForbiddenException(
+          'Only group admins can update leader comments',
+        );
+      }
     }
 
     const updatedTask = await this.prisma.groupTask.update({

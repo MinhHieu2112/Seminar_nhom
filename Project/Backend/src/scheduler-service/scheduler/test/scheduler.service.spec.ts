@@ -3,10 +3,10 @@ import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { NotFoundException } from '@nestjs/common';
 import { of, throwError } from 'rxjs';
-import { SchedulerService } from './scheduler.service';
-import { PrismaService } from './prisma/prisma.service';
-import { NotificationService } from '../notification/notification.service';
-import type { CreateTaskDto, UpdateTaskDto } from './dto/scheduler.dto';
+import { SchedulerService } from '../scheduler.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { NotificationService } from '../../notification/notification.service';
+import type { CreateTaskDto, UpdateTaskDto } from '../dto/scheduler.dto';
 
 describe('SchedulerService', () => {
   let service: SchedulerService;

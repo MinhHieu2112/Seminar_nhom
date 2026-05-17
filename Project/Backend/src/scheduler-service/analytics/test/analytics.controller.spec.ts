@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { AnalyticsController } from './analytics.controller';
-import { AnalyticsService } from './analytics.service';
+import { AnalyticsController } from '../analytics.controller';
+import { AnalyticsService } from '../analytics.service';
 
 describe('AnalyticsController', () => {
   let controller: AnalyticsController;
@@ -33,7 +33,12 @@ describe('AnalyticsController', () => {
 
       const result = await controller.getDashboard({ userId: 'user-1' });
 
-      expect(serviceMock.getUserDashboard).toHaveBeenCalledWith('user-1');
+      expect(serviceMock.getUserDashboard).toHaveBeenCalledWith(
+        'user-1',
+        undefined,
+        undefined,
+        undefined,
+      );
       expect(result).toEqual({ success: true, data: mockDashboard });
     });
 

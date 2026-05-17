@@ -163,7 +163,7 @@ export function LoginForm({ isSliding = false, onForgotPassword }: LoginFormProp
               tabIndex={-1}
               style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'none', cursor: 'pointer', color: '#6b7280' }}
             >
-              {showPassword ? <EyeSlash size={18} /> : <Eye size={18} />}
+              {showPassword ? <Eye size={18} /> : <EyeSlash size={18} />}
             </button>
           </div>
           {errors.password && <p className="lf-field-error">{errors.password.message}</p>}

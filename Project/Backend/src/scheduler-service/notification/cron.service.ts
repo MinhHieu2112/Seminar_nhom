@@ -19,15 +19,15 @@ export class NotificationCronService {
     this.logger.log('Checking for upcoming task deadlines...');
 
     const now = new Date();
-    const threeDaysFromNow = addDays(now, 3);
+    const fiveDaysFromNow = addDays(now, 5);
 
-    // Find tasks that are not done and due within 3 days
+    // Find tasks that are not done and due within 5 days
     const upcomingTasks = await this.prisma.task.findMany({
       where: {
         status: { notIn: ['done', 'completed'] },
         dueTime: {
           gt: now,
-          lte: threeDaysFromNow,
+          lte: fiveDaysFromNow,
         },
       },
     });
@@ -46,11 +46,14 @@ export class NotificationCronService {
       const type = 'reminder';
 
       if (diffDays <= 1) {
-        title = `🔴 Gấp: Công việc "${task.title}" sắp hết hạn`;
+        title = `Gấp: Công việc "${task.title}" sắp hết hạn`;
         message = `Chỉ còn chưa đầy 24 giờ để hoàn thành công việc này. Đừng quên nhé!`;
+      } else if (diffDays <= 3) {
+        title = `Nhắc nhở: Công việc "${task.title}" sắp đến hạn`;
+        message = `Công việc này sẽ đến hạn trong khoảng ${diffDays} ngày tới. Hãy tập trung hoàn thành nhé!`;
       } else {
-        title = `⚠️ Nhắc nhở: Công việc "${task.title}"`;
-        message = `Công việc này sẽ đến hạn trong khoảng ${diffDays} ngày nữa.`;
+        title = `Sắp đến hạn: Công việc "${task.title}"`;
+        message = `Bạn có một công việc sắp đến hạn trong vòng 5 ngày tới (còn ${diffDays} ngày). Hãy lên kế hoạch học tập hợp lý nhé!`;
       }
 
       // Check if we already sent a reminder for this task TODAY
