@@ -1,13 +1,47 @@
-import { Injectable, Inject } from '@nestjs/common';
-import { ClientProxy } from '@nestjs/microservices';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class NotificationService {
-  constructor(
-    @Inject('REDIS_CLIENT') private readonly redisClient: ClientProxy,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  sendNotification(data: {
+  async getNotifications(userId: string) {
+    return await this.prisma.notification.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+  }
+
+  async getUnreadCount(userId: string): Promise<number> {
+    return await this.prisma.notification.count({
+      where: { userId, status: 'unread' },
+    });
+  }
+
+  async markAsRead(userId: string, id: string) {
+    const notification = await this.prisma.notification.findUnique({
+      where: { id },
+    });
+
+    if (!notification || notification.userId !== userId) {
+      throw new NotFoundException('Notification not found');
+    }
+
+    return await this.prisma.notification.update({
+      where: { id },
+      data: { status: 'read' },
+    });
+  }
+
+  async markAllAsRead(userId: string) {
+    return await this.prisma.notification.updateMany({
+      where: { userId, status: 'unread' },
+      data: { status: 'read' },
+    });
+  }
+
+  async sendNotification(data: {
     userId: string;
     title: string;
     message: string;
@@ -16,15 +50,33 @@ export class NotificationService {
   }) {
     try {
       console.log(
-        '[TeamworkService] Publishing notification.create event to Redis:',
+        '[TeamworkService] Saving notification directly to db_teamwork:',
         data,
       );
-      this.redisClient.emit('notification.create', data);
+      return await this.prisma.notification.create({
+        data: {
+          userId: data.userId,
+          title: data.title,
+          message: data.message,
+          type: data.type || 'group',
+          taskId: data.taskId || null,
+        },
+      });
     } catch (err) {
       console.error(
-        '[TeamworkService] Failed to emit notification.create event:',
+        '[TeamworkService] Failed to save notification to database:',
         err,
       );
     }
+  }
+
+  async deleteOldNotifications(days = 30) {
+    const date = new Date();
+    date.setDate(date.getDate() - days);
+    return await this.prisma.notification.deleteMany({
+      where: {
+        createdAt: { lt: date },
+      },
+    });
   }
 }

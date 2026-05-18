@@ -54,6 +54,14 @@ export class OpenAIProvider implements AiProvider {
                   duration: { type: 'number' },
                   priority: { type: 'number' },
                   deadline: { type: 'string' },
+                  type: { type: 'string', enum: ['TASK', 'SESSION'] },
+                  sessionData: {
+                    type: 'object',
+                    properties: {
+                      startTime: { type: 'string' },
+                      endTime: { type: 'string' },
+                    },
+                  },
                 },
                 required: ['title'],
               },
@@ -193,6 +201,7 @@ export class OpenAIProvider implements AiProvider {
         ...t,
         duration: typeof t.duration === 'number' ? t.duration : 60,
         priority: typeof t.priority === 'number' ? t.priority : 3,
+        type: typeof t.type === 'string' ? t.type : 'TASK',
       }));
     }
     if (typeof fixed.fromDate === 'string' && fixed.fromDate.includes('/')) {

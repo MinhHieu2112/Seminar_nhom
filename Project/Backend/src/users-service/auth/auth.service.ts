@@ -14,6 +14,7 @@ import {
   LinkedinLoginDto,
 } from '../dto';
 import { TokenService } from './token.service';
+import { ConfigService } from '@nestjs/config';
 
 export interface JwtPayload {
   sub: string;
@@ -34,6 +35,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly tokenService: TokenService,
+    private readonly configService: ConfigService,
     @Inject('REDIS_CLIENT') private readonly redisClient: ClientProxy,
   ) {}
 
@@ -311,7 +313,7 @@ export class AuthService {
     let decoded: JwtPayload;
     try {
       decoded = await this.jwtService.verifyAsync<JwtPayload>(oldRefreshToken, {
-        secret: process.env.REFRESH_TOKEN_SECRET,
+        secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
       });
     } catch {
       throw new RpcException({
@@ -320,15 +322,11 @@ export class AuthService {
       });
     }
 
-    const storedToken = await this.tokenService.getRefreshToken(decoded.sub);
-    if (storedToken !== oldRefreshToken) {
-      throw new RpcException({
-        statusCode: 401,
-        message: 'Refresh token mismatch',
-      });
-    }
+    const userId = decoded.sub;
+    const oldJti = decoded.jti;
 
-    const isBlacklisted = await this.tokenService.isBlacklisted(decoded.jti);
+    // 1. Check if token is blacklisted (e.g. from logout)
+    const isBlacklisted = await this.tokenService.isBlacklisted(oldJti);
     if (isBlacklisted) {
       throw new RpcException({
         statusCode: 401,
@@ -336,10 +334,56 @@ export class AuthService {
       });
     }
 
-    await this.tokenService.blacklistToken(decoded.jti);
+    // 2. Fetch stored refresh token details from Redis
+    const storedTokenDetails = await this.tokenService.getRefreshToken(userId, oldJti);
+    
+    if (!storedTokenDetails) {
+      // Token not found in Redis. Could be expired or wiped during a previous reuse violation.
+      throw new RpcException({
+        statusCode: 401,
+        message: 'Refresh token mismatch',
+      });
+    }
 
+    // 3. Handle Token Rotation & Reuse Detection
+    if (storedTokenDetails.isRotated) {
+      const elapsed = Date.now() - (storedTokenDetails.rotatedAt ?? 0);
+      const gracePeriodMs = 20000; // 20 seconds grace period
+
+      if (elapsed <= gracePeriodMs) {
+        // Tab Concurrency: Return new tokens. We fetch the user and generate a new pair.
+        const user = await this.prisma.user.findUnique({
+          where: { id: userId },
+        });
+        if (!user || !user.isActive) {
+          throw new RpcException({
+            statusCode: 401,
+            message: 'User not found or disabled',
+          });
+        }
+        return this.generateTokens(user);
+      } else {
+        // SECURITY BREACH: Token reuse after grace period!
+        // Revoke ALL sessions immediately
+        await this.tokenService.revokeAllUserTokens(userId);
+        throw new RpcException({
+          statusCode: 401,
+          message: 'Token reuse detected. All sessions revoked.',
+        });
+      }
+    }
+
+    // 4. Verify mathematical match
+    if (storedTokenDetails.token !== oldRefreshToken) {
+      throw new RpcException({
+        statusCode: 401,
+        message: 'Refresh token mismatch',
+      });
+    }
+
+    // 5. Check user status
     const user = await this.prisma.user.findUnique({
-      where: { id: decoded.sub },
+      where: { id: userId },
     });
     if (!user || !user.isActive) {
       throw new RpcException({
@@ -348,12 +392,49 @@ export class AuthService {
       });
     }
 
-    return this.generateTokens(user);
+    // 6. Generate new tokens & rotate in Redis
+    const newJti = uuidv4();
+    const accessToken = this.jwtService.sign(
+      { sub: user.id, email: user.email, role: user.role, jti: newJti },
+      {
+        secret: this.configService.get<string>('JWT_SECRET'),
+        expiresIn: this.configService.get<string>(
+          'JWT_EXPIRES_IN',
+          '15m',
+        ) as any,
+      },
+    );
+
+    const refreshToken = this.jwtService.sign(
+      { sub: user.id, email: user.email, role: user.role, jti: newJti },
+      {
+        secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
+        expiresIn: this.configService.get<string>(
+          'JWT_REFRESH_EXPIRES_IN',
+          '7d',
+        ) as any,
+      },
+    );
+
+    // Rotate: oldJti is marked as rotated with grace TTL (30s) in Redis, newJti is saved
+    await this.tokenService.rotateRefreshToken(
+      userId,
+      oldJti,
+      newJti,
+      refreshToken,
+      oldRefreshToken,
+    );
+
+    return { accessToken, refreshToken };
   }
 
   async logout(userId: string, jti: string): Promise<{ success: boolean }> {
     await this.tokenService.blacklistToken(jti);
-    await this.tokenService.deleteRefreshToken(userId);
+    if (jti === 'logout-all') {
+      await this.tokenService.revokeAllUserTokens(userId);
+    } else {
+      await this.tokenService.deleteRefreshToken(userId, jti);
+    }
     return { success: true };
   }
 
@@ -365,20 +446,26 @@ export class AuthService {
     const accessToken = this.jwtService.sign(
       { sub: user.id, email: user.email, role: user.role, jti },
       {
-        secret: process.env.JWT_SECRET,
-        expiresIn: '15m',
+        secret: this.configService.get<string>('JWT_SECRET'),
+        expiresIn: this.configService.get<string>(
+          'JWT_EXPIRES_IN',
+          '15m',
+        ) as any,
       },
     );
 
     const refreshToken = this.jwtService.sign(
       { sub: user.id, email: user.email, role: user.role, jti },
       {
-        secret: process.env.REFRESH_TOKEN_SECRET,
-        expiresIn: '7d',
+        secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
+        expiresIn: this.configService.get<string>(
+          'JWT_REFRESH_EXPIRES_IN',
+          '7d',
+        ) as any,
       },
     );
 
-    await this.tokenService.saveRefreshToken(user.id, refreshToken);
+    await this.tokenService.saveRefreshToken(user.id, jti, refreshToken);
 
     return { accessToken, refreshToken };
   }

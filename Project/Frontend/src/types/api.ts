@@ -115,15 +115,8 @@ export interface Category {
   id: string;
   name: string;
   color?: string;
-  subjects?: Subject[];
-}
-
-export interface Subject {
-  id: string;
-  name: string;
-  categoryId: string;
-  category?: Category;
   tasks?: Task[];
+  schedules?: ScheduleItem[];
 }
 
 export interface TaskAttachment {
@@ -146,28 +139,41 @@ export interface Task {
   title: string;
   description?: string | null;
   dueTime?: string | null;
-  subjectId?: string | null;
+  categoryId?: string | null;
   priority?: number;
   status: TaskStatus;
   submittedForReview?: boolean;
   createdAt: string;
-  subject?: Pick<Subject, 'id' | 'name' | 'categoryId'>;
+  category?: Pick<Category, 'id' | 'name' | 'color'>;
   group?: Pick<Group, 'id' | 'name' | 'creatorId'> | null;
   attachments?: TaskAttachment[];
   leaderComments?: string | null;
+  type?: 'TASK' | 'SESSION';
+  sessionData?: { startTime: string; endTime: string };
+  allocations?: TaskAllocation[];
+}
+
+export interface TaskAllocation {
+  id: string;
+  taskId: string;
+  startTime: string;
+  endTime: string;
+  userId: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ScheduleItem {
   id: string;
   userId: string;
   groupId?: string | null;
-  subjectId: string;
+  categoryId: string;
   startTime: string;
   endTime: string;
   dayOfWeek: number;
   createdAt: string;
   updatedAt: string;
-  subject?: Pick<Subject, 'id' | 'name' | 'categoryId'>;
+  category?: Pick<Category, 'id' | 'name' | 'color'>;
   group?: Pick<Group, 'id' | 'name'> | null;
 }
 
@@ -188,6 +194,7 @@ export interface ScheduleBlock {
 export interface Allocation {
   id: string;
   startTime: string;
+  endTime?: string;
   durationMinutes?: number;
   task?: Pick<Task, 'id' | 'title'>;
 }
@@ -292,17 +299,9 @@ export interface AnalyticsSummary {
   activeGoals: number;
   completedGoals: number;
   individualTasks: TaskStats;
-  teamTasks: TaskStats;
   plannedBlocks: number;
   completedBlocks: number;
   totalStudyMins: number;
-}
-
-export interface TeamworkStats {
-  pendingInvitations: number;
-  activeGroupTasks: number;
-  collaboratorsCount: number;
-  waitingResponseTasks: number;
 }
 
 export interface NextDeadline {
@@ -317,31 +316,6 @@ export interface WeeklyOverview {
   completedTasks: number;
 }
 
-export interface TeamContributionPoint {
-  name: string;
-  tasks: number;
-  hours: number;
-}
-
-export interface BurndownPoint {
-  day: string;
-  remaining: number;
-  ideal: number;
-}
-
-export interface PerformanceMetricPoint {
-  metric: string;
-  value: number;
-}
-
-export interface PendingApprovalItem {
-  id: string;
-  title: string;
-  assignee: string;
-  priority: 'high' | 'medium' | 'low';
-  dueDate: string;
-}
-
 export interface AnalyticsDashboard {
   completionRate: number;
   productivityScore: number;
@@ -350,13 +324,9 @@ export interface AnalyticsDashboard {
   suggestions: string[];
   summary: AnalyticsSummary;
   weeklyOverview: WeeklyOverview;
-  teamwork: TeamworkStats;
-  teamContribution: TeamContributionPoint[];
-  burndown: BurndownPoint[];
-  performance: PerformanceMetricPoint[];
-  pendingApprovals: PendingApprovalItem[];
   nextDeadline?: NextDeadline;
 }
+
 
 export interface AnalyticsHistoryPoint {
   date: string;

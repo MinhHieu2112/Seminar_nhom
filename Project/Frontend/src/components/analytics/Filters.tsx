@@ -2,9 +2,7 @@
 
 import { memo } from 'react';
 
-
-
-import type { FilterPeriod, FilterScope } from '@/hooks/useAnalyticsDashboard';
+import type { FilterPeriod } from '@/hooks/useAnalyticsDashboard';
 
 const PERIOD_OPTIONS: { value: FilterPeriod; label: string }[] = [
   { value: 'weekly',  label: 'Tuần này' },
@@ -14,20 +12,16 @@ const PERIOD_OPTIONS: { value: FilterPeriod; label: string }[] = [
 ];
 
 interface Props {
-  period:    FilterPeriod;
-  scope:     FilterScope;
-  metric:    'tasks' | 'hours';
+  period:      FilterPeriod;
   customFrom?: string;
   customTo?:   string;
-  onPeriod:    (v: FilterPeriod)          => void;
-  onScope:     (v: FilterScope)           => void;
-  onMetric:    (v: 'tasks' | 'hours')     => void;
+  onPeriod:    (v: FilterPeriod)            => void;
   onCustomRange: (from: string, to: string) => void;
   isConnected: boolean;
 }
 
 export const AnalyticsFilters = memo(function AnalyticsFilters({
-  period, scope, metric, customFrom, customTo, onPeriod, onScope, onMetric, onCustomRange, isConnected,
+  period, customFrom, customTo, onPeriod, onCustomRange, isConnected,
 }: Props) {
   return (
     <div className="flex flex-wrap items-center gap-3 mb-8">
@@ -67,43 +61,12 @@ export const AnalyticsFilters = memo(function AnalyticsFilters({
         </div>
       )}
 
-      {/* Right-aligned selectors (Scope + Team Metrics) */}
-      <div className="ml-auto flex items-center gap-3">
-        {/* Scope toggle */}
-        <div className="flex items-center bg-white border border-gray-200 rounded-2xl p-1 shadow-sm gap-0.5">
-          {(['personal', 'team'] as FilterScope[]).map(s => (
-            <button
-              key={s}
-              onClick={() => onScope(s)}
-              className={`px-5 py-2 rounded-xl text-[13px] font-semibold transition-all duration-150 ${
-                scope === s
-                  ? 'bg-violet-600 text-white shadow-sm'
-                  : 'text-gray-500 hover:bg-gray-50'
-              }`}
-            >
-              {s === 'personal' ? '👤 Cá nhân' : '👥 Nhóm'}
-            </button>
-          ))}
-        </div>
-
-        {/* Team metric selector – only visible in team scope */}
-        {scope === 'team' && (
-          <div className="flex items-center bg-white border border-gray-200 rounded-2xl p-1 shadow-sm gap-0.5">
-            {(['tasks', 'hours'] as const).map(m => (
-              <button
-                key={m}
-                onClick={() => onMetric(m)}
-                className={`px-4 py-2 rounded-xl text-[13px] font-semibold transition-all duration-150 ${
-                  metric === m
-                    ? 'bg-emerald-600 text-white shadow-sm'
-                    : 'text-gray-500 hover:bg-gray-50'
-                }`}
-              >
-                {m === 'tasks' ? 'Số Task' : 'Số Giờ'}
-              </button>
-            ))}
-          </div>
-        )}
+      {/* Connection status indicator */}
+      <div className="ml-auto flex items-center gap-1.5">
+        <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-400' : 'bg-gray-300'}`} />
+        <span className="text-[11px] font-semibold text-gray-400">
+          {isConnected ? 'Realtime' : 'Offline'}
+        </span>
       </div>
     </div>
   );

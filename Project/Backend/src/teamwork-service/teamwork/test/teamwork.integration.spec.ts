@@ -2,18 +2,39 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { TeamworkService } from '../teamwork.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationService } from '../../notification/notification.service';
+import { MessageGateway } from '../../message/message.gateway';
 import {
   setupTestEnvironment,
   clearDatabase,
 } from '../../../../test/utils/test-db-setup';
 import { createGroupTaskFactory } from '../../../../test/utils/factories';
+import {
+  createRedisClientMock,
+  cleanupMocks,
+} from '../../../../test/mocks/setup';
 
 describe('TeamworkService (Integration)', () => {
   let service: TeamworkService;
   let prisma: PrismaService;
+  let mockRedisClient: any;
+  let mockNotificationService: any;
+  let mockMessageGateway: any;
 
   beforeAll(async () => {
     setupTestEnvironment();
+
+    // Create fresh mocks for integration test suite
+    mockRedisClient = createRedisClientMock();
+    mockNotificationService = {
+      sendNotification: jest.fn().mockResolvedValue({
+        id: 'notif-1',
+        userId: 'test-user',
+      }),
+    };
+    mockMessageGateway = {
+      sendEventToUser: jest.fn(),
+      broadcastToRoom: jest.fn(),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -21,11 +42,15 @@ describe('TeamworkService (Integration)', () => {
         PrismaService,
         {
           provide: 'REDIS_CLIENT',
-          useValue: { emit: jest.fn() },
+          useValue: mockRedisClient,
         },
         {
           provide: NotificationService,
-          useValue: { sendNotification: jest.fn() },
+          useValue: mockNotificationService,
+        },
+        {
+          provide: MessageGateway,
+          useValue: mockMessageGateway,
         },
       ],
     }).compile();
@@ -36,10 +61,17 @@ describe('TeamworkService (Integration)', () => {
 
   beforeEach(async () => {
     await clearDatabase(prisma);
+    // Clear mock call history before each test
+    mockRedisClient._cleanup();
+    jest.clearAllMocks();
   });
 
   afterAll(async () => {
-    await prisma.$disconnect();
+    // Cleanup mocks
+    cleanupMocks(mockRedisClient, mockNotificationService, mockMessageGateway);
+    if (prisma) {
+      await prisma.$disconnect();
+    }
   });
 
   it('creates a group and cascade deletes group dependencies', async () => {

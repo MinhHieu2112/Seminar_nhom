@@ -10,19 +10,28 @@ import { TokenService } from './auth/token.service';
 import { OtpService } from './auth/otp.service';
 import { UsersController } from './user/users.controller';
 import { InternalUsersController } from './user/users-internal.controller';
+import { HealthController } from './user/health.controller';
+import { envValidationSchema } from '../common/config.validation';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      validationSchema: envValidationSchema,
+      validationOptions: {
+        allowUnknown: true,
+        abortEarly: true,
+      },
+    }),
     JwtModule.register({}),
     BullModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
         redis: {
-          host: configService.get('REDIS_HOST', 'localhost'),
-          port: configService.get<number>('REDIS_PORT', 6379),
-          password: configService.get('REDIS_PASSWORD'),
+          host: configService.getOrThrow<string>('REDIS_HOST'),
+          port: configService.getOrThrow<number>('REDIS_PORT'),
+          password: configService.get<string>('REDIS_PASSWORD') || undefined,
         },
       }),
     }),
@@ -35,14 +44,14 @@ import { InternalUsersController } from './user/users-internal.controller';
         useFactory: (configService: ConfigService) => ({
           transport: Transport.REDIS,
           options: {
-            host: configService.get('REDIS_HOST', 'localhost'),
-            port: configService.get<number>('REDIS_PORT', 6379),
+            host: configService.getOrThrow<string>('REDIS_HOST'),
+            port: configService.getOrThrow<number>('REDIS_PORT'),
           },
         }),
       },
     ]),
   ],
-  controllers: [UsersController, InternalUsersController],
+  controllers: [UsersController, InternalUsersController, HealthController],
   providers: [
     AuthService,
     TokenService,

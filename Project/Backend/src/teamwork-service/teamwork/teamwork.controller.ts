@@ -8,7 +8,9 @@ import {
   Param,
   Headers,
   Patch,
+  UseGuards,
 } from '@nestjs/common';
+import { InternalAuthGuard } from '../../common/internal-auth.guard';
 import { TeamworkService } from './teamwork.service';
 import { CreateGroupDto, UpdateGroupDto, AddMemberDto } from './dto/group.dto';
 import {
@@ -17,6 +19,7 @@ import {
   CreateGroupTaskAllocationDto,
 } from './dto/group-task.dto';
 
+@UseGuards(InternalAuthGuard)
 @Controller('api/v1/teamwork')
 export class TeamworkController {
   constructor(private readonly teamworkService: TeamworkService) {}

@@ -173,3 +173,18 @@ model GroupMessageMention {
   message         GroupMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
   mentionedUserId String
 }
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  message   String
+  type      String   @default("group") // Luôn mặc định là 'group' trong teamwork-service
+  taskId    String?
+  status    String   @default("unread") // unread, read
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, status])
+  @@index([taskId])
+}

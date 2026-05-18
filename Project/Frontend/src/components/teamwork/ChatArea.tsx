@@ -2,17 +2,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuthStore } from '@/store/auth-store';
 import { useGetGroupMessages } from '@/hooks/useScheduler';
-import { schedulerService } from '@/services/scheduler.service';
+import { API_PUBLIC_ORIGIN } from '@/lib/api-client';
 import { StickerPicker } from './StickerPicker';
 import { MentionAutocomplete } from './MentionAutocomplete';
-import type { GroupMessage, GroupMessageType, GroupMember } from '@/types/api';
+import type { GroupMessage, GroupMessageType, GroupMember, GroupMessageAttachment } from '@/types/api';
 import { io, Socket } from 'socket.io-client';
 import {
   PaperPlaneRight,
   Smiley,
   DownloadSimple,
   File,
-  FileImage,
   Trash,
 } from '@phosphor-icons/react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -32,11 +31,11 @@ interface ChatAreaProps {
 }
 
 export function ChatArea({ groupId, groupName, groupMembers, activeChannel }: ChatAreaProps) {
-  const { user: currentUser } = useAuthStore();
+  const { user: currentUser, accessToken } = useAuthStore();
   const [liveMessages, setLiveMessages] = useState<GroupMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [selectedMentions, setSelectedMentions] = useState<{ id: string; name: string }[]>([]);
-  const [attachments] = useState<any[]>([]);
+  const [attachments] = useState<GroupMessageAttachment[]>([]);
   const [showStickers, setShowStickers] = useState(false);
   const [deletedMessageIds, setDeletedMessageIds] = useState<Set<string>>(() => {
     if (typeof window !== 'undefined') {
@@ -53,7 +52,6 @@ export function ChatArea({ groupId, groupName, groupMembers, activeChannel }: Ch
   // Mention State
   const [showMention, setShowMention] = useState(false);
   const [mentionSearch, setMentionSearch] = useState('');
-  const [mentionIndex, setMentionIndex] = useState(-1);
 
   // Presence & Typing State
   const [onlineUserIds, setOnlineUserIds] = useState<string[]>([]);
@@ -74,7 +72,7 @@ export function ChatArea({ groupId, groupName, groupMembers, activeChannel }: Ch
   } = useGetGroupMessages(groupId, taskId);
 
   const flattenedHistory = React.useMemo<GroupMessage[]>(() => {
-    return historicalData?.pages.flatMap((page: any) => page.messages || []) || [];
+    return historicalData?.pages.flatMap((page: { messages?: GroupMessage[] }) => page.messages || []) || [];
   }, [historicalData]);
 
   const messages = React.useMemo<GroupMessage[]>(() => {
@@ -93,10 +91,12 @@ export function ChatArea({ groupId, groupName, groupMembers, activeChannel }: Ch
   useEffect(() => {
     if (!currentUser) return;
 
-    // Connect directly to teamwork-service WebSocket gateway
-    const socket = io('http://localhost:8006', {
+    // Connect securely to API Gateway WebSocket proxy
+    const wsUrl = process.env.NEXT_PUBLIC_TEAMWORK_WS_URL || API_PUBLIC_ORIGIN || 'http://localhost:8000';
+    const socket = io(wsUrl, {
+      auth: { token: accessToken },
       query: { userId: currentUser.id },
-      transports: ['websocket', 'polling'],
+      transports: ['websocket'],
     });
 
     socketRef.current = socket;
@@ -152,7 +152,7 @@ export function ChatArea({ groupId, groupName, groupMembers, activeChannel }: Ch
     return () => {
       socket.disconnect();
     };
-  }, [groupId, activeChannel, currentUser]);
+  }, [groupId, activeChannel, currentUser, accessToken]);
 
   // Track previous group/channel to reset state synchronously on switch (prevents cascading renders)
   const [prevGroupId, setPrevGroupId] = useState<string>(groupId);

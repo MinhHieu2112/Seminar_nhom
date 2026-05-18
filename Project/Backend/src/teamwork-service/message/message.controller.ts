@@ -1,6 +1,16 @@
-import { Controller, Get, Param, Query, Headers, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  Query,
+  Headers,
+  Delete,
+  UseGuards,
+} from '@nestjs/common';
 import { MessageService } from './message.service';
+import { InternalAuthGuard } from '../../common/internal-auth.guard';
 
+@UseGuards(InternalAuthGuard)
 @Controller('api/v1/teamwork')
 export class MessageController {
   constructor(private readonly messageService: MessageService) {}

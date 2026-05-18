@@ -14,11 +14,12 @@ import { AuthGuard } from '@nestjs/passport';
 import type { Request, Response } from 'express';
 import { TcpClientService } from '../tcp-client.service';
 import { JwtService } from '@nestjs/jwt';
-import { safeSend, extractUserId } from '../gateway.utils';
+import { safeSend, extractTokenPayload } from '../gateway.utils';
 import type { GoogleProfile } from '../strategies/google.strategy';
 import type { DiscordProfile } from '../strategies/discord.strategy';
 import type { GithubProfile } from '../strategies/github.strategy';
 import type { LinkedinProfile } from '../strategies/linkedin.strategy';
+import { Throttle, seconds } from '@nestjs/throttler';
 
 @Controller('api/v1/auth')
 export class AuthGatewayController {
@@ -28,12 +29,14 @@ export class AuthGatewayController {
   ) {}
 
   @Post('register')
+  @Throttle({ default: { limit: 10, ttl: seconds(60) } })
   @HttpCode(HttpStatus.CREATED)
   register(@Body() dto: any) {
     return safeSend(this.tcpClient, 'user-service', 'user.register', dto);
   }
 
   @Post('login')
+  @Throttle({ default: { limit: 10, ttl: seconds(60) } })
   @HttpCode(HttpStatus.OK)
   login(@Body() dto: any) {
     return safeSend(this.tcpClient, 'user-service', 'user.login', dto);
@@ -51,14 +54,33 @@ export class AuthGatewayController {
     @Headers('authorization') authHeader: string,
     @Body() data: { userId?: string; jti?: string },
   ) {
-    const userId = data.userId ?? extractUserId(authHeader, this.jwtService);
+    let userId = data.userId;
+    let jti = data.jti;
+
+    if (!userId || !jti) {
+      try {
+        const payload = extractTokenPayload(authHeader, this.jwtService);
+        userId = userId ?? payload.sub;
+        jti = jti ?? payload.jti;
+      } catch {
+        // If token has expired or is invalid, try to decode it anyway to extract sub and jti
+        if (authHeader?.startsWith('Bearer ')) {
+          const token = authHeader.substring(7);
+          const decoded: any = this.jwtService.decode(token);
+          userId = userId ?? decoded?.sub;
+          jti = jti ?? decoded?.jti;
+        }
+      }
+    }
+
     return safeSend(this.tcpClient, 'user-service', 'user.logout', {
-      userId,
-      jti: data.jti ?? 'logout-all',
+      userId: userId ?? 'unknown',
+      jti: jti ?? 'logout-all',
     });
   }
 
   @Post('forgot-password')
+  @Throttle({ default: { limit: 10, ttl: seconds(60) } })
   @HttpCode(HttpStatus.OK)
   forgotPassword(@Body() dto: { email: string }) {
     return safeSend(
@@ -70,6 +92,7 @@ export class AuthGatewayController {
   }
 
   @Post('verify-otp')
+  @Throttle({ default: { limit: 10, ttl: seconds(60) } })
   @HttpCode(HttpStatus.OK)
   verifyOtp(@Body() dto: { email: string; otp: string }) {
     return safeSend(

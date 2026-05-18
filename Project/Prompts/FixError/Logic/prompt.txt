@@ -1,13 +1,51 @@
-> [ai-service builder 7/7] RUN pnpm run build:
-0.478 
-0.478 > backend@0.0.1 build /app
-0.478 > nest build
-0.478 
-4.639 src/scheduler-service/analytics/analytics.service.ts:24:23 - error TS2339: Property 'taskLog' does not exist on type 'PrismaService'.
-4.639 
-4.639 24     await this.prisma.taskLog.create({
-4.639                          ~~~~~~~
-4.639 src/scheduler-service/analytics/analytics.service.ts:37:23 - error TS2339: Property 'dailySummary' does not exist on type 'PrismaService'.
-4.639 
-4.639 37     await this.prisma.dailySummary.upsert({
-4.639            
+Phân tích và fix các lỗi state synchronization/realtime trong hệ thống NextJS + NestJS microservices hiện tại.
+
+Lỗi 1 – Profile image không ổn định:
+
+* Upload avatar thành công nhưng đôi lúc không hiển thị.
+* Đăng nhập lại không lấy được avatar/profile image.
+* Có thể liên quan cache, stale state, upload response hoặc auth profile sync.
+
+Lỗi 2 – Team/member sync không ổn định:
+
+* User A được thêm vào nhóm và đã accept invite nhưng chưa thấy nhóm ngay.
+* User B đôi lúc mất nhóm sau login, reload mới thấy lại.
+* Sau reload/group detail thì member data lại đúng.
+* Có dấu hiệu stale cache, optimistic update lỗi, websocket sync fail hoặc query invalidate sai.
+
+Yêu cầu:
+
+1. Phân tích toàn bộ flow frontend → gateway → services → database.
+2. Tìm root cause về state management/realtime synchronization.
+3. Kiểm tra:
+
+   * React Query/SWR/Zustand cache
+   * optimistic update
+   * websocket emit/listener
+   * stale auth session
+   * missing query invalidation
+   * race condition
+   * upload URL persistence
+4. Refactor theo hướng realtime-safe và state-consistent.
+
+Thực hiện:
+
+* Đồng bộ avatar/profile state sau upload/login.
+* Fix cache invalidation/refetch.
+* Đồng bộ group/member state realtime sau accept invite.
+* Emit websocket events đúng flow.
+* Tránh stale UI sau login/navigation.
+* Chuẩn hóa optimistic update + rollback.
+* Sinh code hoàn chỉnh frontend + backend.
+
+Output:
+
+1. Root cause analysis
+2. Reproduction flow
+3. State synchronization issues
+4. Refactor strategy
+5. File changes
+6. Full code implementation
+7. Realtime/cache improvements
+8. Verification checklist
+9. Remaining edge cases & recommendations

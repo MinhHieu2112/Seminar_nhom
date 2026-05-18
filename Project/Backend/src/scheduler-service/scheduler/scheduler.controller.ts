@@ -10,12 +10,12 @@ import {
   Headers,
   Delete,
   Query,
+  UseGuards,
 } from '@nestjs/common';
+import { InternalAuthGuard } from '../../common/internal-auth.guard';
 import {
   CreateCategoryDto,
   UpdateCategoryDto,
-  CreateSubjectDto,
-  UpdateSubjectDto,
   CreateScheduleDto,
   CreateTaskDto,
   UpdateTaskDto,
@@ -25,6 +25,7 @@ import {
 import { SchedulerService } from './scheduler.service';
 
 // In a real microservice, we might use a shared JWT secret or internal API keys.
+@UseGuards(InternalAuthGuard)
 @Controller('api/v1/scheduler')
 export class SchedulerController {
   constructor(private readonly schedulerService: SchedulerService) {}
@@ -62,34 +63,6 @@ export class SchedulerController {
     @Param('id') id: string,
   ) {
     return this.schedulerService.deleteCategory(userId, id);
-  }
-
-  // --- Subjects ---
-  @Post('subjects')
-  createSubject(
-    @Headers('x-user-id') userId: string,
-    @Body() dto: CreateSubjectDto,
-  ) {
-    return this.schedulerService.createSubject(userId, dto);
-  }
-
-  @Get('subjects')
-  getSubjects(@Headers('x-user-id') userId: string) {
-    return this.schedulerService.getSubjects(userId);
-  }
-
-  @Put('subjects/:id')
-  updateSubject(
-    @Headers('x-user-id') userId: string,
-    @Param('id') id: string,
-    @Body() dto: UpdateSubjectDto,
-  ) {
-    return this.schedulerService.updateSubject(userId, id, dto);
-  }
-
-  @Delete('subjects/:id')
-  deleteSubject(@Headers('x-user-id') userId: string, @Param('id') id: string) {
-    return this.schedulerService.deleteSubject(userId, id);
   }
 
   @Get('schedules')

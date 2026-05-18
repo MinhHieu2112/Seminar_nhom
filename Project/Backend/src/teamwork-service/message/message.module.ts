@@ -9,6 +9,6 @@ import { NotificationModule } from '../notification/notification.module';
   imports: [NotificationModule],
   controllers: [MessageController],
   providers: [MessageGateway, MessageService, PrismaService],
-  exports: [MessageService],
+  exports: [MessageService, MessageGateway],
 })
 export class MessageModule {}

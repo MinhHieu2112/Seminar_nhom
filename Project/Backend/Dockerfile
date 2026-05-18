@@ -41,10 +41,10 @@ COPY --from=builder /app/dist ./dist
 # Copy Prisma CLI binary (devDependency - not in prod install) and engines
 COPY --from=builder /app/node_modules/.bin/prisma ./node_modules/.bin/prisma
 COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
-# Copy Prisma schema files so db push can find them at runtime
-COPY --from=builder /app/src/users-service/prisma/schema.prisma ./src/users-service/prisma/schema.prisma
-COPY --from=builder /app/src/scheduler-service/scheduler/prisma/schema.prisma ./src/scheduler-service/scheduler/prisma/schema.prisma
-COPY --from=builder /app/src/teamwork-service/prisma/schema.prisma ./src/teamwork-service/prisma/schema.prisma
+# Copy complete Prisma folders (including migrations and schemas) so they are available at runtime
+COPY --from=builder /app/src/users-service/prisma ./src/users-service/prisma
+COPY --from=builder /app/src/scheduler-service/scheduler/prisma ./src/scheduler-service/scheduler/prisma
+COPY --from=builder /app/src/teamwork-service/prisma ./src/teamwork-service/prisma
 
 # --- Service-specific Stages ---
 
@@ -56,17 +56,17 @@ CMD ["node", "dist/src/main.js"]
 # User Service Stage
 FROM runner AS user-service
 EXPOSE 8001
-CMD sh -c "until nc -z postgres-db 5432; do echo 'Waiting for postgres...'; sleep 2; done && ./node_modules/.bin/prisma db push --schema=src/users-service/prisma/schema.prisma --accept-data-loss && node dist/src/main.microservice.js"
+CMD ["node", "dist/src/main.microservice.js"]
 
 # Scheduler Service Stage
 FROM runner AS scheduler-service
 EXPOSE 8003
-CMD sh -c "until nc -z postgres-db 5432; do echo 'Waiting for postgres...'; sleep 2; done && ./node_modules/.bin/prisma db push --schema=src/scheduler-service/scheduler/prisma/schema.prisma --accept-data-loss && node dist/src/main.scheduler.js"
+CMD ["node", "dist/src/main.scheduler.js"]
 
 # Teamwork Service Stage
 FROM runner AS teamwork-service
 EXPOSE 8006
-CMD sh -c "until nc -z postgres-db 5432; do echo 'Waiting for postgres...'; sleep 2; done && ./node_modules/.bin/prisma db push --schema=src/teamwork-service/prisma/schema.prisma --accept-data-loss && node dist/src/main.teamwork.js"
+CMD ["node", "dist/src/main.teamwork.js"]
 
 # AI Service Stage
 FROM runner AS ai-service

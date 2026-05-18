@@ -13,7 +13,8 @@ import { CreateMessageDto } from './dto/create-message.dto';
 
 @WebSocketGateway({
   cors: {
-    origin: '*',
+    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    credentials: true,
   },
 })
 export class MessageGateway
@@ -178,5 +179,23 @@ export class MessageGateway
     }
 
     this.server.to(roomName).emit('onlineUsers', Array.from(onlineUserIds));
+  }
+
+  sendEventToUser(userId: string, event: string, data: any) {
+    const socketIds = this.activeUsers.get(userId);
+    if (socketIds && this.server) {
+      for (const socketId of socketIds) {
+        const socket = this.server.sockets.sockets.get(socketId);
+        if (socket) {
+          socket.emit(event, data);
+        }
+      }
+    }
+  }
+
+  broadcastToRoom(roomName: string, event: string, data: any) {
+    if (this.server) {
+      this.server.to(roomName).emit(event, data);
+    }
   }
 }

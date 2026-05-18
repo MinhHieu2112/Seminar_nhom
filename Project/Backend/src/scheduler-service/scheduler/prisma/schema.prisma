@@ -18,26 +18,15 @@ model Category {
   name      String
   color     String?
   userId    String
-  subjects  Subject[]
+  tasks     Task[]
+  schedules Schedule[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
   @@unique([name, userId])
 }
 
-model Subject {
-  id         String     @id @default(uuid())
-  name       String
-  categoryId String
-  category   Category   @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  userId     String
-  schedules  Schedule[]
-  tasks      Task[]
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
 
-  @@unique([name, userId, categoryId])
-}
 
 
 model Task {
@@ -47,8 +36,8 @@ model Task {
   title           String
   description     String?
   dueTime         DateTime?
-  subjectId       String?
-  subject         Subject?         @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  categoryId      String?
+  category        Category?        @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   priority        Int              @default(3)
   status          String           @default("pending")
   submittedForReview Boolean       @default(false)
@@ -110,7 +99,6 @@ model TaskLog {
   id              String   @id @default(uuid())
   taskId          String
   userId          String
-  subjectId       String?
   action          String   // "created", "completed", "overdue"
   timestamp       DateTime @default(now())
   
@@ -121,8 +109,8 @@ model Schedule {
   id         String   @id @default(uuid())
   userId     String
   groupId    String?
-  subjectId  String
-  subject    Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   startTime  DateTime
   endTime    DateTime
   dayOfWeek  Int

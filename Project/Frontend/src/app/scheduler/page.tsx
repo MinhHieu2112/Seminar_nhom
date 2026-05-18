@@ -31,7 +31,14 @@ const TimeBlock = memo(({ event, phaseStart }: { event: Allocation; phaseStart: 
     const startDate = parseISO(event.startTime);
     const startHour = startDate.getHours();
     const startMin = startDate.getMinutes();
-    const duration = event.durationMinutes || 60;
+    
+    // Tự động tính thời lượng học (durationMinutes) từ endTime và startTime
+    let duration = event.durationMinutes || 60;
+    if (event.endTime) {
+        const endDate = parseISO(event.endTime);
+        const diffMs = endDate.getTime() - startDate.getTime();
+        duration = Math.max(Math.round(diffMs / 60000), 30); // Tối thiểu 30 phút
+    }
 
     const top = (startHour - phaseStart) * 64 + (startMin / 60) * 64;
     const height = (duration / 60) * 64;
@@ -45,7 +52,12 @@ const TimeBlock = memo(({ event, phaseStart }: { event: Allocation; phaseStart: 
             style={{ top: `${top}px`, height: `${height}px`, minHeight: '30px' }}
         >
             <span className="text-[10px] font-extrabold leading-tight uppercase truncate">{event.task?.title}</span>
-            {height > 40 && <span className="text-[9px] font-medium opacity-70 mt-1">{format(startDate, 'HH:mm')}</span>}
+            {height > 40 && (
+                <span className="text-[9px] font-medium opacity-70 mt-1">
+                    {format(startDate, 'HH:mm')}
+                    {event.endTime && ` - ${format(parseISO(event.endTime), 'HH:mm')}`}
+                </span>
+            )}
         </div>
     );
 });
@@ -130,7 +142,7 @@ export default function SchedulerPage() {
                         <div className="px-8 py-4 border-b border-slate-100 flex items-center justify-between bg-white/50">
                             <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.3em]">{phase.label}</h3>
                             <div className="h-px flex-1 mx-6 bg-slate-100"></div>
-                            <span className="text-[10px] font-bold text-slate-400 tabular-nums">{phase.start}:00 – {phase.end}:00</span>
+                            <span className="text-[10px] font-bold text-slate-400 tabular-nums">{phase.start}:00 – {phase.end + 1}:00</span>
                         </div>
 
                         <div className="flex">
@@ -161,11 +173,27 @@ export default function SchedulerPage() {
                                             {/* Khu vực chứa Event */}
                                             <div className="relative overflow-hidden" style={{ height: `${(phase.end - phase.start + 1) * 64}px` }}>
                                                 {Array.from({ length: phase.end - phase.start + 1 }).map((_, i) => (
-                                                    <div key={i} className="h-16 border-b border-slate-50/50"></div>
+                                                    <div key={i} className="h-16 border-b border-slate-100/60 relative">
+                                                        {/* Vạch kẻ phụ 30 phút mờ */}
+                                                        <div className="absolute top-1/2 left-0 right-0 border-t border-dashed border-slate-100/30"></div>
+                                                    </div>
                                                 ))}
                                                 {dayEvents.filter((event: Allocation) => {
-                                                    const startHour = parseISO(event.startTime).getHours();
-                                                    return startHour >= phase.start && startHour <= phase.end;
+                                                    const startDate = parseISO(event.startTime);
+                                                    const startMins = startDate.getHours() * 60 + startDate.getMinutes();
+                                                    
+                                                    let duration = event.durationMinutes || 60;
+                                                    if (event.endTime) {
+                                                        const endDate = parseISO(event.endTime);
+                                                        const diffMs = endDate.getTime() - startDate.getTime();
+                                                        duration = Math.max(Math.round(diffMs / 60000), 30);
+                                                    }
+                                                    const endMins = startMins + duration;
+                                                    
+                                                    const phaseStartMins = phase.start * 60;
+                                                    const phaseEndMins = (phase.end + 1) * 60;
+                                                    
+                                                    return startMins < phaseEndMins && endMins > phaseStartMins;
                                                 }).map((event: Allocation) => (
                                                     <TimeBlock key={event.id} event={event} phaseStart={phase.start} />
                                                 ))}

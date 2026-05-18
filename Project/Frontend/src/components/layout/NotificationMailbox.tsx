@@ -1,16 +1,20 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { Envelope, Bell, ChatCircle, Spinner, UserPlus, Warning, Clock } from '@phosphor-icons/react';
 import { useGetInvitations, useRespondToInvitation } from '@/hooks/useGroups';
 import { useGetNotifications, useMarkNotificationAsRead, useMarkAllNotificationsAsRead } from '@/hooks/useNotifications';
 import type { GroupInvitation, Notification as NotificationType } from '@/types/api';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { io } from 'socket.io-client';
+import { useAuthStore } from '@/store/auth-store';
+import { useQueryClient } from '@tanstack/react-query';
 
 export function NotificationMailbox() {
   const router = useRouter();
+  const pathname = usePathname();
   const [activeTab, setActiveTab] = useState<'invitations' | 'notifications'>('invitations');
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -24,6 +28,87 @@ export function NotificationMailbox() {
 
   const pendingInvCount = invitations.length;
   const unreadNotifCount = notifications.filter(n => n.status === 'unread').length;
+
+  const { user: currentUser, accessToken } = useAuthStore();
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!currentUser || !accessToken) return;
+
+    // Connect to the API Gateway WebSocket
+    const wsUrl = process.env.NEXT_PUBLIC_TEAMWORK_WS_URL || 'http://localhost:8000';
+    const socket = io(wsUrl, {
+      auth: { token: accessToken },
+      query: { userId: currentUser.id },
+      transports: ['websocket'],
+    });
+
+    socket.on('connect', () => {
+      console.log('[NotificationMailbox] Realtime notification socket connected successfully!');
+    });
+
+    socket.on('notificationRead', (data: { id: string }) => {
+      console.log('[NotificationMailbox] Received notificationRead event:', data);
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    });
+
+    socket.on('notificationReadAll', () => {
+      console.log('[NotificationMailbox] Received notificationReadAll event');
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    });
+
+    socket.on('notificationCreated', () => {
+      console.log('[NotificationMailbox] Received notificationCreated event');
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    });
+
+    socket.on('invitationReceived', (data: { groupId: string; inviterId: string }) => {
+      console.log('[NotificationMailbox] Received invitationReceived event:', data);
+      queryClient.invalidateQueries({ queryKey: ['invitations'] });
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    });
+
+    socket.on('invitationAccepted', (data: { groupId: string }) => {
+      console.log('[NotificationMailbox] Received invitationAccepted event:', data);
+      queryClient.invalidateQueries({ queryKey: ['groups'] });
+    });
+
+    socket.on('memberRemoved', (data: { groupId: string }) => {
+      console.log('[NotificationMailbox] Received memberRemoved event:', data);
+      queryClient.invalidateQueries({ queryKey: ['groups'] });
+      if (pathname === `/scheduler/teamwork/${data.groupId}`) {
+        router.push('/scheduler');
+      }
+    });
+
+    socket.on('memberJoined', (data: { groupId: string; userId: string }) => {
+      console.log('[NotificationMailbox] Received memberJoined event:', data);
+      queryClient.invalidateQueries({ queryKey: ['groups', data.groupId] });
+    });
+
+    socket.on('memberLeft', (data: { groupId: string; userId: string }) => {
+      console.log('[NotificationMailbox] Received memberLeft event:', data);
+      queryClient.invalidateQueries({ queryKey: ['groups', data.groupId] });
+    });
+
+    socket.on('groupUpdated', (data: { groupId: string }) => {
+      console.log('[NotificationMailbox] Received groupUpdated event:', data);
+      queryClient.invalidateQueries({ queryKey: ['groups'] });
+      queryClient.invalidateQueries({ queryKey: ['groups', data.groupId] });
+    });
+
+    socket.on('groupDeleted', (data: { groupId: string }) => {
+      console.log('[NotificationMailbox] Received groupDeleted event:', data);
+      queryClient.invalidateQueries({ queryKey: ['groups'] });
+      if (pathname === `/scheduler/teamwork/${data.groupId}`) {
+        router.push('/scheduler');
+      }
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [currentUser, accessToken, queryClient, pathname, router]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {

@@ -1,0 +1,111 @@
+# Kế hoạch triển khai: Đồng bộ hóa Trạng thái Ảnh đại diện & Nhóm/Thành viên Thời gian thực
+
+Tài liệu này phác thảo kế hoạch giải quyết triệt để hai lỗi về đồng bộ trạng thái (`state synchronization`) và thời gian thực (`realtime`) trong hệ thống.
+
+---
+
+## 🔍 Phân Tích Nguyên Nhân Gốc Rễ (Root Cause Analysis)
+
+### Lỗi 1: Profile Image / Avatar không ổn định
+1. **Thiếu Đồng bộ Ngược từ React Query -> Zustand**: Hook `useProfile` của React Query lấy dữ liệu người dùng mới nhất từ database nhưng **không đồng bộ ngược lại** trạng thái `user` trong Zustand `useAuthStore`. Do Zustand store được lưu trữ persistent (ở localStorage), avatar của người dùng trong store sẽ bị stale (cũ) mãi mãi cho đến khi họ chủ động đăng xuất và đăng nhập lại. Các component đọc avatar từ store sẽ hiển thị ảnh cũ hoặc ảnh mặc định.
+2. **Không Invalidate Toàn bộ Cache Profile**: Khi cập nhật avatar thành công (`useUploadAvatar`), hệ thống chỉ cập nhật cục bộ cho khóa cá nhân của user, bỏ qua `['profile', 'batch', ids]` (dùng trong trang chi tiết nhóm), khiến danh sách thành viên không cập nhật ảnh mới cho đến khi ép reload.
+
+### Lỗi 2: Nhóm & Thành viên đồng bộ không ổn định (Realtime Sync)
+1. **Thiếu Realtime Event khi Mời/Chấp Nhận/Xóa Thành viên**:
+   - Khi trưởng nhóm **gửi lời mời** (`inviteMember`), backend lưu vào DB nhưng không phát bất kỳ tín hiệu Socket nào đến người nhận. Người nhận không biết mình được mời trừ khi reload.
+   - Khi người dùng **chấp nhận lời mời** (`respondToInvitation`), backend thêm thành viên vào DB nhưng không phát sự kiện realtime cho các thành viên khác trong nhóm. Người gửi/các thành viên khác không thấy thành viên mới.
+   - Khi **xóa thành viên** (`removeMember`), backend không gửi sự kiện Socket đến người bị xóa hoặc các thành viên còn lại, dẫn đến tình trạng giao diện hiển thị stale data, dễ gây lỗi crash trang.
+2. **Chưa Tận Dụng WebSocket Proxy của Gateway**: Hệ thống đã có sẵn `GatewaySocketGateway` ở Gateway làm proxy kết nối đến `MessageGateway` của `teamwork-service`. Tuy nhiên, các sự kiện quản lý nhóm ở `TeamworkService` chưa được đẩy lên WebSocket thông qua `MessageGateway`.
+
+---
+
+## 🛡️ Giải Pháp Đề Xuất (Proposed Design)
+
+### 1. Khắc phục Lỗi 1 (Đồng bộ Avatar/Profile)
+* **Đồng bộ Tự Động trong `useProfile`**: Cập nhật hàm `queryFn` của `useProfile` để tự động gọi `useAuthStore.getState().setUser(updatedUser)` ngay khi fetch thành công profile mới nhất.
+* **Global Cache Invalidation**: Cập nhật `onSuccess` trong `useUploadAvatar` và `useUpdateProfile` để invalidate toàn bộ cache `['profile']` (bao gồm cả cache cá nhân và cache tải hàng loạt `batch`).
+
+### 2. Khắc phục Lỗi 2 (Realtime Sync Nhóm/Thành viên)
+* **Mở rộng `MessageGateway` ở Backend**:
+  - Export `MessageGateway` từ `MessageModule` và import vào `TeamworkModule`.
+  - Thêm helper method `sendEventToUser(userId, event, data)` vào `MessageGateway` để phát tín hiệu trực tiếp cho mọi socket đang kết nối của một user cụ thể (dựa trên map `activeUsers`).
+  - Thêm helper method `broadcastToRoom(roomName, event, data)` để phát tín hiệu đến socket room của một nhóm cụ thể.
+* **Đẩy sự kiện Socket từ `TeamworkService`**:
+  - **Mời thành viên**: Phát `'invitationReceived'` tới `dto.userId`.
+  - **Chấp nhận lời mời**: 
+    - Phát `'invitationAccepted'` tới `userId` (người accept).
+    - Phát `'memberJoined'` đến socket room `group_${groupId}`.
+  - **Xóa thành viên**: 
+    - Phát `'memberRemoved'` tới `targetUserId` (người bị xóa).
+    - Phát `'memberLeft'` đến socket room `group_${groupId}`.
+  - **Cập nhật nhóm**: Phát `'groupUpdated'` đến socket room `group_${groupId}`.
+  - **Xóa nhóm**: Phát `'groupDeleted'` tới tất cả thành viên trong nhóm.
+* **Lắng nghe và Tự động Invalidate trên Frontend (`NotificationMailbox`)**:
+  - Đăng ký các listener trên global socket connection trong `NotificationMailbox.tsx`:
+    - `'invitationReceived'`: Invalidate `['invitations']` và hiển thị thông báo.
+    - `'invitationAccepted'` và `'memberRemoved'`: Invalidate `['groups']` để cập nhật sidebar ngay lập tức.
+    - `'memberJoined'` và `'memberLeft'`: Invalidate `['groups', groupId]` để cập nhật danh sách thành viên trong trang chi tiết nhóm thời gian thực.
+    - `'groupUpdated'`: Invalidate `['groups']` và `['groups', groupId]`.
+    - `'groupDeleted'`: Invalidate `['groups']`, nếu đang mở trang nhóm đó thì tự động redirect về `/scheduler`.
+
+---
+
+## 🛠️ Đề Xuất Thay Đổi Tệp Tin (Proposed Changes)
+
+### ── Backend (teamwork-service) ──
+
+#### [MODIFY] [message.gateway.ts](file:///Users/nguyenvominhhieu/Downloads/Seminar_nhom/Project/Backend/src/teamwork-service/message/message.gateway.ts)
+* Thêm phương thức helper `sendEventToUser(userId: string, event: string, data: any)` để gửi realtime event cho các socket của user.
+* Thêm phương thức helper `broadcastToRoom(roomName: string, event: string, data: any)` để phát realtime event đến room.
+
+#### [MODIFY] [message.module.ts](file:///Users/nguyenvominhhieu/Downloads/Seminar_nhom/Project/Backend/src/teamwork-service/message/message.module.ts)
+* Thêm `MessageGateway` vào mảng `exports` để `TeamworkModule` có thể sử dụng.
+
+#### [MODIFY] [teamwork.module.ts](file:///Users/nguyenvominhhieu/Downloads/Seminar_nhom/Project/Backend/src/teamwork-service/teamwork/teamwork.module.ts)
+* Import `MessageModule` trong mảng `imports`.
+
+#### [MODIFY] [teamwork.service.ts](file:///Users/nguyenvominhhieu/Downloads/Seminar_nhom/Project/Backend/src/teamwork-service/teamwork/teamwork.service.ts)
+* Inject `MessageGateway` trong constructor.
+* Cập nhật các hàm `inviteMember`, `respondToInvitation`, `removeMember`, `updateGroup`, và `deleteGroup` để phát các sự kiện realtime tương ứng thông qua `MessageGateway`.
+
+---
+
+### ── Frontend (NextJS) ──
+
+#### [MODIFY] [useProfile.ts](file:///Users/nguyenvominhhieu/Downloads/Seminar_nhom/Project/Frontend/src/hooks/useProfile.ts)
+* Trong `useProfile`, cập nhật `queryFn` để tự động gọi `useAuthStore.getState().setUser(updatedUser)` một cách bất tuần tự (`setTimeout` hoặc trực tiếp để không gây Warning rendering).
+* Trong `useUploadAvatar` và `useUpdateProfile`, cập nhật `onSuccess` để invalidate toàn bộ cache `['profile']` (`queryClient.invalidateQueries({ queryKey: ['profile'] })`).
+
+#### [MODIFY] [NotificationMailbox.tsx](file:///Users/nguyenvominhhieu/Downloads/Seminar_nhom/Project/Frontend/src/components/layout/NotificationMailbox.tsx)
+* Thêm các listener Socket.IO trong hook `useEffect` thiết lập kết nối:
+  - `invitationReceived`: Invalidate `['invitations']` và `['notifications']`.
+  - `invitationAccepted`: Invalidate `['groups']`.
+  - `memberRemoved`: Invalidate `['groups']`.
+  - `memberJoined`: Invalidate `['groups', groupId]` (dùng `groupId` từ payload).
+  - `memberLeft`: Invalidate `['groups', groupId]`.
+  - `groupUpdated`: Invalidate `['groups']` và `['groups', groupId]`.
+  - `groupDeleted`: Invalidate `['groups']` và tự động chuyển hướng (`router.push('/scheduler')`) nếu đang xem trang nhóm bị xóa.
+
+---
+
+## 🧪 Kế Hoạch Nghiệm Thu (Verification Plan)
+
+### Automated Verification
+* Biên dịch Backend (`nest build` cho các microservices) để đảm bảo dependency injection và types biên dịch thành công.
+* Biên dịch Frontend (`tsc --noEmit`) để kiểm tra cú pháp và kiểu dữ liệu.
+
+### Manual Verification
+1. **Kiểm thử Lỗi 1**:
+   - Truy cập trang Profile `/profile`.
+   - Chọn tải lên Avatar mới.
+   - Quan sát avatar cập nhật tức thì trên trang profile mà không cần reload.
+   - Chuyển hướng sang các trang khác, kiểm tra xem avatar mới có được giữ nguyên trên toàn bộ hệ thống hay không.
+   - Đăng xuất và đăng nhập lại, kiểm tra xem avatar có bị mất hay khôi phục lại giá trị cũ trong DB hay không (phải được giữ nguyên).
+2. **Kiểm thử Lỗi 2**:
+   - Dùng 2 trình duyệt/tài khoản khác nhau (User A và User B).
+   - User B mở Sidebar.
+   - User A (Admin) thực hiện gửi lời mời User B vào Group X.
+   - **Quan sát**: Hộp thư thông báo của User B lập tức hiện số lượng đỏ/hiển thị invitation mà không cần bấm reload.
+   - User B bấm **Accept** invitation.
+   - **Quan sát**: Sidebar của User B xuất hiện Group X ngay lập tức!
+   - Trở lại màn hình chi tiết Group X của User A: Danh sách thành viên của Group X tự động xuất hiện tên/avatar của User B thời gian thực không cần reload!

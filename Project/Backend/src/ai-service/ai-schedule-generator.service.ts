@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { AiProviderManager } from './providers/ai-provider-manager.service';
 import { AiScheduleOutput } from './dto/ai-schema.dto';
 import { PromptContext } from './interfaces/ai-provider.interface';
+import { normalizeTextPrompt } from './utils/prompt-normalizer';
 
 @Injectable()
 export class AiScheduleGeneratorService {
@@ -14,14 +15,15 @@ export class AiScheduleGeneratorService {
    * the strategy manager which supports fallback.
    */
   async generateFromPrompt(prompt: string): Promise<AiScheduleOutput> {
+    const cleanPrompt = normalizeTextPrompt(prompt);
     this.logger.log(
-      `AI schedule generation from prompt: "${prompt.slice(0, 100)}..."`,
+      `AI schedule generation from prompt: "${cleanPrompt.slice(0, 100)}..."`,
     );
     const context = this.createContext();
 
     try {
       return await this.providerManager.generateFromTextWithFallback(
-        prompt,
+        cleanPrompt,
         context,
       );
     } catch (error) {
@@ -39,6 +41,7 @@ export class AiScheduleGeneratorService {
     mimeType: string,
     prompt?: string,
   ): Promise<AiScheduleOutput> {
+    const cleanPrompt = prompt ? normalizeTextPrompt(prompt) : undefined;
     this.logger.log(`AI schedule generation from image (${mimeType})`);
     const context = this.createContext();
 
@@ -47,7 +50,7 @@ export class AiScheduleGeneratorService {
         imageBuffer,
         mimeType,
         context,
-        prompt,
+        cleanPrompt,
       );
     } catch (error) {
       this.logger.error(`AI schedule generating from image failed: ${error}`);

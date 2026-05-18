@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
-import { NotFoundException } from '@nestjs/common';
+import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { of, throwError } from 'rxjs';
 import { SchedulerService } from '../scheduler.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -43,6 +43,7 @@ describe('SchedulerService', () => {
       create: jest.fn(),
       findMany: jest.fn(),
       delete: jest.fn(),
+      deleteMany: jest.fn(),
     },
     userPreference: {
       findUnique: jest.fn(),
@@ -74,9 +75,12 @@ describe('SchedulerService', () => {
 
   beforeEach(async () => {
     jest.spyOn(console, 'error').mockImplementation(() => {});
-    prismaMock.$transaction.mockImplementation(
-      async (promises: Array<Promise<unknown>>) => Promise.all(promises),
-    );
+    prismaMock.$transaction.mockImplementation(async (arg: any) => {
+      if (typeof arg === 'function') {
+        return arg(prismaMock);
+      }
+      return Promise.all(arg);
+    });
     httpServiceMock.get.mockReturnValue(
       of({ data: { id: 'user-1', name: 'Test User' } }),
     );
@@ -157,6 +161,108 @@ describe('SchedulerService', () => {
         createdTask,
       );
       expect(result).toBe(createdTask);
+    });
+
+    it('creates a SESSION task, sets dueTime automatically, creates taskAllocation, and emits event', async () => {
+      const userId = 'user-1';
+      const dto: CreateTaskDto = {
+        title: 'Session task',
+        description: 'Study math',
+        priority: 2,
+        type: 'SESSION',
+        sessionData: {
+          startTime: '2026-05-20T10:00:00.000Z',
+          endTime: '2026-05-20T12:00:00.000Z',
+        },
+      };
+      const createdTask = {
+        id: 'task-session-1',
+        title: dto.title,
+        userId,
+      };
+      prismaMock.task.create.mockResolvedValueOnce(createdTask);
+      prismaMock.taskAllocation.create.mockResolvedValueOnce({
+        id: 'allocation-1',
+        taskId: 'task-session-1',
+      });
+
+      const result = await service.createTask(userId, dto);
+
+      expect(prismaMock.task.create).toHaveBeenCalledWith({
+        data: {
+          title: dto.title,
+          description: dto.description,
+          priority: dto.priority,
+          userId,
+          dueTime: new Date(dto.sessionData!.endTime),
+        },
+      });
+      expect(prismaMock.taskAllocation.create).toHaveBeenCalledWith({
+        data: {
+          userId,
+          taskId: 'task-session-1',
+          startTime: new Date(dto.sessionData!.startTime),
+          endTime: new Date(dto.sessionData!.endTime),
+        },
+      });
+      expect(redisClientMock.emit).toHaveBeenCalledWith(
+        'task.created',
+        createdTask,
+      );
+      expect(result).toBe(createdTask);
+    });
+
+    it('throws BadRequestException when type is SESSION but sessionData is missing', async () => {
+      const userId = 'user-1';
+      const dto: CreateTaskDto = {
+        title: 'Session task',
+        type: 'SESSION',
+      };
+
+      await expect(service.createTask(userId, dto)).rejects.toThrow(
+        BadRequestException,
+      );
+      await expect(service.createTask(userId, dto)).rejects.toThrow(
+        'sessionData is required when type is SESSION',
+      );
+    });
+
+    it('throws BadRequestException when session startTime is not before endTime', async () => {
+      const userId = 'user-1';
+      const dto: CreateTaskDto = {
+        title: 'Session task',
+        type: 'SESSION',
+        sessionData: {
+          startTime: '2026-05-20T12:00:00.000Z',
+          endTime: '2026-05-20T10:00:00.000Z',
+        },
+      };
+
+      await expect(service.createTask(userId, dto)).rejects.toThrow(
+        BadRequestException,
+      );
+      await expect(service.createTask(userId, dto)).rejects.toThrow(
+        'startTime must be before endTime',
+      );
+    });
+
+    it('throws BadRequestException when session startTime and endTime are not on the same day', async () => {
+      const userId = 'user-1';
+      const dto: CreateTaskDto = {
+        title: 'Session task',
+        type: 'SESSION',
+        sessionData: {
+          startTime: '2026-05-20T10:00:00.000Z',
+          endTime: '2026-05-21T12:00:00.000Z',
+        },
+      };
+
+      await expect(service.createTask(userId, dto)).rejects.toThrow(
+        BadRequestException,
+      );
+      await expect(service.createTask(userId, dto)).rejects.toThrow(
+        'startTime and endTime must be on the same day',
+      );
     });
   });
 

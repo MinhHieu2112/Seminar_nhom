@@ -21,14 +21,14 @@ export function syncTestSchemas() {
 
   try {
     execSync(
-      'npx prisma db push --schema=src/users-service/prisma/schema.prisma --accept-data-loss --skip-generate',
+      'npx prisma db push --schema=src/users-service/prisma/schema.prisma --accept-data-loss',
       {
         stdio: 'inherit',
         env: { ...process.env, DATABASE_URL: TEST_DATABASE_URL },
       },
     );
     execSync(
-      'npx prisma db push --schema=src/scheduler-service/scheduler/prisma/schema.prisma --accept-data-loss --skip-generate',
+      'npx prisma db push --schema=src/scheduler-service/scheduler/prisma/schema.prisma --accept-data-loss',
       {
         stdio: 'inherit',
         env: {
@@ -38,7 +38,7 @@ export function syncTestSchemas() {
       },
     );
     execSync(
-      'npx prisma db push --schema=src/teamwork-service/prisma/schema.prisma --accept-data-loss --skip-generate',
+      'npx prisma db push --schema=src/teamwork-service/prisma/schema.prisma --accept-data-loss',
       {
         stdio: 'inherit',
         env: {
@@ -55,11 +55,13 @@ export function syncTestSchemas() {
 }
 
 // Reusable table truncator for database isolation between test cases
+// Resets sequences and truncates tables for clean state between tests
 export async function clearDatabase(prisma: any) {
   const tablenames = await prisma.$queryRaw`
     SELECT tablename FROM pg_tables WHERE schemaname='public'
   `;
 
+  // Step 1: Truncate all tables
   for (const { tablename } of tablenames as any[]) {
     if (tablename !== '_prisma_migrations') {
       try {
@@ -70,5 +72,24 @@ export async function clearDatabase(prisma: any) {
         // Ignore errors if table doesn't exist
       }
     }
+  }
+
+  // Step 2: Reset all sequences to start from 1
+  // This prevents ID collision in sequential tests
+  try {
+    const sequences = await prisma.$queryRaw`
+      SELECT sequence_name FROM information_schema.sequences WHERE sequence_schema='public'
+    `;
+    for (const { sequence_name } of sequences as any[]) {
+      try {
+        await prisma.$executeRawUnsafe(
+          `ALTER SEQUENCE "public"."${sequence_name}" RESTART WITH 1;`,
+        );
+      } catch {
+        // Ignore errors if sequence doesn't exist
+      }
+    }
+  } catch {
+    // Ignore errors fetching sequences
   }
 }

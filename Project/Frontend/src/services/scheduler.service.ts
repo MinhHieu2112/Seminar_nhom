@@ -1,5 +1,5 @@
 import { apiClient } from '@/lib/api-client';
-import type { Task, Allocation, Category, Subject, ScheduleItem, PaginatedMessages } from '@/types/api';
+import type { Task, Allocation, Category, ScheduleItem, PaginatedMessages, GroupMessageAttachment } from '@/types/api';
 
 export const schedulerService = {
   getCategories: () => apiClient.get<Category[]>('/api/v1/scheduler/categories'),
@@ -10,20 +10,14 @@ export const schedulerService = {
   deleteCategory: (id: string) =>
     apiClient.delete(`/api/v1/scheduler/categories/${id}`),
 
-  getSubjects: () => apiClient.get<Subject[]>('/api/v1/scheduler/subjects'),
-  createSubject: (data: { name: string; categoryId: string }) =>
-    apiClient.post<Subject>('/api/v1/scheduler/subjects', data),
-  updateSubject: (id: string, data: { name?: string; categoryId?: string }) =>
-    apiClient.put<Subject>(`/api/v1/scheduler/subjects/${id}`, data),
-  deleteSubject: (id: string) =>
-    apiClient.delete(`/api/v1/scheduler/subjects/${id}`),
+
 
   getSchedules: (params?: { groupId?: string }) => {
     const url = params?.groupId ? '/api/v1/teamwork/schedules' : '/api/v1/scheduler/schedules';
     return apiClient.get<ScheduleItem[]>(url, { params });
   },
   createSchedule: (data: {
-    subjectId: string;
+    categoryId: string;
     startTime: string;
     endTime: string;
     dayOfWeek: number;
@@ -34,11 +28,31 @@ export const schedulerService = {
   },
 
   // --- Tasks ---
-  createTask: (data: { title: string; description?: string; dueTime?: string; subjectId?: string; priority?: number; groupId?: string }) => {
+  createTask: (data: {
+    title: string;
+    description?: string;
+    dueTime?: string;
+    categoryId?: string;
+    priority?: number;
+    groupId?: string;
+    type?: 'TASK' | 'SESSION';
+    sessionData?: { startTime: string; endTime: string };
+  }) => {
     const url = data.groupId ? '/api/v1/teamwork/tasks' : '/api/v1/scheduler/tasks';
     return apiClient.post<Task>(url, data);
   },
-  updateTask: (id: string, data: Partial<{ title: string; description: string; dueTime: string | null; subjectId: string; priority: number; status: string; leaderComments?: string | null; groupId?: string }>) => {
+  updateTask: (id: string, data: Partial<{
+    title: string;
+    description: string;
+    dueTime: string | null;
+    categoryId: string;
+    priority: number;
+    status: string;
+    leaderComments?: string | null;
+    groupId?: string;
+    type?: 'TASK' | 'SESSION';
+    sessionData?: { startTime: string; endTime: string };
+  }>) => {
     const { groupId, ...dto } = data;
     const url = groupId ? `/api/v1/teamwork/tasks/${id}` : `/api/v1/scheduler/tasks/${id}`;
     return apiClient.put<Task>(url, dto);
@@ -84,7 +98,7 @@ export const schedulerService = {
     apiClient.get<PaginatedMessages>(`/api/v1/teamwork/groups/${groupId}/messages`, { params }),
 
   uploadChatFiles: (groupId: string, formData: FormData) =>
-    apiClient.post<any[]>(`/api/v1/teamwork/groups/${groupId}/chat/upload`, formData, {
+    apiClient.post<Omit<GroupMessageAttachment, 'id' | 'messageId'>[]>(`/api/v1/teamwork/groups/${groupId}/chat/upload`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },

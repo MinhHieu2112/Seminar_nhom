@@ -1,6 +1,7 @@
 import { Controller, Logger } from '@nestjs/common';
 import { MessagePattern, Payload, RpcException } from '@nestjs/microservices';
 import { InjectQueue } from '@nestjs/bull';
+import { ConfigService } from '@nestjs/config';
 import type { Queue } from 'bull';
 import { AuthService } from '../auth/auth.service';
 import { UserService } from './user.service';
@@ -27,6 +28,7 @@ export class UsersController {
     private readonly authService: AuthService,
     private readonly userService: UserService,
     private readonly otpService: OtpService,
+    private readonly configService: ConfigService,
     @InjectQueue('notification-jobs')
     private readonly notificationQueue: Queue,
   ) {}
@@ -126,26 +128,43 @@ export class UsersController {
    */
   @MessagePattern('user.password.forgot')
   async forgotPassword(@Payload() dto: ForgotPasswordDto) {
-    const otp = await this.otpService.generateOtp(dto.email);
+    const user = await this.userService.findByEmail(dto.email);
 
-    try {
-      await this.notificationQueue.add('send-email', {
-        to: dto.email,
-        template: 'otp',
-        vars: { otp },
-      });
-      this.logger.log(`Enqueued OTP email for ${dto.email}`);
-    } catch (error) {
-      this.logger.error(
-        `Failed to enqueue OTP email: ${error instanceof Error ? error.message : 'Unknown'}`,
+    // Standard secure message to prevent account enumeration
+    const response: { success: boolean; message: string; otp?: string } = {
+      success: true,
+      message: 'If an account exists with that email, an OTP has been sent.',
+    };
+
+    if (user) {
+      const otp = await this.otpService.generateOtp(dto.email);
+
+      try {
+        await this.notificationQueue.add('send-email', {
+          to: dto.email,
+          template: 'otp',
+          vars: { otp },
+        });
+
+        // Log only metadata, NEVER log the actual OTP value in server logs
+        this.logger.log(`Enqueued OTP email for user id: ${user.id}`);
+      } catch (error) {
+        this.logger.error(
+          `Failed to enqueue OTP email: ${error instanceof Error ? error.message : 'Unknown'}`,
+        );
+      }
+
+      const nodeEnv = this.configService.get<string>('NODE_ENV', 'development');
+      if (nodeEnv !== 'production') {
+        response.otp = otp;
+      }
+    } else {
+      this.logger.log(
+        `Forgot password requested for non-existent email: ${dto.email}`,
       );
     }
 
-    return {
-      success: true,
-      message: 'If an account exists with that email, an OTP has been sent.',
-      otp, // Always expose OTP for demonstration locally
-    };
+    return response;
   }
 
   /**

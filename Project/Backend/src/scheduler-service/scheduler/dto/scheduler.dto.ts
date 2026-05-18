@@ -4,7 +4,11 @@ import {
   IsOptional,
   IsHexColor,
   IsNumber,
+  IsIn,
+  ValidateIf,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CreateCategoryDto {
   @IsString()
@@ -14,16 +18,6 @@ export class CreateCategoryDto {
   @IsOptional()
   @IsHexColor()
   color?: string;
-}
-
-export class CreateSubjectDto {
-  @IsString()
-  @IsNotEmpty()
-  name: string;
-
-  @IsString()
-  @IsNotEmpty()
-  categoryId: string;
 }
 
 export class UpdateCategoryDto {
@@ -36,20 +30,10 @@ export class UpdateCategoryDto {
   color?: string;
 }
 
-export class UpdateSubjectDto {
-  @IsOptional()
-  @IsString()
-  name?: string;
-
-  @IsOptional()
-  @IsString()
-  categoryId?: string;
-}
-
 export class CreateScheduleDto {
   @IsString()
   @IsNotEmpty()
-  subjectId: string;
+  categoryId: string;
 
   @IsString()
   @IsNotEmpty()
@@ -66,6 +50,16 @@ export class CreateScheduleDto {
   @IsOptional()
   @IsString()
   groupId?: string;
+}
+
+export class SessionDataDto {
+  @IsNotEmpty()
+  @IsString()
+  startTime: string;
+
+  @IsNotEmpty()
+  @IsString()
+  endTime: string;
 }
 
 export class CreateTaskDto {
@@ -91,11 +85,21 @@ export class CreateTaskDto {
 
   @IsOptional()
   @IsString()
-  subjectId?: string;
+  categoryId?: string;
 
   @IsOptional()
   @IsNumber()
   priority?: number;
+
+  @IsOptional()
+  @IsIn(['TASK', 'SESSION'])
+  type?: 'TASK' | 'SESSION';
+
+  @ValidateIf((o) => o.type === 'SESSION')
+  @IsNotEmpty()
+  @ValidateNested()
+  @Type(() => SessionDataDto)
+  sessionData?: SessionDataDto;
 }
 
 export class UpdateTaskDto {
@@ -113,7 +117,7 @@ export class UpdateTaskDto {
 
   @IsOptional()
   @IsString()
-  subjectId?: string | null;
+  categoryId?: string | null;
 
   @IsOptional()
   @IsString()
@@ -126,6 +130,16 @@ export class UpdateTaskDto {
   @IsOptional()
   @IsString()
   status?: string;
+
+  @IsOptional()
+  @IsIn(['TASK', 'SESSION'])
+  type?: 'TASK' | 'SESSION';
+
+  @ValidateIf((o) => o.type === 'SESSION')
+  @IsNotEmpty()
+  @ValidateNested()
+  @Type(() => SessionDataDto)
+  sessionData?: SessionDataDto;
 }
 
 export class CreateTaskAllocationDto {

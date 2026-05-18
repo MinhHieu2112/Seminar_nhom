@@ -14,6 +14,6 @@ export const authService = {
       { refreshToken },
     ),
 
-  logout: (userId: string, jti: string) =>
+  logout: (userId: string, jti?: string) =>
     apiClient.post('/api/v1/auth/logout', { userId, jti }),
 };

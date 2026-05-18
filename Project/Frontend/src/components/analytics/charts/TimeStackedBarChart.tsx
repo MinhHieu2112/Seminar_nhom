@@ -63,7 +63,7 @@ export const TimeStackedBarChart = memo(function TimeStackedBarChart({
                 axisLine={false}
                 tickLine={false}
                 tick={{ fontSize: 11, fill: '#94a3b8' }}
-                unit="%"
+                unit="h"
               />
               <Tooltip
                 contentStyle={{
@@ -81,12 +81,12 @@ export const TimeStackedBarChart = memo(function TimeStackedBarChart({
                     };
                   },
                 ) => [
-                  `${item.payload?.percentage ?? 0}% • ${item.payload?.hours ?? 0}h`,
+                  `${item.payload?.hours ?? 0}h (${item.payload?.percentage ?? 0}%)`,
                   'Thời lượng',
                 ]}
                 cursor={{ fill: 'rgba(99,102,241,0.04)' }}
               />
-              <Bar dataKey="percentage" radius={[8, 8, 0, 0]} maxBarSize={72}>
+              <Bar dataKey="hours" radius={[8, 8, 0, 0]} maxBarSize={72}>
                 {data.map((_, index) => (
                   <Cell
                     key={index}

@@ -138,6 +138,7 @@ export class GeminiProvider implements AiProvider {
         ...t,
         duration: typeof t.duration === 'number' ? t.duration : 60,
         priority: typeof t.priority === 'number' ? t.priority : 3,
+        type: typeof t.type === 'string' ? t.type : 'TASK',
       }));
     }
     if (typeof fixed.fromDate === 'string' && fixed.fromDate.includes('/')) {

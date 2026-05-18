@@ -1,0 +1,37 @@
+Phân tích và khắc phục lỗ hổng bảo mật `[SEC-02] JWT Secret Hardcoded Fallback Yếu` trong hệ thống NestJS microservices hiện tại.
+
+Yêu cầu suy luận từng bước trước khi code:
+
+1. Phân tích cách hệ thống đang load JWT secret từ `.env`, `docker-compose` và source code.
+2. Xác định các vị trí đang dùng fallback secret không an toàn.
+3. Đánh giá rủi ro forge JWT trong production.
+4. Thiết kế cơ chế env validation an toàn theo production-ready standards.
+5. Refactor theo clean architecture và centralized config management.
+
+Thực hiện:
+
+* Loại bỏ toàn bộ hardcoded fallback JWT secret.
+* Tích hợp `@nestjs/config` + `validationSchema` (`Joi`).
+* Bắt buộc validate:
+
+  * `JWT_SECRET`
+  * `JWT_REFRESH_SECRET`
+  * `JWT_EXPIRES_IN`
+* Throw exception khi thiếu env trong production.
+* Validate độ dài tối thiểu của JWT secret.
+* Refactor `gateway.utils.ts` và auth config.
+* Cập nhật `docker-compose.yml` không dùng fallback insecure.
+* Chuẩn hóa `.env.example`.
+* Đảm bảo secrets không bị log ra console.
+* Sinh helper/config module dùng chung cho toàn bộ microservices.
+
+Output:
+
+1. Phân tích vấn đề
+2. Security risks
+3. Thiết kế giải pháp
+4. File structure thay đổi
+5. Code implementation hoàn chỉnh
+6. Docker & env improvements
+7. Security improvements đạt được
+8. Các rủi ro còn lại nếu chưa dùng secret manager (Vault, AWS Secrets Manager, Kubernetes Secrets)

@@ -19,12 +19,14 @@ import { extname } from 'path';
 import { HttpClientService } from '../http-client.service';
 import { JwtService } from '@nestjs/jwt';
 import { extractUserId } from '../gateway.utils';
+import { GatewaySocketGateway } from '../gateway.socket';
 
 @Controller('api/v1/scheduler')
 export class SchedulerGatewayController {
   constructor(
     private readonly httpClient: HttpClientService,
     private readonly jwtService: JwtService,
+    private readonly gatewaySocket: GatewaySocketGateway,
   ) {}
 
   private getUid(authHeader: string): string {
@@ -81,61 +83,6 @@ export class SchedulerGatewayController {
       'scheduler-service',
       'delete',
       `/api/v1/scheduler/categories/${id}`,
-      null,
-      this.getUid(authHeader),
-    );
-  }
-
-  // --- Subjects ---
-  @Post('subjects')
-  createSubject(
-    @Headers('authorization') authHeader: string,
-    @Body() dto: any,
-  ) {
-    return this.httpClient.request(
-      'scheduler-service',
-      'post',
-      '/api/v1/scheduler/subjects',
-      dto,
-      this.getUid(authHeader),
-    );
-  }
-
-  @Get('subjects')
-  getSubjects(@Headers('authorization') authHeader: string) {
-    return this.httpClient.request(
-      'scheduler-service',
-      'get',
-      '/api/v1/scheduler/subjects',
-      null,
-      this.getUid(authHeader),
-    );
-  }
-
-  @Put('subjects/:id')
-  updateSubject(
-    @Headers('authorization') authHeader: string,
-    @Param('id') id: string,
-    @Body() dto: any,
-  ) {
-    return this.httpClient.request(
-      'scheduler-service',
-      'put',
-      `/api/v1/scheduler/subjects/${id}`,
-      dto,
-      this.getUid(authHeader),
-    );
-  }
-
-  @Delete('subjects/:id')
-  deleteSubject(
-    @Headers('authorization') authHeader: string,
-    @Param('id') id: string,
-  ) {
-    return this.httpClient.request(
-      'scheduler-service',
-      'delete',
-      `/api/v1/scheduler/subjects/${id}`,
       null,
       this.getUid(authHeader),
     );
@@ -260,7 +207,7 @@ export class SchedulerGatewayController {
         },
       }),
       limits: {
-        fileSize: 5 * 1024 * 1024, // 5MB limit
+        fileSize: 50 * 1024 * 1024, // 50MB limit
       },
     }),
   )
@@ -371,38 +318,144 @@ export class SchedulerGatewayController {
 
   // --- Notifications ---
   @Get('notifications')
-  getNotifications(@Headers('authorization') authHeader: string) {
-    return this.httpClient.request(
-      'scheduler-service',
-      'get',
-      '/api/v1/scheduler/notifications',
-      null,
-      this.getUid(authHeader),
-    );
+  async getNotifications(@Headers('authorization') authHeader: string) {
+    const userId = this.getUid(authHeader);
+    try {
+      const [schedulerRes, teamworkRes] = await Promise.all([
+        this.httpClient.request(
+          'scheduler-service',
+          'get',
+          '/internal/notifications',
+          null,
+          userId,
+        ),
+        this.httpClient.request(
+          'teamwork-service',
+          'get',
+          '/internal/notifications',
+          null,
+          userId,
+        ),
+      ]);
+
+      const schedulerNotifs = Array.isArray(schedulerRes?.notifications)
+        ? schedulerRes.notifications
+        : [];
+      const teamworkNotifs = Array.isArray(teamworkRes?.notifications)
+        ? teamworkRes.notifications
+        : [];
+
+      const merged = [
+        ...schedulerNotifs.map((n: any) => ({ ...n, id: `sched_${n.id}` })),
+        ...teamworkNotifs.map((n: any) => ({ ...n, id: `team_${n.id}` })),
+      ];
+
+      merged.sort(
+        (a: any, b: any) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      );
+
+      return merged.slice(0, 50);
+    } catch (error) {
+      console.error('[API-GATEWAY] Failed to aggregate notifications:', error);
+      // Fallback to scheduler-service only if one fails to avoid complete breakdown
+      try {
+        const schedulerRes = await this.httpClient.request(
+          'scheduler-service',
+          'get',
+          '/internal/notifications',
+          null,
+          userId,
+        );
+        const schedulerNotifs = Array.isArray(schedulerRes?.notifications)
+          ? schedulerRes.notifications
+          : [];
+        return schedulerNotifs.map((n: any) => ({ ...n, id: `sched_${n.id}` }));
+      } catch {
+        throw error;
+      }
+    }
   }
 
   @Post('notifications/:id/read')
-  markNotificationAsRead(
+  async markNotificationAsRead(
     @Headers('authorization') authHeader: string,
     @Param('id') id: string,
   ) {
-    return this.httpClient.request(
-      'scheduler-service',
-      'post',
-      `/api/v1/scheduler/notifications/${id}/read`,
-      null,
-      this.getUid(authHeader),
-    );
+    const userId = this.getUid(authHeader);
+    const separatorIndex = id.indexOf('_');
+    let prefix = '';
+    let actualId = id;
+    if (separatorIndex !== -1) {
+      prefix = id.substring(0, separatorIndex);
+      actualId = id.substring(separatorIndex + 1);
+    }
+
+    let res;
+    if (prefix === 'team') {
+      res = await this.httpClient.request(
+        'teamwork-service',
+        'post',
+        `/internal/notifications/${actualId}/read`,
+        null,
+        userId,
+      );
+    } else {
+      res = await this.httpClient.request(
+        'scheduler-service',
+        'post',
+        `/internal/notifications/${actualId}/read`,
+        null,
+        userId,
+      );
+    }
+
+    try {
+      this.gatewaySocket.emitToUser(userId, 'notificationRead', { id });
+    } catch (err) {
+      console.error(
+        '[Gateway] Failed to emit notificationRead socket event:',
+        err,
+      );
+    }
+
+    return res;
   }
 
   @Post('notifications/read-all')
-  markAllNotificationsAsRead(@Headers('authorization') authHeader: string) {
-    return this.httpClient.request(
-      'scheduler-service',
-      'post',
-      '/api/v1/scheduler/notifications/read-all',
-      null,
-      this.getUid(authHeader),
-    );
+  async markAllNotificationsAsRead(
+    @Headers('authorization') authHeader: string,
+  ) {
+    const userId = this.getUid(authHeader);
+    const [schedulerRes, teamworkRes] = await Promise.all([
+      this.httpClient.request(
+        'scheduler-service',
+        'post',
+        '/internal/notifications/read-all',
+        null,
+        userId,
+      ),
+      this.httpClient.request(
+        'teamwork-service',
+        'post',
+        '/internal/notifications/read-all',
+        null,
+        userId,
+      ),
+    ]);
+
+    try {
+      this.gatewaySocket.emitToUser(userId, 'notificationReadAll', {});
+    } catch (err) {
+      console.error(
+        '[Gateway] Failed to emit notificationReadAll socket event:',
+        err,
+      );
+    }
+
+    return {
+      success: true,
+      count: (schedulerRes?.count || 0) + (teamworkRes?.count || 0),
+    };
   }
 }

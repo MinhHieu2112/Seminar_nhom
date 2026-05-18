@@ -1,0 +1,54 @@
+Phân tích và khắc phục lỗ hổng bảo mật `[SEC-05] Thiếu Authorization Trong Internal Services` trong hệ thống NestJS microservices hiện tại.
+
+Bối cảnh:
+
+* `scheduler.controller.ts` và `teamwork.controller.ts` đang chỉ đọc `x-user-id` từ header.
+* Không có cơ chế verify request source hoặc validate internal authentication.
+* Hệ thống đang giả định internal network là trusted.
+
+Yêu cầu suy luận từng bước trước khi code:
+
+1. Phân tích luồng request giữa API Gateway và internal services.
+2. Xác định toàn bộ vị trí đang trust `x-user-id` hoặc internal headers.
+3. Đánh giá khả năng privilege escalation / forged internal request.
+4. Thiết kế cơ chế service-to-service authentication production-ready.
+5. So sánh:
+
+   * Internal shared secret
+   * Signed internal JWT
+   * mTLS
+   * API Gateway forwarding strategy
+6. Chọn giải pháp phù hợp nhất với kiến trúc hiện tại và giải thích lý do.
+
+Thực hiện:
+
+* Không cho internal services trust raw headers trực tiếp.
+* Tạo internal auth middleware/guard dùng chung.
+* Validate request source từ API Gateway.
+* Triển khai:
+
+  * Internal service token hoặc signed internal JWT
+  * Header signature validation
+  * Timestamp chống replay attack
+* Tách rõ:
+
+  * External user auth
+  * Internal service auth
+* Refactor gateway để inject internal auth metadata an toàn.
+* Thêm env validation cho internal secrets.
+* Log unauthorized internal requests.
+* Chuẩn hóa response khi auth fail.
+* Đảm bảo backward compatibility tối đa.
+
+Yêu cầu output tối ưu:
+
+1. Root cause analysis
+2. Attack scenarios thực tế
+3. Security architecture đề xuất
+4. Trust boundary diagram (mô tả text)
+5. File structure thay đổi
+6. Step-by-step refactor plan
+7. Full code implementation
+8. Security improvements đạt được
+9. Remaining risks & hardening recommendations
+10. Checklist verify sau khi triển khai

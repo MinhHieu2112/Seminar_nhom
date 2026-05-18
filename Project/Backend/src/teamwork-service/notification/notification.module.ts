@@ -1,26 +1,13 @@
 import { Module } from '@nestjs/common';
-import { ClientsModule, Transport } from '@nestjs/microservices';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ConfigModule } from '@nestjs/config';
 import { NotificationService } from './notification.service';
+import { NotificationController } from './notification.controller';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Module({
-  imports: [
-    ClientsModule.registerAsync([
-      {
-        name: 'REDIS_CLIENT',
-        imports: [ConfigModule],
-        inject: [ConfigService],
-        useFactory: (configService: ConfigService) => ({
-          transport: Transport.REDIS,
-          options: {
-            host: configService.get<string>('REDIS_HOST', 'localhost'),
-            port: configService.get<number>('REDIS_PORT', 6379),
-          },
-        }),
-      },
-    ]),
-  ],
-  providers: [NotificationService],
+  imports: [ConfigModule],
+  controllers: [NotificationController],
+  providers: [NotificationService, PrismaService],
   exports: [NotificationService],
 })
 export class NotificationModule {}

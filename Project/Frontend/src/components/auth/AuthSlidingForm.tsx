@@ -198,12 +198,18 @@ export function AuthSlidingForm({ initialMode = 'login' }: AuthSlidingFormProps)
                   Chúng tôi đã gửi mã khôi phục đến <strong>{fpEmail}</strong>.
                 </p>
 
-                {fpOtp && fpCountdown > 0 && (
+                {fpOtp && fpCountdown > 0 ? (
                   <div style={{ padding: '12px 20px', background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: 10, textAlign: 'center', width: '100%' }}>
                     <p style={{ margin: '0 0 6px', color: '#6d28d9', fontSize: 13 }}>
                       Mã OTP (ẩn sau {fpCountdown}s):
                     </p>
                     <div style={{ fontSize: 28, letterSpacing: 8, fontWeight: 700, color: '#7c3aed' }}>{fpOtp}</div>
+                  </div>
+                ) : (
+                  <div style={{ padding: '12px 20px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, textAlign: 'center', width: '100%' }}>
+                    <p style={{ margin: 0, color: '#166534', fontSize: 13, fontWeight: 500 }}>
+                      Mã OTP khôi phục đã được gửi qua hòm thư Email của bạn.
+                    </p>
                   </div>
                 )}
 

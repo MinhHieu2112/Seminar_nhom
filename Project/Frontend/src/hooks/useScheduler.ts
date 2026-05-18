@@ -19,16 +19,7 @@ export function useCreateCategory() {
     });
 }
 
-export function useCreateSubject() {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationFn: (data: { name: string; categoryId: string }) =>
-            schedulerService.createSubject(data),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: [...SCHEDULER_QUERY_KEY, 'subjects'] });
-        },
-    });
-}
+
 
 export function useUpdateCategory() {
     const queryClient = useQueryClient();
@@ -46,35 +37,26 @@ export function useDeleteCategory() {
         mutationFn: (id: string) => schedulerService.deleteCategory(id),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: [...SCHEDULER_QUERY_KEY, 'categories'] });
-            queryClient.invalidateQueries({ queryKey: [...SCHEDULER_QUERY_KEY, 'subjects'] });
         },
     });
 }
 
-export function useUpdateSubject() {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationFn: ({ id, data }: { id: string; data: { name?: string; categoryId?: string } }) => schedulerService.updateSubject(id, data),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: [...SCHEDULER_QUERY_KEY, 'subjects'] });
-        },
-    });
-}
 
-export function useDeleteSubject() {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationFn: (id: string) => schedulerService.deleteSubject(id),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: [...SCHEDULER_QUERY_KEY, 'subjects'] });
-        },
-    });
-}
 
 export function useCreateTask() {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: (data: { title: string; description?: string; dueTime?: string; subjectId?: string; priority?: number; groupId?: string; assigneeId?: string }) =>
+        mutationFn: (data: {
+            title: string;
+            description?: string;
+            dueTime?: string;
+            categoryId?: string;
+            priority?: number;
+            groupId?: string;
+            assigneeId?: string;
+            type?: 'TASK' | 'SESSION';
+            sessionData?: { startTime: string; endTime: string };
+        }) =>
             schedulerService.createTask(data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: [...SCHEDULER_QUERY_KEY, 'tasks'] });
@@ -85,7 +67,7 @@ export function useCreateTask() {
 export function useCreateSchedule() {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: (data: { subjectId: string; startTime: string; endTime: string; dayOfWeek: number; groupId?: string }) =>
+        mutationFn: (data: { categoryId: string; startTime: string; endTime: string; dayOfWeek: number; groupId?: string }) =>
             schedulerService.createSchedule(data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: [...SCHEDULER_QUERY_KEY, 'schedules'] });
@@ -96,7 +78,22 @@ export function useCreateSchedule() {
 export function useUpdateTask() {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: ({ id, data }: { id: string; data: Partial<{ title: string; description: string; dueTime: string | null; subjectId: string; assigneeId: string | null; priority: number; status: string; leaderComments?: string | null; groupId?: string }> }) =>
+        mutationFn: ({ id, data }: {
+            id: string;
+            data: Partial<{
+                title: string;
+                description: string;
+                dueTime: string | null;
+                categoryId: string;
+                assigneeId: string | null;
+                priority: number;
+                status: string;
+                leaderComments?: string | null;
+                groupId?: string;
+                type?: 'TASK' | 'SESSION';
+                sessionData?: { startTime: string; endTime: string };
+            }>;
+        }) =>
             schedulerService.updateTask(id, data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: [...SCHEDULER_QUERY_KEY, 'tasks'] });
@@ -166,15 +163,7 @@ export function useSchedulerCategories() {
     });
 }
 
-export function useSchedulerSubjects() {
-    return useQuery({
-        queryKey: [...SCHEDULER_QUERY_KEY, 'subjects'],
-        queryFn: async () => {
-            const response = await schedulerService.getSubjects();
-            return response.data;
-        },
-    });
-}
+
 
 export function useUploadAttachments() {
     const queryClient = useQueryClient();

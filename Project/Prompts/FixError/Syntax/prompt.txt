@@ -1,0 +1,13 @@
+> [ai-service builder 7/7] RUN pnpm run build:
+0.478 
+0.478 > backend@0.0.1 build /app
+0.478 > nest build
+0.478 
+4.639 src/scheduler-service/analytics/analytics.service.ts:24:23 - error TS2339: Property 'taskLog' does not exist on type 'PrismaService'.
+4.639 
+4.639 24     await this.prisma.taskLog.create({
+4.639                          ~~~~~~~
+4.639 src/scheduler-service/analytics/analytics.service.ts:37:23 - error TS2339: Property 'dailySummary' does not exist on type 'PrismaService'.
+4.639 
+4.639 37     await this.prisma.dailySummary.upsert({
+4.639            

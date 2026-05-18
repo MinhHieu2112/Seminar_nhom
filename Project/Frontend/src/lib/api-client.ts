@@ -123,6 +123,18 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 
+      // Double-check: Check if another tab has already refreshed the token
+      const currentToken = getStoredToken();
+      const requestToken = originalRequest.headers?.Authorization?.replace('Bearer ', '');
+      if (currentToken && currentToken !== requestToken) {
+        // Token has already been updated in localStorage by another tab!
+        // Just retry the request immediately with the updated token
+        if (originalRequest.headers) {
+          originalRequest.headers.Authorization = `Bearer ${currentToken}`;
+        }
+        return apiClient(originalRequest);
+      }
+
       // If a refresh is already in-flight, queue this request behind it
       if (isRefreshing) {
         return new Promise((resolve) => {
@@ -171,3 +183,19 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   },
 );
+
+// ── Multi-Tab Storage Listener — Real-time state synchronization ──────────────
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (event) => {
+    if (event.key === 'auth-storage') {
+      // Lazy load the store dynamically to avoid circular dependency issues
+      import('@/store/auth-store')
+        .then(({ useAuthStore }) => {
+          if (useAuthStore?.persist?.rehydrate) {
+            useAuthStore.persist.rehydrate();
+          }
+        })
+        .catch(() => {});
+    }
+  });
+}

@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class HttpClientService {
@@ -44,7 +45,24 @@ export class HttpClientService {
     if (!baseUrl) throw new Error(`Service ${serviceName} not registered`);
 
     const url = `${baseUrl}${path}`;
-    const headers = userId ? { 'x-user-id': userId } : {};
+    const timestamp = Date.now().toString();
+    const secret = this.configService.get<string>('INTERNAL_SERVICE_SECRET');
+    const headers: Record<string, string> = {};
+
+    if (userId) {
+      headers['x-user-id'] = userId;
+    }
+
+    if (secret) {
+      const payload = `${userId || ''}:${timestamp}`;
+      const signature = crypto
+        .createHmac('sha256', secret)
+        .update(payload)
+        .digest('hex');
+
+      headers['x-internal-signature'] = signature;
+      headers['x-internal-timestamp'] = timestamp;
+    }
 
     try {
       const response = await firstValueFrom(

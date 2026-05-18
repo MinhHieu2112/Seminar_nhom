@@ -1,5 +1,5 @@
-import { Controller } from '@nestjs/common';
-import { MessagePattern, Payload } from '@nestjs/microservices';
+import { Controller, HttpStatus } from '@nestjs/common';
+import { MessagePattern, Payload, RpcException } from '@nestjs/microservices';
 import { AgentAiService } from './agent-ai.service';
 import type { GenerateSchedulePayload } from './agent-ai.service';
 import { NormalizeInputDto } from './dto/unified-input.dto';
@@ -28,11 +28,12 @@ export class AgentAiController {
       const result = this.agentAiService.normalizeInput(payload);
       return { success: true, data: result };
     } catch (error) {
-      return {
-        success: false,
+      throw new RpcException({
+        statusCode: HttpStatus.BAD_REQUEST,
         message:
           error instanceof Error ? error.message : 'Normalization failed',
-      };
+        code: 'AI_NORMALIZATION_FAILED',
+      });
     }
   }
 
@@ -49,13 +50,14 @@ export class AgentAiController {
       );
       return { success: true, data: result };
     } catch (error) {
-      return {
-        success: false,
+      throw new RpcException({
+        statusCode: HttpStatus.BAD_REQUEST,
         message:
           error instanceof Error
             ? error.message
             : 'AI schedule generation failed',
-      };
+        code: 'AI_GENERATION_FAILED',
+      });
     }
   }
 
@@ -82,13 +84,14 @@ export class AgentAiController {
       );
       return { success: true, data: result };
     } catch (error) {
-      return {
-        success: false,
+      throw new RpcException({
+        statusCode: HttpStatus.BAD_REQUEST,
         message:
           error instanceof Error
             ? error.message
             : 'AI schedule generation from image failed',
-      };
+        code: 'AI_GENERATION_FROM_IMAGE_FAILED',
+      });
     }
   }
 }

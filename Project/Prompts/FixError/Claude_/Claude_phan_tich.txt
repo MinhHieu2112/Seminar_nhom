@@ -1,0 +1,253 @@
+# Báo Cáo Technical Review — StudyPlan Backend & Frontend
+
+---
+
+## 1. Tổng Quan Đánh Giá Hệ Thống
+
+### Điểm Mạnh
+
+Hệ thống có kiến trúc microservices rõ ràng với API Gateway làm entry point, phân tách domain tốt (user, scheduler, teamwork, ai), sử dụng Prisma với custom client output cho từng service, Frontend Next.js 15 với App Router hiện đại, có test coverage ở nhiều layer (unit, integration, e2e), và Docker setup khá hoàn chỉnh.
+
+### Điểm Yếu Chính
+
+Bảo mật có nhiều lỗ hổng nghiêm trọng, kiến trúc TCP microservice thiếu resiliency, OTP bị lộ trong response production, không có rate limiting thực sự, và nhiều anti-pattern về state management và error handling xuyên suốt codebase.
+
+---
+
+## 2. Danh Sách Vấn Đề
+
+---
+
+**[SEC-01] OTP Bị Lộ Trong API Response**
+
+- **Mức độ:** Critical
+- **Thành phần:** `users.controller.ts` → `forgotPassword`, `AuthSlidingForm.tsx`, `forgot-password/page.tsx`
+- **Mô tả:** Handler `user.password.forgot` luôn trả về `otp` trong response body dù là production environment. Frontend còn render OTP lên UI trong vài giây.
+- **Nguyên nhân:** Comment "// Always expose OTP for demonstration locally" bị để nguyên lên production code.
+- **Hậu quả:** Bất kỳ ai intercept HTTP response đều lấy được OTP reset mật khẩu, toàn bộ flow bảo mật vô nghĩa.
+- **Cải thiện:** `otp` chỉ được trả về khi `NODE_ENV !== 'production'`. Trong production chỉ gửi qua email.
+
+---
+
+**[SEC-02] JWT Secret Hardcoded Fallback Yếu**
+
+- **Mức độ:** Critical
+- **Thành phần:** `docker-compose.yml`, `env.example`, `gateway.utils.ts`
+- **Mô tả:** `JWT_SECRET` mặc định là `dev_jwt_secret_change_in_production`, nhưng docker-compose dùng `${JWT_SECRET:-dev_jwt_secret_change_in_production}`, nghĩa là nếu không set env thì secret yếu này được dùng.
+- **Hậu quả:** Attacker có thể tự forge JWT hợp lệ để impersonate bất kỳ user nào.
+- **Cải thiện:** Bắt buộc set secret qua env validation khi startup (dùng `@nestjs/config` với `validationSchema`), throw exception nếu thiếu trong production.
+
+---
+
+**[SEC-03] Không Có Rate Limiting Thực Sự**
+
+- **Mức độ:** Critical
+- **Thành phần:** API Gateway, tất cả endpoints
+- **Mô tả:** Không có middleware rate limiting nào được cài trên API Gateway. Code có comment về 429 nhưng không có implementation thực tế.
+- **Hậu quả:** Brute force password, OTP guessing, DDoS dễ dàng.
+- **Cải thiện:** Dùng `@nestjs/throttler` với Redis store cho distributed rate limiting, đặc biệt trên `/auth/login`, `/auth/forgot-password`, `/auth/verify-otp`.
+
+---
+
+**[SEC-04] CORS Quá Rộng Trong Teamwork Service**
+
+- **Mức độ:** High
+- **Thành phần:** `main.teamwork.ts`, `ChatArea.tsx`
+- **Mô tả:** WebSocket gateway trong ChatArea kết nối trực tiếp đến `http://localhost:8006` — hardcode port của teamwork-service, bypass API Gateway hoàn toàn. CORS trong WebSocket gateway cũng là `origin: '*'`.
+- **Hậu quả:** Client kết nối thẳng vào internal service, không qua auth layer của gateway.
+- **Cải thiện:** WebSocket phải đi qua API Gateway hoặc ít nhất phải validate JWT token trong `handleConnection`.
+
+---
+
+**[SEC-05] Thiếu Authorization Trong Nhiều Endpoint**
+
+- **Mức độ:** High
+- **Thành phần:** `scheduler.controller.ts`, `teamwork.controller.ts`
+- **Mô tả:** Các HTTP controller trong internal services chỉ đọc `x-user-id` header mà không validate gì. Bất kỳ request nào với header giả cũng được chấp nhận.
+- **Nguyên nhân:** Giả định internal services không expose ra ngoài, nhưng không có network-level enforcement.
+- **Hậu quả:** Nếu Kubernetes/Docker network bị compromise, hoặc misconfiguration expose internal ports, attacker có full access.
+- **Cải thiện:** Dùng internal shared secret hoặc mTLS giữa các services. Không dựa vào network isolation đơn thuần.
+
+---
+
+**[ARCH-01] TCP Microservice Thiếu Resiliency Hoàn Toàn**
+
+- **Mức độ:** High
+- **Thành phần:** `tcp-client.service.ts`, `gateway.utils.ts`
+- **Mô tả:** `ClientTCP` của NestJS không có circuit breaker, retry policy, timeout, hay fallback. Khi một microservice chết, toàn bộ request đến gateway sẽ treo hoặc throw generic error.
+- **Hậu quả:** Single point of failure — một service lỗi kéo theo cascade failure cho toàn hệ thống.
+- **Cải thiện:** Implement timeout trong `safeSend`, dùng `opossum` cho circuit breaker, hoặc chuyển sang message queue (Redis Streams/BullMQ) cho các operation không cần synchronous response.
+
+---
+
+**[ARCH-02] Direct DB Query Từ Analytics Service Sang Teamwork DB**
+
+- **Mức độ:** High
+- **Thành phần:** `analytics.service.ts` — hàm `queryTeamwork`
+- **Mô tả:** Analytics service dùng `require('pg')` để query thẳng vào database của teamwork-service, hoàn toàn bypass service layer và business logic.
+- **Nguyên nhân:** Convenience shortcut để tránh thêm TCP call.
+- **Hậu quả:** Tight coupling giữa services qua database schema, vi phạm bounded context, teamwork schema thay đổi sẽ break analytics. Connection pool không được quản lý đúng cách (mỗi query tạo client mới).
+- **Cải thiện:** Analytics nên query qua teamwork-service API hoặc subscribe event để maintain local read model (CQRS pattern).
+
+---
+
+**[ARCH-03] Prisma `db push` Trong Production Container**
+
+- **Mức độ:** High
+- **Thành phần:** `Dockerfile` — CMD của user-service, scheduler-service, teamwork-service
+- **Mô tả:** Mỗi lần container khởi động đều chạy `prisma db push --accept-data-loss`. Flag `--accept-data-loss` nghĩa là Prisma sẽ drop column/table nếu schema thay đổi mà không cần confirmation.
+- **Hậu quả:** Dữ liệu production có thể bị xóa khi deploy. `db push` không phải migration strategy — không có rollback, không có audit trail.
+- **Cải thiện:** Dùng `prisma migrate deploy` trong CI/CD pipeline riêng biệt trước khi deploy containers. Tách migration khỏi application startup.
+
+---
+
+**[ARCH-04] Circular Dependency Ẩn Trong Module Structure**
+
+- **Mức độ:** Medium
+- **Thành phần:** `scheduler.module.ts`, `notification.module.ts`, `analytics.module.ts`
+- **Mô tả:** SchedulerModule import NotificationModule và AnalyticsModule, AnalyticsModule import PrismaService của scheduler. Khi scale lên, pattern này dễ tạo circular dependency.
+- **Cải thiện:** Dùng event-driven architecture: thay vì direct import, emit events qua Redis và let các module subscribe độc lập.
+
+---
+
+**[PERF-01] N+1 Query Pattern Trong Analytics Dashboard**
+
+- **Mức độ:** High
+- **Thành phần:** `analytics.service.ts` — `getUserDashboard`
+- **Mô tả:** Hàm này chạy 6+ Promise.all queries trên scheduler DB, sau đó trong vòng lặp `for (const row of pendingTasksRows)` lại gọi `prisma.userProjection.findUnique` cho mỗi row — đây là N+1 query kinh điển.
+- **Hậu quả:** Dashboard load chậm tuyến tính theo số task đang pending.
+- **Cải thiện:** Collect tất cả `assigneeId` vào array, dùng `findMany({ where: { id: { in: ids } } })` một lần duy nhất, rồi build map để lookup.
+
+---
+
+**[PERF-02] Tạo New Pg Client Cho Mỗi Query Trong Analytics**
+
+- **Mức độ:** High
+- **Thành phần:** `analytics.service.ts` — `queryTeamwork`
+- **Mô tả:** Mỗi lần gọi `queryTeamwork` tạo `new Client()`, connect, query, rồi end. Dashboard gọi function này 6-7 lần, tức là 6-7 connection mới mỗi request.
+- **Hậu quả:** Connection overhead lớn, dễ exhaust PostgreSQL connection pool.
+- **Cải thiện:** Dùng `pg.Pool` singleton hoặc tốt hơn là refactor về service-to-service call.
+
+---
+
+**[PERF-03] Missing Database Indexes**
+
+- **Mức độ:** Medium
+- **Thành phần:** `schema.prisma` files
+- **Mô tả:** Các trường thường xuyên query như `Task.userId`, `Task.status`, `Task.dueTime`, `GroupTask.groupId`, `GroupMessage.groupId`, `GroupMessage.taskId` không có index.
+- **Hậu quả:** Full table scan khi data lớn, query chậm.
+- **Cải thiện:** Thêm `@@index([userId, status])`, `@@index([groupId, createdAt])`, etc. vào Prisma schema.
+
+---
+
+**[STATE-01] localStorage Bị Dùng Trong Artifact/Browser Context Không An Toàn**
+
+- **Mức độ:** High
+- **Thành phần:** `ChatArea.tsx` — `deletedMessageIds`
+- **Mô tả:** `deletedMessages` được lưu trong localStorage per user per group. Đây là client-only "soft delete" — nếu user xóa cache, hoặc dùng device khác, messages xuất hiện lại.
+- **Hậu quả:** Inconsistent UX, không phải real delete, misleading.
+- **Cải thiện:** Implement server-side soft delete với `deletedAt` field, hoặc `MessageVisibility` table per user.
+
+---
+
+**[STATE-02] Race Condition Trong Auth Refresh**
+
+- **Mức độ:** Medium
+- **Thành phần:** `api-client.ts`
+- **Mô tả:** Logic `isRefreshing` flag là module-level variable. Trong SSR hoặc concurrent requests, có thể có race condition. Hơn nữa, `updateAuthStore` write trực tiếp vào localStorage JSON — nếu có concurrent writes thì data có thể corrupt.
+- **Cải thiện:** Sử dụng `Promise` singleton pattern với proper mutex, hoặc lock via Zustand action.
+
+---
+
+**[CODE-01] `as any` và Type Casting Tràn Lan**
+
+- **Mức độ:** Medium
+- **Thành phần:** `auth.service.ts`, `scheduler.service.ts`, `teamwork.service.ts`, nhiều file khác
+- **Mô tả:** Codebase có rất nhiều `as any`, `(this.prisma.user as any).findUnique`, `parsed.tasks`, `error as any`. TypeScript đang được dùng như JavaScript có type hint.
+- **Hậu quả:** Mất hết benefit của TypeScript, runtime errors không được catch ở compile time.
+- **Cải thiện:** Define proper interfaces/types, dùng `unknown` thay `any` cho error handling, dùng Prisma generated types.
+
+---
+
+**[CODE-02] Error Handling Không Nhất Quán**
+
+- **Mức độ:** Medium
+- **Thành phần:** Toàn bộ codebase
+- **Mô tả:** Có 3 pattern error handling khác nhau: (1) `throw new RpcException`, (2) `throw new NotFoundException`, (3) return `{ success: false, message }`. `safeSend` trong gateway phải handle tất cả 3 cases với nested if-else fragile.
+- **Hậu quả:** Frontend nhận error format khác nhau tùy endpoint, khó debug.
+- **Cải thiện:** Chuẩn hóa error contract: tất cả microservice errors đều throw `RpcException` với shape `{ statusCode, message, code }`. Gateway map 1:1 sang HTTP exceptions.
+
+---
+
+**[CODE-03] Hardcode URLs Trong Frontend**
+
+- **Mức độ:** Medium
+- **Thành phần:** `ChatArea.tsx`, `LoginForm.tsx`, `RegisterForm.tsx`
+- **Mô tả:** `http://localhost:8006` hardcode trong ChatArea WebSocket connection. OAuth URLs có fallback hardcode `http://localhost:8000/...`.
+- **Hậu quả:** Build production sẽ có localhost URLs, không hoạt động.
+- **Cải thiện:** Tất cả URLs phải qua `NEXT_PUBLIC_*` env variables, không có hardcode fallback production URL.
+
+---
+
+**[CODE-04] `console.log` Trong Production Code**
+
+- **Mức độ:** Low
+- **Thành phần:** `teamwork.service.ts`, `user-events.controller.ts`, `main.ts`, nhiều file
+- **Mô tả:** Hàng chục `console.log` và `console.error` trực tiếp thay vì dùng NestJS `Logger`.
+- **Hậu quả:** Không có structured logging, không có log level control, không thể integrate với logging infrastructure (ELK, Datadog).
+- **Cải thiện:** Dùng `private readonly logger = new Logger(ServiceName.name)` nhất quán. Remove tất cả `console.log` trong production code.
+
+---
+
+**[DEVOPS-01] Single Shared Database Container**
+
+- **Mức độ:** Medium
+- **Thành phần:** `docker-compose.yml`
+- **Mô tả:** Tất cả services chia sẻ một PostgreSQL container với 3 databases. Không có resource limits cho từng container.
+- **Hậu quả:** Một service query nặng có thể starve các service khác, không có fault isolation.
+- **Cải thiện:** Trong production, mỗi service nên có PostgreSQL instance riêng. Ít nhất cần resource limits (`mem_limit`, `cpus`) trong docker-compose.
+
+---
+
+**[DEVOPS-02] Health Check Không Đủ**
+
+- **Mức độ:** Low
+- **Thành phần:** `docker-compose.yml`
+- **Mô tả:** Health check chỉ kiểm tra TCP port open (`nc -z localhost PORT`). Không kiểm tra database connectivity, không kiểm tra application ready state.
+- **Cải thiện:** Implement `/health` endpoint trong mỗi service kiểm tra DB connection, Redis connection. Dùng `wget` hoặc `curl` health endpoint thay vì TCP check đơn thuần.
+
+---
+
+## 3. Rủi Ro Kiến Trúc Tương Lai
+
+**Scalability bottleneck tại TCP synchronous chain:** Khi user load tăng, `api-gateway → user-service → scheduler-service` dạng synchronous TCP sẽ amplify latency. Một service slow sẽ slow cả chain. Cần migrate critical paths sang async messaging.
+
+**Schema migration hell với `db push`:** Khi team scale, nhiều developer chạy `db push` concurrent sẽ gây conflict. Cần migration workflow nghiêm túc với `prisma migrate` và version control.
+
+**WebSocket scaling:** `ChatArea.tsx` connect thẳng vào single teamwork-service instance. Khi horizontal scale, messages sẽ không broadcast đúng vì Socket.IO state là in-memory. Cần Redis adapter cho Socket.IO.
+
+**AI Service không có fallback graceful:** Nếu cả Gemini và OpenAI đều fail (network, quota), user nhận generic error. Cần queuing mechanism cho AI requests.
+
+**Không có observability:** Không có distributed tracing (OpenTelemetry), không có centralized logging, không có metrics collection. Khi có bug production, rất khó debug request flow qua 5-6 services.
+
+---
+
+## 4. Roadmap Refactor — Thứ Tự Ưu Tiên
+
+**Tuần 1 — Critical Security:**
+Ẩn OTP khỏi production response. Enforce JWT secret validation khi startup. Thêm `@nestjs/throttler` rate limiting trên auth endpoints. Fix WebSocket auth bypass.
+
+**Tuần 2 — Data Safety:**
+Replace `prisma db push --accept-data-loss` bằng `prisma migrate deploy` trong CI pipeline. Backup strategy cho production databases.
+
+**Tuần 3 — Resiliency:**
+Thêm timeout và circuit breaker cho TCP calls trong `safeSend`. Implement health check endpoint chuẩn. Add resource limits cho Docker containers.
+
+**Tuần 4 — Performance:**
+Fix N+1 query trong analytics dashboard. Refactor `queryTeamwork` dùng connection pool. Thêm database indexes quan trọng.
+
+**Sprint 2 — Architecture:**
+Migrate analytics-to-teamwork từ direct DB query sang service call. Chuẩn hóa error handling contract. Replace `console.log` bằng structured Logger.
+
+**Sprint 3 — Observability & Scale:**
+Thêm Redis adapter cho Socket.IO. Integrate OpenTelemetry distributed tracing. Setup centralized logging. TypeScript strict mode cleanup.

@@ -10,6 +10,15 @@ import { TokenService } from '../token.service';
 import { RpcException } from '@nestjs/microservices';
 import * as bcrypt from 'bcrypt';
 import { UserRole } from '@prisma/users-client';
+import { ConfigService } from '@nestjs/config';
+import {
+  cleanupMocks,
+  createPrismaMock,
+  createJwtServiceMock,
+  createConfigServiceMock,
+  createRedisClientMock,
+  createTokenServiceMock,
+} from '../../../test/mocks/setup';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -17,28 +26,15 @@ describe('AuthService', () => {
   let jwtServiceMock: any;
   let tokenServiceMock: any;
   let redisClientMock: any;
+  let configServiceMock: any;
 
   beforeEach(async () => {
-    prismaMock = {
-      user: {
-        findUnique: jest.fn(),
-        create: jest.fn(),
-        update: jest.fn(),
-      },
-    };
-
-    jwtServiceMock = {
-      sign: jest.fn(),
-      signAsync: jest.fn(),
-    };
-
-    tokenServiceMock = {
-      saveRefreshToken: jest.fn(),
-    };
-
-    redisClientMock = {
-      emit: jest.fn(),
-    };
+    // Create fresh mocks for each test to ensure proper isolation
+    prismaMock = createPrismaMock();
+    jwtServiceMock = createJwtServiceMock();
+    tokenServiceMock = createTokenServiceMock();
+    redisClientMock = createRedisClientMock();
+    configServiceMock = createConfigServiceMock();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -47,6 +43,7 @@ describe('AuthService', () => {
         { provide: JwtService, useValue: jwtServiceMock },
         { provide: TokenService, useValue: tokenServiceMock },
         { provide: 'REDIS_CLIENT', useValue: redisClientMock },
+        { provide: ConfigService, useValue: configServiceMock },
       ],
     }).compile();
 
@@ -54,7 +51,14 @@ describe('AuthService', () => {
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    // Comprehensive cleanup to prevent mock pollution between tests
+    cleanupMocks(
+      prismaMock,
+      jwtServiceMock,
+      tokenServiceMock,
+      redisClientMock,
+      configServiceMock,
+    );
   });
 
   it('should be defined', () => {

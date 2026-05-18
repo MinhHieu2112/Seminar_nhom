@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
     Plus, Folder, X, GraduationCap, Check,
     MagnifyingGlass, Sparkle,
@@ -8,14 +8,14 @@ import {
 } from '@phosphor-icons/react';
 import {
     useSchedulerCategories, useSchedulerTasks,
-    useSchedulerSubjects, useCreateCategory, useCreateTask, useCreateSubject,
-    useUpdateCategory, useDeleteCategory, useUpdateSubject, useDeleteSubject,
+    useCreateCategory, useCreateTask,
+    useUpdateCategory, useDeleteCategory,
     useUpdateTask, useDeleteTask
 } from '@/hooks/useScheduler';
 import { AiScheduleModal } from './AiScheduleModal';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import type { Task, Category, Subject } from '@/types/api';
+import type { Task, Category } from '@/types/api';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -44,57 +44,195 @@ const STATUS_META: Record<string, { label: string; color: string; bg: string }> 
 
 // ─── Inline Add-Task Row ──────────────────────────────────────────────────────
 
-function InlineAddTask({ subjectId, onSave, onCancel }: {
-    subjectId: string;
-    onSave: (d: { title: string; subjectId: string; dueTime?: string; priority?: number }) => Promise<void>;
-    onCancel: () => void;
+function CreateTaskModal({ categoryId, prefill, onClose, onSave }: {
+    categoryId: string;
+    prefill?: {
+        title: string;
+        priority?: number;
+        type?: 'TASK' | 'SESSION';
+        dueTime?: string;
+        startTime?: string;
+        endTime?: string;
+    };
+    onClose: () => void;
+    onSave: (d: {
+        title: string;
+        categoryId: string;
+        dueTime?: string;
+        priority?: number;
+        type?: 'TASK' | 'SESSION';
+        sessionData?: { startTime: string; endTime: string };
+    }) => Promise<void>;
 }) {
-    const [title, setTitle] = useState('');
-    const [dueTime, setDueTime] = useState('');
-    const [priority, setPriority] = useState(2);
+    const [title, setTitle] = useState(prefill?.title || '');
+    const [dueTime, setDueTime] = useState(prefill?.dueTime || '');
+    const [priority, setPriority] = useState(prefill?.priority || 2);
+    const [type, setType] = useState<'TASK' | 'SESSION'>(prefill?.type || 'TASK');
+    const [startTime, setStartTime] = useState(prefill?.startTime || '');
+    const [endTime, setEndTime] = useState(prefill?.endTime || '');
     const [saving, setSaving] = useState(false);
-    const ref = useRef<HTMLInputElement>(null);
-    useEffect(() => { ref.current?.focus(); }, []);
+    const [error, setError] = useState('');
 
-    const save = async () => {
+    const save = async (e: React.FormEvent) => {
+        e.preventDefault();
         if (!title.trim()) return;
+        setError('');
+
+        if (type === 'SESSION') {
+            if (!startTime || !endTime) {
+                setError('Vui lòng chọn thời gian bắt đầu và kết thúc.');
+                return;
+            }
+            const sDate = new Date(startTime);
+            const eDate = new Date(endTime);
+            if (sDate >= eDate) {
+                setError('Thời gian kết thúc phải sau thời gian bắt đầu.');
+                return;
+            }
+            if (sDate.toDateString() !== eDate.toDateString()) {
+                setError('Thời gian bắt đầu và kết thúc của phiên học phải trong cùng một ngày.');
+                return;
+            }
+        }
+
         setSaving(true);
-        try { await onSave({ title: title.trim(), subjectId, dueTime: dueTime ? new Date(dueTime).toISOString() : undefined, priority }); }
-        finally { setSaving(false); }
+        try {
+            if (type === 'SESSION') {
+                await onSave({
+                    title: title.trim(),
+                    categoryId,
+                    priority,
+                    type,
+                    sessionData: {
+                        startTime: new Date(startTime).toISOString(),
+                        endTime: new Date(endTime).toISOString(),
+                    }
+                });
+            } else {
+                await onSave({
+                    title: title.trim(),
+                    categoryId,
+                    dueTime: dueTime ? new Date(dueTime).toISOString() : undefined,
+                    priority,
+                    type,
+                });
+            }
+            onClose();
+        } catch (err) {
+            const error = err as { response?: { data?: { message?: string | string[] } } };
+            const msg = error.response?.data?.message || 'Có lỗi xảy ra khi lưu.';
+            setError(Array.isArray(msg) ? msg[0] : msg);
+        } finally {
+            setSaving(false);
+        }
     };
 
     return (
-        <tr className="bg-indigo-50/60 border-b border-indigo-100/60">
-            <td className="w-12 px-5 py-3"><div className="w-4.5 h-4.5 border-2 border-indigo-300 rounded-md" /></td>
-            <td className="px-4 py-3">
-                <input ref={ref} value={title} onChange={e => setTitle(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') onCancel(); }}
-                    placeholder="Nhập tên công việc..."
-                    className="w-full bg-transparent outline-none text-[14px] font-semibold text-slate-800 placeholder:text-slate-400"
-                />
-            </td>
-            <td className="px-4 py-3">
-                <input type="datetime-local" value={dueTime} onChange={e => setDueTime(e.target.value)}
-                    className="bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-[12px] text-slate-600 outline-none"
-                />
-            </td>
-            <td className="px-4 py-3">
-                <select value={priority} onChange={e => setPriority(Number(e.target.value))}
-                    className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-[12px] font-semibold text-slate-600 outline-none"
-                >
-                    {[1, 2, 3, 4].map(p => <option key={p} value={p}>{PRIORITY_META[p].label}</option>)}
-                </select>
-            </td>
-            <td className="px-4 py-3" colSpan={2}>
-                <div className="flex items-center gap-1.5">
-                    <button onClick={save} disabled={!title.trim() || saving}
-                        className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-[12px] font-bold hover:bg-indigo-700 disabled:opacity-40 transition-all flex items-center gap-1">
-                        <Check size={11} weight="bold" /> Lưu
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4"
+            onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg p-8 animate-in zoom-in-95 duration-200">
+                <div className="flex items-center justify-between mb-6">
+                    <div>
+                        <h2 className="text-[22px] font-black text-slate-900">Thêm công việc mới</h2>
+                        <p className="text-[13px] text-slate-400 mt-0.5">Tạo công việc thường hoặc khóa lịch học tập</p>
+                    </div>
+                    <button onClick={onClose}
+                        className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors">
+                        <X size={20} weight="bold" />
                     </button>
-                    <button onClick={onCancel} className="px-2.5 py-1.5 text-slate-400 hover:bg-slate-100 rounded-lg transition-all text-[12px] font-bold">Hủy</button>
                 </div>
-            </td>
-        </tr>
+
+                {/* Segmented type selector */}
+                <div className="flex bg-slate-100 p-1.5 rounded-2xl mb-6">
+                    <button
+                        type="button"
+                        onClick={() => { setType('TASK'); setError(''); }}
+                        className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 ${type === 'TASK' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                    >
+                        <GraduationCap weight="bold" size={16} />
+                        Công việc thường
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => { setType('SESSION'); setError(''); }}
+                        className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 ${type === 'SESSION' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                    >
+                        <Sparkle weight="bold" size={16} />
+                        Phiên học (Khóa lịch)
+                    </button>
+                </div>
+
+                <form onSubmit={save} className="space-y-5">
+                    <div>
+                        <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2">Tên công việc</label>
+                        <input autoFocus type="text" value={title}
+                            onChange={e => { setTitle(e.target.value); setError(''); }}
+                            placeholder={type === 'TASK' ? "VD: Làm bài tập toán cao cấp, viết báo cáo..." : "VD: Học chương 1 toán cao cấp, ôn tập từ vựng..."}
+                            className="w-full px-5 py-4 bg-slate-50 border-2 border-transparent focus:border-indigo-400 focus:bg-white rounded-2xl outline-none text-[15px] font-bold text-slate-800 transition-all"
+                        />
+                    </div>
+
+                    {type === 'TASK' ? (
+                        <div>
+                            <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2">Hạn chót</label>
+                            <input type="datetime-local" value={dueTime} onChange={e => setDueTime(e.target.value)}
+                                className="w-full px-5 py-3.5 bg-slate-50 border-2 border-transparent focus:border-indigo-400 focus:bg-white rounded-2xl outline-none text-[14px] font-semibold text-slate-700 transition-all"
+                            />
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2">Thời gian bắt đầu</label>
+                                <input type="datetime-local" value={startTime} onChange={e => { setStartTime(e.target.value); setError(''); }}
+                                    className="w-full px-5 py-3.5 bg-slate-50 border-2 border-transparent focus:border-indigo-400 focus:bg-white rounded-2xl outline-none text-[14px] font-semibold text-slate-700 transition-all"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2">Thời gian kết thúc</label>
+                                <input type="datetime-local" value={endTime} onChange={e => { setEndTime(e.target.value); setError(''); }}
+                                    className="w-full px-5 py-3.5 bg-slate-50 border-2 border-transparent focus:border-indigo-400 focus:bg-white rounded-2xl outline-none text-[14px] font-semibold text-slate-700 transition-all"
+                                />
+                            </div>
+                        </div>
+                    )}
+
+                    <div>
+                        <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2">Mức độ ưu tiên</label>
+                        <div className="grid grid-cols-4 gap-2">
+                            {[1, 2, 3, 4].map(p => {
+                                const pm = PRIORITY_META[p];
+                                const isSelected = priority === p;
+                                return (
+                                    <button
+                                        key={p}
+                                        type="button"
+                                        onClick={() => setPriority(p)}
+                                        className={`py-3 px-1 rounded-xl text-xs font-bold transition-all border ${isSelected ? 'border-indigo-500 bg-indigo-50 text-indigo-700 shadow-sm' : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'}`}
+                                    >
+                                        {pm.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {error && (
+                        <div className="text-[12px] text-red-500 font-semibold bg-red-50/50 border border-red-100 rounded-xl px-4 py-2.5 flex items-center gap-2">
+                            <span>⚠️</span> {error}
+                        </div>
+                    )}
+
+                    <div className="flex gap-3 pt-3">
+                        <button type="button" onClick={onClose}
+                            className="flex-1 py-3.5 rounded-2xl font-bold text-[14px] text-slate-500 bg-slate-50 hover:bg-slate-100 transition-all">Hủy</button>
+                        <button type="submit" disabled={!title.trim() || saving}
+                            className="flex-[2] py-3.5 bg-indigo-600 text-white rounded-2xl font-black text-[14px] shadow-lg shadow-indigo-200 hover:bg-indigo-700 disabled:opacity-50 transition-all active:scale-[0.98]">
+                            {saving ? 'Đang tạo...' : '✦ Tạo công việc'}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
     );
 }
 
@@ -102,24 +240,20 @@ function InlineAddTask({ subjectId, onSave, onCancel }: {
 
 export default function GoalsPage() {
     const { data: categories = [], isLoading: lCat } = useSchedulerCategories();
-    const { data: subjects = [], isLoading: lSub } = useSchedulerSubjects();
     const { data: tasks = [], isLoading: lTask } = useSchedulerTasks();
 
     const createCategory = useCreateCategory();
-    const createSubject = useCreateSubject();
     const createTask = useCreateTask();
 
     const updateCategory = useUpdateCategory();
     const deleteCategory = useDeleteCategory();
-    const updateSubject = useUpdateSubject();
-    const deleteSubject = useDeleteSubject();
     const updateTask = useUpdateTask();
     const deleteTask = useDeleteTask();
 
     const [search, setSearch] = useState('');
     const [filterCat, setFilterCat] = useState<string | null>(null);
     const [filterStatus, setFilterStatus] = useState<string>('all');
-    const [inlineSubject, setInlineSubject] = useState<string | null>(null);
+    const [inlineCategory, setInlineCategory] = useState<string | null>(null);
 
     // Category modal
     const [catModal, setCatModal] = useState(false);
@@ -130,23 +264,15 @@ export default function GoalsPage() {
     const [editCatName, setEditCatName] = useState('');
     const [deleteCatId, setDeleteCatId] = useState<string | null>(null);
 
-    // Subject modal
-    const [subModal, setSubModal] = useState(false);
-    const [subName, setSubName] = useState('');
-    const [subCatId, setSubCatId] = useState('');
-    const [subErr, setSubErr] = useState('');
-
-    const [editSubId, setEditSubId] = useState<string | null>(null);
-    const [editSubName, setEditSubName] = useState('');
-    const [editSubCatId, setEditSubCatId] = useState('');
-    const [deleteSubId, setDeleteSubId] = useState<string | null>(null);
-
     // Task modal
     const [editTaskId, setEditTaskId] = useState<string | null>(null);
     const [editTaskTitle, setEditTaskTitle] = useState('');
     const [editTaskDueTime, setEditTaskDueTime] = useState('');
     const [editTaskPriority, setEditTaskPriority] = useState(2);
     const [editTaskStatus, setEditTaskStatus] = useState('pending');
+    const [editTaskType, setEditTaskType] = useState<'TASK' | 'SESSION'>('TASK');
+    const [editTaskStartTime, setEditTaskStartTime] = useState('');
+    const [editTaskEndTime, setEditTaskEndTime] = useState('');
     const [taskErr, setTaskErr] = useState('');
 
     const [deleteTaskId, setDeleteTaskId] = useState<string | null>(null);
@@ -160,13 +286,6 @@ export default function GoalsPage() {
         setCatErr('');
         try { await createCategory.mutateAsync({ name: catName.trim() }); setCatName(''); setCatModal(false); }
         catch { setCatErr('Tạo danh mục thất bại. Thử lại.'); }
-    };
-
-    const handleCreateSub = async (e: React.FormEvent) => {
-        e.preventDefault(); if (!subName.trim() || !subCatId) return;
-        setSubErr('');
-        try { await createSubject.mutateAsync({ name: subName.trim(), categoryId: subCatId }); setSubName(''); setSubCatId(''); setSubModal(false); }
-        catch { setSubErr('Tạo môn học thất bại. Thử lại.'); }
     };
 
     const handleEditCat = async (e: React.FormEvent) => {
@@ -183,36 +302,61 @@ export default function GoalsPage() {
         catch { setCatErr('Xóa thất bại. Thử lại.'); }
     };
 
-    const handleEditSub = async (e: React.FormEvent) => {
-        e.preventDefault(); if (!editSubName.trim() || !editSubCatId || !editSubId) return;
-        setSubErr('');
-        try { await updateSubject.mutateAsync({ id: editSubId, data: { name: editSubName.trim(), categoryId: editSubCatId } }); setEditSubId(null); }
-        catch { setSubErr('Cập nhật môn học thất bại. Thử lại.'); }
-    };
-
-    const handleDeleteSub = async () => {
-        if (!deleteSubId) return;
-        setSubErr('');
-        try { await deleteSubject.mutateAsync(deleteSubId); setDeleteSubId(null); }
-        catch { setSubErr('Xóa môn học thất bại. Thử lại.'); }
-    };
-
     const handleEditTask = async (e: React.FormEvent) => {
         e.preventDefault(); if (!editTaskTitle.trim() || !editTaskId) return;
         setTaskErr('');
+
+        if (editTaskType === 'SESSION') {
+            if (!editTaskStartTime || !editTaskEndTime) {
+                setTaskErr('Vui lòng chọn thời gian bắt đầu và kết thúc.');
+                return;
+            }
+            const sDate = new Date(editTaskStartTime);
+            const eDate = new Date(editTaskEndTime);
+            if (sDate >= eDate) {
+                setTaskErr('Thời gian kết thúc phải sau thời gian bắt đầu.');
+                return;
+            }
+            if (sDate.toDateString() !== eDate.toDateString()) {
+                setTaskErr('Thời gian bắt đầu và kết thúc của phiên học phải trong cùng một ngày.');
+                return;
+            }
+        }
+
         try {
-            await updateTask.mutateAsync({
-                id: editTaskId,
-                data: {
-                    title: editTaskTitle.trim(),
-                    dueTime: editTaskDueTime ? new Date(editTaskDueTime).toISOString() : null,
-                    priority: editTaskPriority,
-                    status: editTaskStatus
-                }
-            });
+            if (editTaskType === 'SESSION') {
+                await updateTask.mutateAsync({
+                    id: editTaskId,
+                    data: {
+                        title: editTaskTitle.trim(),
+                        priority: editTaskPriority,
+                        status: editTaskStatus,
+                        type: 'SESSION',
+                        sessionData: {
+                            startTime: new Date(editTaskStartTime).toISOString(),
+                            endTime: new Date(editTaskEndTime).toISOString(),
+                        }
+                    }
+                });
+            } else {
+                await updateTask.mutateAsync({
+                    id: editTaskId,
+                    data: {
+                        title: editTaskTitle.trim(),
+                        priority: editTaskPriority,
+                        status: editTaskStatus,
+                        type: 'TASK',
+                        dueTime: editTaskDueTime ? new Date(editTaskDueTime).toISOString() : null,
+                    }
+                });
+            }
             setEditTaskId(null);
         }
-        catch { setTaskErr('Cập nhật công việc thất bại. Thử lại.'); }
+        catch (err) {
+            const error = err as { response?: { data?: { message?: string | string[] } } };
+            const msg = error.response?.data?.message || 'Cập nhật công việc thất bại. Thử lại.';
+            setTaskErr(Array.isArray(msg) ? msg[0] : msg);
+        }
     };
 
     const handleDeleteTask = async () => {
@@ -228,11 +372,16 @@ export default function GoalsPage() {
         }
     };
 
-
-
-    const handleInlineSave = async (d: { title: string; subjectId: string; dueTime?: string; priority?: number }) => {
+    const handleInlineSave = async (d: {
+        title: string;
+        categoryId: string;
+        dueTime?: string;
+        priority?: number;
+        type?: 'TASK' | 'SESSION';
+        sessionData?: { startTime: string; endTime: string };
+    }) => {
         await createTask.mutateAsync(d);
-        setInlineSubject(null);
+        setInlineCategory(null);
     };
 
     // ── Derived data ──────────────────────────────────────────────────────────
@@ -241,24 +390,19 @@ export default function GoalsPage() {
         const q = search.toLowerCase();
         return (categories as Category[]).map((cat, idx) => ({
             ...cat, palette: PALETTE[idx % PALETTE.length],
-            subjects: (subjects as Subject[])
-                .filter(s => s.categoryId === cat.id)
-                .map(s => ({
-                    ...s,
-                    tasks: (tasks as Task[]).filter(t => {
-                        if (t.subjectId !== s.id) return false;
-                        if (filterStatus !== 'all' && t.status !== filterStatus) return false;
-                        if (q && !t.title.toLowerCase().includes(q) && !s.name.toLowerCase().includes(q)) return false;
-                        return true;
-                    }),
-                })),
+            tasks: (tasks as Task[]).filter(t => {
+                if (t.categoryId !== cat.id) return false;
+                if (filterStatus !== 'all' && t.status !== filterStatus) return false;
+                if (q && !t.title.toLowerCase().includes(q)) return false;
+                return true;
+            }),
         })).filter(cat => !filterCat || cat.id === filterCat);
-    }, [categories, subjects, tasks, filterCat, filterStatus, search]);
+    }, [categories, tasks, filterCat, filterStatus, search]);
 
     const totalTasks = (tasks as Task[]).length;
     const doneTasks = (tasks as Task[]).filter(t => t.status === 'done').length;
 
-    if (lCat || lSub || lTask) return (
+    if (lCat || lTask) return (
         <div className="flex items-center justify-center min-h-[70vh]">
             <div className="animate-spin rounded-full h-10 w-10 border-[3px] border-indigo-500 border-t-transparent" />
         </div>
@@ -312,9 +456,7 @@ export default function GoalsPage() {
                         {(categories as Category[]).map((cat, idx) => {
                             const p = PALETTE[idx % PALETTE.length];
                             const isActive = filterCat === cat.id;
-                            const count = (tasks as Task[]).filter(t =>
-                                (subjects as Subject[]).find(s => s.id === t.subjectId && s.categoryId === cat.id)
-                            ).length;
+                            const count = (tasks as Task[]).filter(t => t.categoryId === cat.id).length;
                             return (
                                 <div key={cat.id}
                                     className={`group flex items-center w-full px-1.5 py-1.5 rounded-xl transition-all ${isActive ? 'text-white shadow' : 'text-slate-600 hover:bg-slate-50'}`}
@@ -383,8 +525,6 @@ export default function GoalsPage() {
                                 </button>
                             ))}
                         </div>
-
-
                     </div>
                 </div>
 
@@ -412,148 +552,130 @@ export default function GoalsPage() {
                                 </h2>
                                 <span className="text-[12px] font-black px-2.5 py-1 rounded-full text-white"
                                     style={{ backgroundColor: cat.palette.hex }}>
-                                    {cat.subjects.reduce((a, s) => a + s.tasks.length, 0)} task
+                                    {cat.tasks.length} task
                                 </span>
 
-                                <button onClick={() => { setSubCatId(cat.id); setSubModal(true); }}
+                                <button onClick={() => setInlineCategory(cat.id)}
                                     className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity px-4 py-1.5 flex items-center gap-1.5 rounded-lg text-[13px] font-bold"
                                     style={{ color: cat.palette.dark, backgroundColor: cat.palette.light }}>
-                                    <Plus weight="bold" size={12} /> Thêm môn học
+                                    <Plus weight="bold" size={12} /> Thêm công việc
                                 </button>
                             </div>
 
-                            {cat.subjects.length === 0 ? (
+                            {cat.tasks.length === 0 ? (
                                 <div className="pl-5 pt-2">
-                                    <p className="text-[14px] text-slate-400 italic mb-3">Danh mục này trống vì chưa có môn học nào.</p>
-                                    <button onClick={() => { setSubCatId(cat.id); setSubModal(true); }}
+                                    <p className="text-[14px] text-slate-400 italic mb-3">Danh mục này trống vì chưa có công việc nào.</p>
+                                    <button onClick={() => setInlineCategory(cat.id)}
                                         className="text-[13px] font-bold px-4 py-2 rounded-xl transition-all"
                                         style={{ color: cat.palette.dark, backgroundColor: cat.palette.light }}>
-                                        + Thêm môn học ngay
+                                        + Thêm công việc ngay
                                     </button>
                                 </div>
                             ) : (
-                                <div className="space-y-8">
-                                    {cat.subjects.map(sub => (
-                                        <div key={sub.id}>
-                                            {/* Subject label */}
-                                            <div className="flex items-center mb-3 pl-1">
-                                                <div className="group flex items-center gap-3">
-                                                    <div className="flex items-center gap-2 bg-white border border-slate-200 px-3 py-1.5 rounded-lg shadow-sm">
-                                                        <GraduationCap weight="bold" size={14} className="text-slate-500" />
-                                                        <span className="text-[13px] font-black text-slate-700 uppercase tracking-wider">{sub.name}</span>
-                                                        <span className="text-[11px] font-bold text-slate-400">({sub.tasks.length})</span>
-                                                    </div>
+                                <div className="rounded-2xl border border-slate-200/80 overflow-hidden shadow-sm bg-white">
+                                    <table className="w-full text-left min-w-[700px]">
+                                        <thead>
+                                            <tr style={{ borderBottom: `2px solid ${cat.palette.light}` }}
+                                                className="bg-slate-50/80">
+                                                <th className="w-12 px-5 py-3" />
+                                                <th className="px-4 py-3 text-[11px] font-black text-slate-400 uppercase tracking-widest">Tên task</th>
+                                                <th className="px-4 py-3 text-[11px] font-black text-slate-400 uppercase tracking-widest w-40 whitespace-nowrap">Hạn chót</th>
+                                                <th className="px-4 py-3 text-[11px] font-black text-slate-400 uppercase tracking-widest w-32 whitespace-nowrap">Mức ưu tiên</th>
+                                                <th className="px-4 py-3 text-[11px] font-black text-slate-400 uppercase tracking-widest w-32 whitespace-nowrap">Trạng thái</th>
+                                                <th className="px-4 py-3 text-[11px] font-black text-slate-400 uppercase tracking-widest w-32 text-right whitespace-nowrap">Thao tác</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-50">
+                                            {cat.tasks.map(task => {
+                                                const pm = PRIORITY_META[task.priority ?? 2] ?? PRIORITY_META[2];
+                                                const sm = STATUS_META[task.status] ?? STATUS_META.pending;
+                                                return (
+                                                    <tr key={task.id} className="group hover:bg-slate-50/80 transition-colors">
+                                                        <td className="px-5 py-3.5">
+                                                            <div className={`w-4 h-4 border-2 rounded-md cursor-pointer transition-all flex items-center justify-center ${task.status === 'done' ? 'border-emerald-500 bg-emerald-500' : 'border-slate-300 group-hover:border-indigo-400'}`}>
+                                                                {task.status === 'done' && <Check size={10} weight="bold" className="text-white" />}
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-4 py-3.5">
+                                                            <span className={`text-[14px] font-semibold leading-snug ${task.status === 'done' ? 'line-through text-slate-400' : 'text-slate-800'}`}>
+                                                                {task.title}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-4 py-3.5 whitespace-nowrap">
+                                                            <span className="text-[13px] font-medium text-slate-600">
+                                                                {task.dueTime ? format(new Date(task.dueTime), 'dd MMM, HH:mm', { locale: vi }) : '–'}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-4 py-3.5">
+                                                            <span className={`text-[11px] font-black px-2.5 py-1 rounded-full ${pm.bg} ${pm.color}`}>{pm.label}</span>
+                                                        </td>
+                                                        <td className="px-4 py-3.5">
+                                                            <span className={`text-[11px] font-black px-2.5 py-1 rounded-full ${sm.bg} ${sm.color}`}>{sm.label}</span>
+                                                        </td>
+                                                        <td className="px-4 py-3.5">
+                                                            <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                <button onClick={(e) => {
+                                                                    e.preventDefault();
+                                                                    setEditTaskId(task.id);
+                                                                    setEditTaskTitle(task.title);
+                                                                    
+                                                                    const isSession = task.allocations && task.allocations.length > 0;
+                                                                    setEditTaskType(isSession ? 'SESSION' : 'TASK');
 
-                                                    <div className="flex items-center gap-1 opacity-0 flex-none group-hover:opacity-100 transition-opacity">
-                                                        <button onClick={(e) => { e.preventDefault(); setEditSubId(sub.id); setEditSubName(sub.name); setEditSubCatId(sub.categoryId); setSubErr(''); }}
-                                                            className="p-1 rounded-md hover:bg-slate-200 text-slate-400 hover:text-indigo-600 transition-colors">
-                                                            <PencilSimple size={14} weight="bold" />
-                                                        </button>
-                                                        <button onClick={(e) => { e.preventDefault(); setDeleteSubId(sub.id); setSubErr(''); }}
-                                                            className="p-1 rounded-md hover:bg-red-100 text-slate-400 hover:text-red-500 transition-colors">
-                                                            <Trash size={14} weight="bold" />
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </div>
+                                                                    if (task.dueTime) {
+                                                                        const d = new Date(task.dueTime);
+                                                                        const ds = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                                                                        setEditTaskDueTime(ds);
+                                                                    } else {
+                                                                        setEditTaskDueTime('');
+                                                                    }
 
-                                            {/* Task table */}
-                                            <div className="rounded-2xl border border-slate-200/80 overflow-hidden shadow-sm bg-white">
-                                                <table className="w-full text-left min-w-[700px]">
-                                                    <thead>
-                                                        <tr style={{ borderBottom: `2px solid ${cat.palette.light}` }}
-                                                            className="bg-slate-50/80">
-                                                            <th className="w-12 px-5 py-3" />
-                                                            <th className="px-4 py-3 text-[11px] font-black text-slate-400 uppercase tracking-widest">Tên task</th>
-                                                            <th className="px-4 py-3 text-[11px] font-black text-slate-400 uppercase tracking-widest w-40 whitespace-nowrap">Hạn chót</th>
-                                                            <th className="px-4 py-3 text-[11px] font-black text-slate-400 uppercase tracking-widest w-32 whitespace-nowrap">Mức ưu tiên</th>
-                                                            <th className="px-4 py-3 text-[11px] font-black text-slate-400 uppercase tracking-widest w-32 whitespace-nowrap">Trạng thái</th>
-                                                            <th className="px-4 py-3 text-[11px] font-black text-slate-400 uppercase tracking-widest w-32 text-right whitespace-nowrap">Thao tác</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody className="divide-y divide-slate-50">
-                                                        {sub.tasks.map(task => {
-                                                            const pm = PRIORITY_META[task.priority ?? 2] ?? PRIORITY_META[2];
-                                                            const sm = STATUS_META[task.status] ?? STATUS_META.pending;
-                                                            return (
-                                                                <tr key={task.id} className="group hover:bg-slate-50/80 transition-colors">
-                                                                    <td className="px-5 py-3.5">
-                                                                        <div className={`w-4 h-4 border-2 rounded-md cursor-pointer transition-all flex items-center justify-center ${task.status === 'done' ? 'border-emerald-500 bg-emerald-500' : 'border-slate-300 group-hover:border-indigo-400'}`}>
-                                                                            {task.status === 'done' && <Check size={10} weight="bold" className="text-white" />}
-                                                                        </div>
-                                                                    </td>
-                                                                    <td className="px-4 py-3.5">
-                                                                        <span className={`text-[14px] font-semibold leading-snug ${task.status === 'done' ? 'line-through text-slate-400' : 'text-slate-800'}`}>
-                                                                            {task.title}
-                                                                        </span>
-                                                                    </td>
-                                                                    <td className="px-4 py-3.5 whitespace-nowrap">
-                                                                        <span className="text-[13px] font-medium text-slate-600">
-                                                                            {task.dueTime ? format(new Date(task.dueTime), 'dd MMM, HH:mm', { locale: vi }) : '–'}
-                                                                        </span>
-                                                                    </td>
-                                                                    <td className="px-4 py-3.5">
-                                                                        <span className={`text-[11px] font-black px-2.5 py-1 rounded-full ${pm.bg} ${pm.color}`}>{pm.label}</span>
-                                                                    </td>
-                                                                    <td className="px-4 py-3.5">
-                                                                        <span className={`text-[11px] font-black px-2.5 py-1 rounded-full ${sm.bg} ${sm.color}`}>{sm.label}</span>
-                                                                    </td>
-                                                                    <td className="px-4 py-3.5">
-                                                                        <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                            <button onClick={(e) => {
-                                                                                e.preventDefault();
-                                                                                setEditTaskId(task.id);
-                                                                                setEditTaskTitle(task.title);
-                                                                                // Convert UTC to local datetime-local format format string YYYY-MM-DDTHH:mm
-                                                                                if (task.dueTime) {
-                                                                                    const d = new Date(task.dueTime);
-                                                                                    const ds = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-                                                                                    setEditTaskDueTime(ds);
-                                                                                } else {
-                                                                                    setEditTaskDueTime('');
-                                                                                }
-                                                                                setEditTaskPriority(task.priority ?? 2);
-                                                                                setEditTaskStatus(task.status);
-                                                                                setTaskErr('');
-                                                                            }}
-                                                                                className="p-1 rounded-md hover:bg-slate-200 text-slate-400 hover:text-indigo-600 transition-colors">
-                                                                                <PencilSimple size={14} weight="bold" />
-                                                                            </button>
-                                                                            {task.status !== 'done' && !(task.dueTime && new Date(task.dueTime) < new Date()) && (
-                                                                            <button onClick={(e) => { e.preventDefault(); setDeleteTaskId(task.id); setTaskErr(''); }}
-                                                                                className="p-1 rounded-md hover:bg-red-100 text-slate-400 hover:text-red-500 transition-colors">
-                                                                                <Trash size={14} weight="bold" />
-                                                                            </button>
-                                                                            )}
-                                                                        </div>
-                                                                    </td>
-                                                                </tr>
-                                                            );
-                                                        })}
+                                                                    if (isSession && task.allocations && task.allocations.length > 0) {
+                                                                        const alloc = task.allocations[0];
+                                                                        const sD = new Date(alloc.startTime);
+                                                                        const sDs = new Date(sD.getTime() - sD.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                                                                        setEditTaskStartTime(sDs);
 
-                                                        {/* Inline add */}
-                                                        {inlineSubject === sub.id && (
-                                                            <InlineAddTask
-                                                                subjectId={sub.id}
-                                                                onSave={handleInlineSave} onCancel={() => setInlineSubject(null)}
-                                                            />
-                                                        )}
+                                                                        const eD = new Date(alloc.endTime);
+                                                                        const eDs = new Date(eD.getTime() - eD.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                                                                        setEditTaskEndTime(eDs);
+                                                                    } else {
+                                                                        setEditTaskStartTime('');
+                                                                        setEditTaskEndTime('');
+                                                                    }
 
-                                                        {/* Add trigger */}
-                                                        <tr className="bg-slate-50/30">
-                                                            <td colSpan={6} className="px-5 py-2.5">
-                                                                <button onClick={() => setInlineSubject(sub.id)}
-                                                                    className="flex items-center gap-1.5 text-[13px] font-bold text-slate-400 hover:text-indigo-600 transition-colors group/a">
-                                                                    <Plus size={13} weight="bold" className="group-hover/a:scale-110 transition-transform" />
-                                                                    Thêm công việc mới
+                                                                    setEditTaskPriority(task.priority ?? 2);
+                                                                    setEditTaskStatus(task.status);
+                                                                    setTaskErr('');
+                                                                }}
+                                                                    className="p-1 rounded-md hover:bg-slate-200 text-slate-400 hover:text-indigo-600 transition-colors">
+                                                                    <PencilSimple size={14} weight="bold" />
                                                                 </button>
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        </div>
-                                    ))}
+                                                                {task.status !== 'done' && !(task.dueTime && new Date(task.dueTime) < new Date()) && (
+                                                                <button onClick={(e) => { e.preventDefault(); setDeleteTaskId(task.id); setTaskErr(''); }}
+                                                                    className="p-1 rounded-md hover:bg-red-100 text-slate-400 hover:text-red-500 transition-colors">
+                                                                    <Trash size={14} weight="bold" />
+                                                                </button>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+
+
+                                            {/* Add trigger */}
+                                            <tr className="bg-slate-50/30">
+                                                <td colSpan={6} className="px-5 py-2.5">
+                                                    <button onClick={() => setInlineCategory(cat.id)}
+                                                        className="flex items-center gap-1.5 text-[13px] font-bold text-slate-400 hover:text-indigo-600 transition-colors group/a">
+                                                        <Plus size={13} weight="bold" className="group-hover/a:scale-110 transition-transform" />
+                                                        Thêm công việc mới
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
                                 </div>
                             )}
                         </section>
@@ -599,53 +721,6 @@ export default function GoalsPage() {
                 </div>
             )}
 
-            {/* ══ Modal: Môn học ═════════════════════════════════════════════ */}
-            {subModal && (
-                <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-[200] flex items-center justify-center p-4"
-                    onClick={e => { if (e.target === e.currentTarget) { setSubModal(false); setSubErr(''); setSubName(''); } }}>
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 animate-in zoom-in-95 duration-200">
-                        <div className="flex items-center justify-between mb-7">
-                            <div>
-                                <h2 className="text-[22px] font-black text-slate-900">Môn học mới</h2>
-                                <p className="text-[13px] text-slate-400 mt-0.5">Thêm môn học vào danh mục</p>
-                            </div>
-                            <button onClick={() => { setSubModal(false); setSubErr(''); setSubName(''); }}
-                                className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors">
-                                <X size={20} weight="bold" />
-                            </button>
-                        </div>
-                        <form onSubmit={handleCreateSub} className="space-y-4">
-                            <div>
-                                <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2">Tên môn học</label>
-                                <input autoFocus type="text" value={subName}
-                                    onChange={e => { setSubName(e.target.value); setSubErr(''); }}
-                                    placeholder="VD: Toán cao cấp, Anh văn..."
-                                    className="w-full px-5 py-4 bg-slate-50 border-2 border-transparent focus:border-indigo-400 focus:bg-white rounded-2xl outline-none text-[16px] font-bold text-slate-800 transition-all"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2">Danh mục</label>
-                                <select value={subCatId} onChange={e => setSubCatId(e.target.value)}
-                                    className="w-full px-5 py-3.5 bg-slate-50 border-2 border-transparent focus:border-indigo-400 focus:bg-white rounded-2xl outline-none text-[14px] font-semibold text-slate-700 transition-all">
-                                    <option value="">-- Chọn danh mục --</option>
-                                    {(categories as Category[]).map(c => (
-                                        <option key={c.id} value={c.id}>{c.name}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            {subErr && <p className="text-[12px] text-red-500 font-semibold mt-2">{subErr}</p>}
-                            <div className="flex gap-3 pt-2">
-                                <button type="button" onClick={() => { setSubModal(false); setSubName(''); }}
-                                    className="flex-1 py-3.5 rounded-2xl font-bold text-[14px] text-slate-500 bg-slate-50 hover:bg-slate-100 transition-all">Hủy</button>
-                                <button type="submit" disabled={!subName.trim() || !subCatId || createSubject.isPending}
-                                    className="flex-[2] py-3.5 bg-sky-500 text-white rounded-2xl font-black text-[14px] shadow-lg shadow-sky-200 hover:bg-sky-600 disabled:opacity-50 transition-all active:scale-[0.98]">
-                                    {createSubject.isPending ? 'Đang tạo...' : '✦ Tạo môn học'}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
             {/* ══ Modal: Edit Category ════════════════════════════════════════════ */}
             {editCatId !== null && (
                 <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-[200] flex items-center justify-center p-4"
@@ -707,76 +782,6 @@ export default function GoalsPage() {
                 </div>
             )}
 
-            {/* ══ Modal: Edit Subject ════════════════════════════════════════════ */}
-            {editSubId !== null && (
-                <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-[200] flex items-center justify-center p-4"
-                    onClick={e => { if (e.target === e.currentTarget) { setEditSubId(null); setSubErr(''); } }}>
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 animate-in zoom-in-95 duration-200">
-                        <div className="flex items-center justify-between mb-7">
-                            <div>
-                                <h2 className="text-[22px] font-black text-slate-900">Sửa môn học</h2>
-                            </div>
-                            <button onClick={() => { setEditSubId(null); setSubErr(''); }}
-                                className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors">
-                                <X size={20} weight="bold" />
-                            </button>
-                        </div>
-                        <form onSubmit={handleEditSub} className="space-y-4">
-                            <div>
-                                <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2">Tên môn học</label>
-                                <input autoFocus type="text" value={editSubName}
-                                    onChange={e => { setEditSubName(e.target.value); setSubErr(''); }}
-                                    className="w-full px-5 py-4 bg-slate-50 border-2 border-transparent focus:border-indigo-400 focus:bg-white rounded-2xl outline-none text-[16px] font-bold text-slate-800 transition-all"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2">Danh mục</label>
-                                <select value={editSubCatId} onChange={e => setEditSubCatId(e.target.value)}
-                                    className="w-full px-5 py-3.5 bg-slate-50 border-2 border-transparent focus:border-indigo-400 focus:bg-white rounded-2xl outline-none text-[14px] font-semibold text-slate-700 transition-all">
-                                    {(categories as Category[]).map(c => (
-                                        <option key={c.id} value={c.id}>{c.name}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            {subErr && <p className="text-[12px] text-red-500 font-semibold mt-2">{subErr}</p>}
-                            <div className="flex gap-3 pt-2">
-                                <button type="button" onClick={() => { setEditSubId(null); }}
-                                    className="flex-1 py-3.5 rounded-2xl font-bold text-[14px] text-slate-500 bg-slate-50 hover:bg-slate-100 transition-all">Hủy</button>
-                                <button type="submit" disabled={!editSubName.trim() || !editSubCatId || updateSubject.isPending}
-                                    className="flex-[2] py-3.5 bg-sky-500 text-white rounded-2xl font-black text-[14px] shadow-lg shadow-sky-200 hover:bg-sky-600 disabled:opacity-50 transition-all active:scale-[0.98]">
-                                    {updateSubject.isPending ? 'Đang lưu...' : 'Lưu thay đổi'}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
-
-            {/* ══ Modal: Delete Subject ════════════════════════════════════════════ */}
-            {deleteSubId !== null && (
-                <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-[200] flex items-center justify-center p-4"
-                    onClick={e => { if (e.target === e.currentTarget) { setDeleteSubId(null); setSubErr(''); } }}>
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-8 animate-in zoom-in-95 duration-200 text-center">
-                        <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <Trash size={32} weight="fill" />
-                        </div>
-                        <h2 className="text-[20px] font-black text-slate-900 mb-2">Xóa môn học?</h2>
-                        <p className="text-[14px] text-slate-500 mb-6">
-                            Các công việc thuộc môn học này cũng sẽ bị xóa. Hành động này không thể hoàn tác.
-                        </p>
-                        {subErr && <p className="text-[12px] text-red-500 font-semibold mb-4">{subErr}</p>}
-                        <div className="flex gap-3">
-                            <button onClick={() => setDeleteSubId(null)}
-                                className="flex-1 py-3.5 rounded-2xl font-bold text-[14px] text-slate-500 bg-slate-50 hover:bg-slate-100 transition-all">Hủy</button>
-                            <button onClick={handleDeleteSub} disabled={deleteSubject.isPending}
-                                className="flex-[2] py-3.5 bg-red-500 text-white rounded-2xl font-black text-[14px] shadow-lg shadow-red-200 hover:bg-red-600 disabled:opacity-50 transition-all active:scale-[0.98]">
-                                {deleteSubject.isPending ? 'Đang xóa...' : 'Xóa ngay'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
             {/* ══ Modal: Edit Task ════════════════════════════════════════════ */}
             {editTaskId !== null && (
                 <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-[200] flex items-center justify-center p-4"
@@ -799,31 +804,83 @@ export default function GoalsPage() {
                                     className="w-full px-5 py-4 bg-slate-50 border-2 border-transparent focus:border-indigo-400 focus:bg-white rounded-2xl outline-none text-[16px] font-bold text-slate-800 transition-all"
                                 />
                             </div>
-                            <div>
-                                <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2">Hạn chót</label>
-                                <input type="datetime-local" value={editTaskDueTime}
-                                    onChange={e => setEditTaskDueTime(e.target.value)}
-                                    className="w-full px-5 py-3.5 bg-slate-50 border-2 border-transparent focus:border-indigo-400 focus:bg-white rounded-2xl outline-none text-[14px] font-semibold text-slate-700 transition-all"
-                                />
+
+                            {/* Segmented Control for Type Selector */}
+                            <div className="flex bg-slate-100 p-1.5 rounded-2xl my-5">
+                                <button
+                                    type="button"
+                                    onClick={() => { setEditTaskType('TASK'); setTaskErr(''); }}
+                                    className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 ${editTaskType === 'TASK' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                >
+                                    <GraduationCap weight="bold" size={16} />
+                                    Công việc thường
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => { setEditTaskType('SESSION'); setTaskErr(''); }}
+                                    className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 ${editTaskType === 'SESSION' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                >
+                                    <Sparkle weight="bold" size={16} />
+                                    Phiên học (Khóa lịch)
+                                </button>
                             </div>
-                            <div className="flex gap-4">
-                                <div className="flex-1">
-                                    <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2">Ưu tiên</label>
-                                    <select value={editTaskPriority} onChange={e => setEditTaskPriority(Number(e.target.value))}
-                                        className="w-full px-5 py-3.5 bg-slate-50 border-2 border-transparent focus:border-indigo-400 focus:bg-white rounded-2xl outline-none text-[14px] font-semibold text-slate-700 transition-all">
-                                        {[1, 2, 3, 4].map(p => <option key={p} value={p}>{PRIORITY_META[p].label}</option>)}
-                                    </select>
+
+                            {editTaskType === 'TASK' ? (
+                                <div>
+                                    <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2">Hạn chót</label>
+                                    <input type="datetime-local" value={editTaskDueTime}
+                                        onChange={e => setEditTaskDueTime(e.target.value)}
+                                        className="w-full px-5 py-3.5 bg-slate-50 border-2 border-transparent focus:border-indigo-400 focus:bg-white rounded-2xl outline-none text-[14px] font-semibold text-slate-700 transition-all"
+                                    />
                                 </div>
-                                <div className="flex-1">
-                                    <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2">Trạng thái</label>
-                                    <select value={editTaskStatus} onChange={e => setEditTaskStatus(e.target.value)}
-                                        className="w-full px-5 py-3.5 bg-slate-50 border-2 border-transparent focus:border-indigo-400 focus:bg-white rounded-2xl outline-none text-[14px] font-semibold text-slate-700 transition-all">
-                                        <option value="pending">Chờ</option>
-                                        <option value="scheduled">Đã lên lịch</option>
-                                        <option value="done">Hoàn thành</option>
-                                        <option value="skipped">Bỏ qua</option>
-                                    </select>
+                            ) : (
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2">Bắt đầu</label>
+                                        <input type="datetime-local" value={editTaskStartTime}
+                                            onChange={e => { setEditTaskStartTime(e.target.value); setTaskErr(''); }}
+                                            className="w-full px-4 py-3.5 bg-slate-50 border-2 border-transparent focus:border-indigo-400 focus:bg-white rounded-2xl outline-none text-[14px] font-semibold text-slate-700 transition-all"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2">Kết thúc</label>
+                                        <input type="datetime-local" value={editTaskEndTime}
+                                            onChange={e => { setEditTaskEndTime(e.target.value); setTaskErr(''); }}
+                                            className="w-full px-4 py-3.5 bg-slate-50 border-2 border-transparent focus:border-indigo-400 focus:bg-white rounded-2xl outline-none text-[14px] font-semibold text-slate-700 transition-all"
+                                        />
+                                    </div>
                                 </div>
+                            )}
+
+                            <div>
+                                <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2">Mức độ ưu tiên</label>
+                                <div className="grid grid-cols-4 gap-2">
+                                    {[1, 2, 3, 4].map((p) => {
+                                        const meta = PRIORITY_META[p];
+                                        const isSelected = editTaskPriority === p;
+                                        return (
+                                            <button
+                                                key={p}
+                                                type="button"
+                                                onClick={() => setEditTaskPriority(p)}
+                                                className={`py-3 px-1 rounded-xl text-xs font-bold transition-all border ${isSelected ? 'border-indigo-500 bg-indigo-50 text-indigo-700 shadow-sm shadow-indigo-100' : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'}`}
+                                            >
+                                                {meta.label}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2">Trạng thái</label>
+                                <select value={editTaskStatus} onChange={e => setEditTaskStatus(e.target.value)}
+                                    className="w-full px-5 py-3.5 bg-slate-50 border-2 border-transparent focus:border-indigo-400 focus:bg-white rounded-2xl outline-none text-[14px] font-semibold text-slate-700 transition-all">
+                                    <option value="pending">Chờ</option>
+                                    <option value="scheduled">Đã lên lịch</option>
+                                    <option value="done">Hoàn thành</option>
+                                    <option value="skipped">Bỏ qua</option>
+                                </select>
                             </div>
 
                             {taskErr && <p className="text-[12px] text-red-500 font-semibold mt-2">{taskErr}</p>}
@@ -842,22 +899,36 @@ export default function GoalsPage() {
 
             {/* ══ Modal: Delete Task ════════════════════════════════════════════ */}
             {deleteTaskId !== null && (
-                <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-[200] flex items-center justify-center p-4"
+                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-[8px] z-[200] flex items-center justify-center p-4"
                     onClick={e => { if (e.target === e.currentTarget) { setDeleteTaskId(null); setTaskErr(''); } }}>
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-8 animate-in zoom-in-95 duration-200 text-center">
-                        <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <Trash size={32} weight="fill" />
+                    <div className="bg-white border border-slate-200/60 rounded-[32px] shadow-[0_24px_50px_-12px_rgba(0,0,0,0.12)] w-full max-w-sm p-8 animate-in zoom-in-95 duration-200 text-center relative overflow-hidden">
+                        
+                        {/* Glowing warning ring */}
+                        <div className="w-20 h-20 bg-rose-50 border-4 border-rose-100/50 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
+                            <div className="w-12 h-12 bg-gradient-to-tr from-rose-500 to-red-600 text-white rounded-full flex items-center justify-center shadow-md">
+                                <Trash size={22} weight="bold" />
+                            </div>
                         </div>
-                        <h2 className="text-[20px] font-black text-slate-900 mb-2">Xóa công việc?</h2>
-                        <p className="text-[14px] text-slate-500 mb-6">
-                            Công việc này sẽ bị xóa khỏi hệ thống. Hành động này không thể hoàn tác.
+
+                        <h2 className="text-[22px] font-black text-slate-900 tracking-tight mb-2.5">Xóa công việc?</h2>
+                        <p className="text-[13.5px] text-slate-500 font-medium leading-relaxed mb-8 px-2">
+                            Công việc này sẽ bị xóa khỏi hệ thống. Hành động này <span className="text-rose-500 font-black">không thể</span> hoàn tác.
                         </p>
-                        {taskErr && <p className="text-[12px] text-red-500 font-semibold mb-4">{taskErr}</p>}
-                        <div className="flex gap-3">
+                        
+                        {taskErr && (
+                            <div className="bg-red-50 text-red-600 text-[12px] font-bold py-3 px-4 rounded-xl border border-red-100 mb-6 animate-in shake duration-300">
+                                {taskErr}
+                            </div>
+                        )}
+
+                        <div className="flex gap-4">
                             <button onClick={() => setDeleteTaskId(null)}
-                                className="flex-1 py-3.5 rounded-2xl font-bold text-[14px] text-slate-500 bg-slate-50 hover:bg-slate-100 transition-all">Hủy</button>
+                                className="flex-1 py-4 rounded-[20px] font-black text-[13px] uppercase tracking-wider text-slate-500 bg-slate-100 hover:bg-slate-200 active:scale-[0.98] transition-all border border-slate-200/40">
+                                Hủy
+                            </button>
                             <button onClick={handleDeleteTask} disabled={deleteTask.isPending}
-                                className="flex-[2] py-3.5 bg-red-500 text-white rounded-2xl font-black text-[14px] shadow-lg shadow-red-200 hover:bg-red-600 disabled:opacity-50 transition-all active:scale-[0.98]">
+                                className="flex-[2] py-4 bg-gradient-to-r from-rose-500 to-red-600 hover:from-rose-600 hover:to-red-700 text-white rounded-[20px] font-black text-[13px] uppercase tracking-wider shadow-lg shadow-rose-100 active:scale-[0.98] transition-all hover:shadow-xl hover:shadow-rose-200/60 disabled:opacity-50 relative overflow-hidden group">
+                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
                                 {deleteTask.isPending ? 'Đang xóa...' : 'Xóa ngay'}
                             </button>
                         </div>
@@ -878,7 +949,16 @@ export default function GoalsPage() {
             {aiModalOpen && (
                 <AiScheduleModal
                     onClose={() => setAiModalOpen(false)}
-                    onSuccess={() => { setAiModalOpen(false); /* The React Query invalidation will naturally refresh the lists */ }}
+                    onSuccess={() => { setAiModalOpen(false); }}
+                />
+            )}
+
+            {/* ══ Create Task Modal ════════════════════════════════════════════ */}
+            {inlineCategory && (
+                <CreateTaskModal
+                    categoryId={inlineCategory}
+                    onClose={() => setInlineCategory(null)}
+                    onSave={handleInlineSave}
                 />
             )}
 

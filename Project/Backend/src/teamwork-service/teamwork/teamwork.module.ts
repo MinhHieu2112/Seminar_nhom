@@ -2,14 +2,17 @@ import { Module } from '@nestjs/common';
 import { TeamworkService } from './teamwork.service';
 import { TeamworkController } from './teamwork.controller';
 import { UserEventsController } from './user-events.controller';
+import { HealthController } from './health.controller';
 import { PrismaService } from '../prisma/prisma.service';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { NotificationModule } from '../notification/notification.module';
+import { MessageModule } from '../message/message.module';
 
 @Module({
   imports: [
     NotificationModule,
+    MessageModule,
     ClientsModule.registerAsync([
       {
         name: 'REDIS_CLIENT',
@@ -25,7 +28,7 @@ import { NotificationModule } from '../notification/notification.module';
       },
     ]),
   ],
-  controllers: [TeamworkController, UserEventsController],
+  controllers: [TeamworkController, UserEventsController, HealthController],
   providers: [TeamworkService, PrismaService],
   exports: [TeamworkService],
 })

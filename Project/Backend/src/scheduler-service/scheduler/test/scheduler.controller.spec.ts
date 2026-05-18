@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import { SchedulerController } from '../scheduler.controller';
 import { SchedulerService } from '../scheduler.service';
 
@@ -20,6 +21,10 @@ describe('SchedulerController', () => {
       controllers: [SchedulerController],
       providers: [
         { provide: SchedulerService, useValue: schedulerServiceMock },
+        {
+          provide: ConfigService,
+          useValue: { get: jest.fn().mockReturnValue('mock-secret') },
+        },
       ],
     }).compile();
 

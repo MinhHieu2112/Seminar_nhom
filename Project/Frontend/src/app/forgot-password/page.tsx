@@ -69,12 +69,18 @@ export default function ForgotPasswordPage() {
             <strong>{submittedEmail}</strong>.
           </p>
 
-          {otpCode && countdown > 0 && (
-            <div style={{ marginTop: 20, marginBottom: 20, padding: 15, backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, textAlign: 'center' }}>
-              <p style={{ margin: '0 0 10px 0', color: '#166534', fontSize: 14 }}>Mã OTP tự động (sẽ ẩn sau {countdown}s):</p>
-              <div style={{ fontSize: 32, letterSpacing: 8, fontWeight: 'bold', color: '#15803d' }}>
+          {otpCode && countdown > 0 ? (
+            <div style={{ marginTop: 20, marginBottom: 20, padding: 15, backgroundColor: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: 8, textAlign: 'center' }}>
+              <p style={{ margin: '0 0 10px 0', color: '#6d28d9', fontSize: 14 }}>Mã OTP tự động (sẽ ẩn sau {countdown}s):</p>
+              <div style={{ fontSize: 32, letterSpacing: 8, fontWeight: 'bold', color: '#7c3aed' }}>
                 {otpCode}
               </div>
+            </div>
+          ) : (
+            <div style={{ marginTop: 20, marginBottom: 20, padding: 15, backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, textAlign: 'center' }}>
+              <p style={{ margin: 0, color: '#166534', fontSize: 14, fontWeight: 500 }}>
+                Mã OTP khôi phục đã được gửi qua hòm thư Email của bạn.
+              </p>
             </div>
           )}
 

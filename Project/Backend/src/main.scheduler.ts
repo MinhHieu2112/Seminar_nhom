@@ -2,8 +2,39 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { Transport, MicroserviceOptions } from '@nestjs/microservices';
 import { SchedulerModule } from './scheduler-service/scheduler/scheduler.module';
+import { AllRpcExceptionsFilter } from './users-service/rpc-exception.filter';
+import { execSync } from 'child_process';
+
+function validateDatabaseMigration(schemaPath: string) {
+  if (process.env.NODE_ENV !== 'production') {
+    return;
+  }
+  try {
+    console.log(
+      `[Startup Validation] Checking migration status for: ${schemaPath}`,
+    );
+    execSync(
+      `./node_modules/.bin/prisma migrate status --schema=${schemaPath}`,
+      { stdio: 'ignore' },
+    );
+    console.log(
+      `[Startup Validation] Migration status check PASSED. Database is up to date.`,
+    );
+  } catch {
+    console.error(
+      `[Startup Validation] FATAL ERROR: Database schema is out of date or migration check failed!`,
+    );
+    throw new Error(
+      `Database migration validation failed for ${schemaPath}. Ensure migrations are deployed.`,
+    );
+  }
+}
 
 async function bootstrap() {
+  validateDatabaseMigration(
+    'src/scheduler-service/scheduler/prisma/schema.prisma',
+  );
+
   const app = await NestFactory.create(SchedulerModule);
 
   app.useGlobalPipes(
@@ -13,6 +44,8 @@ async function bootstrap() {
       forbidNonWhitelisted: true,
     }),
   );
+
+  app.useGlobalFilters(new AllRpcExceptionsFilter());
 
   app.connectMicroservice<MicroserviceOptions>({
     transport: Transport.TCP,

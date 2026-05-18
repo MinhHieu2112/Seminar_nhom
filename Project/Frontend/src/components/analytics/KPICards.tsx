@@ -1,7 +1,7 @@
 'use client';
 
 import { memo } from 'react';
-import { CheckCircle, Clock, WarningCircle, TrendUp, Lightning, BookOpen } from '@phosphor-icons/react';
+import { WarningCircle, TrendUp, BookOpen } from '@phosphor-icons/react';
 
 import type { DashboardData } from '@/hooks/useAnalyticsDashboard';
 
@@ -14,7 +14,7 @@ const KPI_CONFIG = [
     bg: 'bg-amber-50',
     textColor: 'text-amber-600',
     suffix: '',
-    getValue: (d: DashboardData) => d.summary.individualTasks.completed + d.summary.teamTasks.completed,
+    getValue: (d: DashboardData) => d.summary.individualTasks.completed,
   },
   {
     key: 'overdueTasks',
@@ -24,7 +24,7 @@ const KPI_CONFIG = [
     bg: 'bg-rose-50',
     textColor: 'text-rose-600',
     suffix: '',
-    getValue: (d: DashboardData) => d.summary.individualTasks.overdue + d.summary.teamTasks.overdue,
+    getValue: (d: DashboardData) => d.summary.individualTasks.overdue,
   },
   {
     key: 'totalTasks',
@@ -34,7 +34,7 @@ const KPI_CONFIG = [
     bg: 'bg-cyan-50',
     textColor: 'text-cyan-600',
     suffix: '',
-    getValue: (d: DashboardData) => d.summary.individualTasks.total + d.summary.teamTasks.total,
+    getValue: (d: DashboardData) => d.summary.individualTasks.total,
   },
 ];
 
@@ -42,7 +42,7 @@ interface Props { data: DashboardData; }
 
 export const KPICards = memo(function KPICards({ data }: Props) {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
+    <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-3 gap-4 mb-8">
       {KPI_CONFIG.map((kpi) => {
         const Icon = kpi.icon;
         const value = kpi.getValue(data);

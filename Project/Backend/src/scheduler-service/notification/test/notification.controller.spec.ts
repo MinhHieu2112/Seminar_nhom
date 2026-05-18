@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import { NotificationController } from '../notification.controller';
 import { NotificationService } from '../notification.service';
 
@@ -9,12 +10,19 @@ describe('NotificationController', () => {
     getNotifications: jest.fn(),
     markAsRead: jest.fn(),
     markAllAsRead: jest.fn(),
+    getUnreadCount: jest.fn(),
   };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [NotificationController],
-      providers: [{ provide: NotificationService, useValue: serviceMock }],
+      providers: [
+        { provide: NotificationService, useValue: serviceMock },
+        {
+          provide: ConfigService,
+          useValue: { get: jest.fn().mockReturnValue('mock-secret') },
+        },
+      ],
     }).compile();
 
     controller = module.get<NotificationController>(NotificationController);

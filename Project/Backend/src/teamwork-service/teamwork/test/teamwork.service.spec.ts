@@ -7,6 +7,7 @@ import {
 import { TeamworkService } from '../teamwork.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationService } from '../../notification/notification.service';
+import { MessageGateway } from '../../message/message.gateway';
 
 describe('TeamworkService', () => {
   let service: TeamworkService;
@@ -61,6 +62,15 @@ describe('TeamworkService', () => {
     sendNotification: jest.fn(),
   };
 
+  const messageGatewayMock = {
+    server: {
+      to: jest.fn().mockReturnThis(),
+      emit: jest.fn(),
+    },
+    sendEventToUser: jest.fn(),
+    broadcastToRoom: jest.fn(),
+  };
+
   beforeEach(async () => {
     prismaMock.$transaction.mockImplementation(
       async (promises: Array<Promise<unknown>>) => Promise.all(promises),
@@ -72,6 +82,7 @@ describe('TeamworkService', () => {
         { provide: PrismaService, useValue: prismaMock },
         { provide: 'REDIS_CLIENT', useValue: redisClientMock },
         { provide: NotificationService, useValue: notificationServiceMock },
+        { provide: MessageGateway, useValue: messageGatewayMock },
       ],
     }).compile();
 

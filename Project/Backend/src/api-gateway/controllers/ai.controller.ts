@@ -42,11 +42,25 @@ export class AiGatewayController {
     if (body.type === 'csv' && file) {
       dataToNormalize = file.buffer.toString('utf-8');
     }
-    return safeSend(this.tcpClient, 'ai-service', 'ai.normalize', {
-      userId,
-      type: body.type,
-      data: dataToNormalize,
-    });
+    return safeSend(
+      this.tcpClient,
+      'ai-service',
+      'ai.normalize',
+      {
+        userId,
+        type: body.type,
+        data: dataToNormalize,
+      },
+      () => {
+        return {
+          success: true,
+          normalizedText: dataToNormalize.trim(),
+          message:
+            'Dịch vụ AI đang bảo trì. Hệ thống tự động chuẩn hóa dữ liệu ở chế độ fallback.',
+          isFallback: true,
+        };
+      },
+    );
   }
 
   @Post('generate-schedule')
@@ -187,18 +201,12 @@ export class AiGatewayController {
       throw new BadRequestException('Prompt không được để trống.');
     }
 
-    const result: any = await safeSend(
+    const result = await safeSend<any>(
       this.tcpClient,
       'ai-service',
       'ai.generate-from-prompt',
       { prompt: body.prompt, userId },
     );
-
-    if (!result.success) {
-      throw new BadRequestException(
-        result.message || 'AI không thể phân tích yêu cầu của bạn.',
-      );
-    }
 
     return result;
   }
@@ -223,18 +231,12 @@ export class AiGatewayController {
 
     const base64Image = file.buffer.toString('base64');
 
-    const result: any = await safeSend(
+    const result = await safeSend<any>(
       this.tcpClient,
       'ai-service',
       'ai.generate-from-image',
       { prompt: body.prompt, userId, base64Image, mimeType: file.mimetype },
     );
-
-    if (!result.success) {
-      throw new BadRequestException(
-        result.message || 'AI không thể phân tích hình ảnh của bạn.',
-      );
-    }
 
     return result;
   }

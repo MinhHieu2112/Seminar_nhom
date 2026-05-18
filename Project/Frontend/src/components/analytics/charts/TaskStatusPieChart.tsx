@@ -12,9 +12,9 @@ const LABELS = ['Hoàn thành', 'Đang chờ', 'Trễ hạn'];
 interface Props { summary: AnalyticsSummary; }
 
 export const TaskStatusPieChart = memo(function TaskStatusPieChart({ summary }: Props) {
-  const total = summary.individualTasks.total + summary.teamTasks.total;
-  const completed = summary.individualTasks.completed + summary.teamTasks.completed;
-  const overdue = summary.individualTasks.overdue + summary.teamTasks.overdue;
+  const total = summary.individualTasks.total;
+  const completed = summary.individualTasks.completed;
+  const overdue = summary.individualTasks.overdue;
   const pending = Math.max(total - completed - overdue, 0);
 
   const chartData = [

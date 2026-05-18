@@ -1,14 +1,14 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { aiService } from '@/services/ai.service';
 import { schedulerService } from '@/services/scheduler.service';
-import { apiClient } from '@/lib/api-client';
-import type { Goal } from '@/types/api';
 
 export interface AiScheduleTask {
   title: string;
   duration: number;
   priority: number;
   deadline?: string;
+  type?: 'TASK' | 'SESSION';
+  sessionData?: { startTime: string; endTime: string };
 }
 
 export interface AiSchedulePreview {
@@ -36,22 +36,25 @@ export function useGenerateAiScheduleFromImage() {
 }
 
 export function useCreateAiScheduleBatch() {
+    const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: async (payload: AiSchedulePreview) => {
-            // Iterative approach to create goal and tasks
-            const res = await apiClient.post('/api/v1/scheduler/goals', { title: payload.goalTitle, deadline: payload.toDate });
-            const goal = res.data as Goal;
-
+        mutationFn: async (payload: { preview: AiSchedulePreview; categoryId: string }) => {
             const createdTasks = [];
-            for (const t of payload.tasks) {
+            for (const t of payload.preview.tasks) {
                 const tr = await schedulerService.createTask({
                     title: t.title,
                     priority: t.priority,
-                    dueTime: t.deadline
+                    dueTime: t.type === 'SESSION' && t.sessionData ? t.sessionData.endTime : t.deadline,
+                    type: t.type || 'TASK',
+                    sessionData: t.sessionData,
+                    categoryId: payload.categoryId,
                 });
                 createdTasks.push(tr.data);
             }
-            return { success: true, goal, tasks: createdTasks };
+            return { success: true, tasks: createdTasks };
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['scheduler'] });
         },
     });
 }

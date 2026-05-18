@@ -2,30 +2,7 @@ import { apiClient } from '@/lib/api-client';
 import type { 
   AnalyticsDashboard, 
   AnalyticsHistoryPoint, 
-  TimeDistribution,
-  TimeBreakdownPoint,
-  AnalyticsSummary,
-  WeeklyOverview,
-  TeamworkStats,
-  TeamContributionPoint,
-  BurndownPoint,
-  PerformanceMetricPoint,
-  PendingApprovalItem,
-  NextDeadline
 } from '@/types/api';
-
-export type {
-  TimeDistribution,
-  TimeBreakdownPoint,
-  AnalyticsSummary,
-  WeeklyOverview,
-  TeamworkStats,
-  TeamContributionPoint,
-  BurndownPoint,
-  PerformanceMetricPoint,
-  PendingApprovalItem,
-  NextDeadline,
-};
 
 export type AnalyticsDashboardResponse = AnalyticsDashboard;
 

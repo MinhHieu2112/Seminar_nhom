@@ -8,11 +8,17 @@ import { BadRequestException } from '@nestjs/common';
 import {
   setupTestEnvironment,
   clearDatabase,
-} from '../../../../test/utils/test-db-setup';
+} from '../../test/utils/test-db-setup';
+import {
+  createRedisClientMock,
+  cleanupMocks,
+} from '../../test/mocks/setup';
 
 describe('SchedulerService (Database Integration)', () => {
   let service: SchedulerService;
   let prisma: PrismaService;
+  let mockRedisClient: any;
+  let mockNotificationService: any;
 
   const mockHttpService = {
     get: jest.fn(),
@@ -23,16 +29,17 @@ describe('SchedulerService (Database Integration)', () => {
     get: jest.fn().mockReturnValue('http://localhost:8001'),
   };
 
-  const mockRedisClient = {
-    emit: jest.fn(),
-  };
-
-  const mockNotificationService = {
-    createNotification: jest.fn(),
-  };
-
   beforeAll(async () => {
     setupTestEnvironment();
+
+    // Create fresh mocks for integration test suite
+    mockRedisClient = createRedisClientMock();
+    mockNotificationService = {
+      createNotification: jest.fn().mockResolvedValue({
+        id: 'notif-1',
+        userId: 'test-user',
+      }),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -51,13 +58,18 @@ describe('SchedulerService (Database Integration)', () => {
 
   beforeEach(async () => {
     await clearDatabase(prisma);
+    // Clear mock call history before each test
+    mockRedisClient._cleanup();
+    jest.clearAllMocks();
   });
 
   afterAll(async () => {
+    // Cleanup mocks
+    cleanupMocks(mockRedisClient, mockNotificationService, mockHttpService);
     await prisma.$disconnect();
   });
 
-  it('should run a complete category -> subject -> task database lifecycle', async () => {
+  it('should run a complete category -> task database lifecycle', async () => {
     const userId = 'user-integrator';
 
     // 1. Create category
@@ -68,20 +80,12 @@ describe('SchedulerService (Database Integration)', () => {
     expect(category.id).toBeDefined();
     expect(category.name).toBe('Work Tasks');
 
-    // 2. Create subject
-    const subject = await service.createSubject(userId, {
-      name: 'Sprint Planning',
-      categoryId: category.id,
-    });
-    expect(subject.id).toBeDefined();
-    expect(subject.categoryId).toBe(category.id);
-
-    // 3. Create task
+    // 2. Create task
     const task = await service.createTask(userId, {
       title: 'Draft architecture diagram',
       description: 'Create black and white PlantUML specs',
       priority: 3,
-      subjectId: subject.id,
+      categoryId: category.id,
     });
     expect(task.id).toBeDefined();
     expect(task.status).toBe('pending');
@@ -100,14 +104,9 @@ describe('SchedulerService (Database Integration)', () => {
       color: '#EF4444',
     });
 
-    const subject = await service.createSubject(userId, {
-      name: 'Tests Subject',
-      categoryId: category.id,
-    });
-
     const task = await service.createTask(userId, {
       title: 'Fast task',
-      subjectId: subject.id,
+      categoryId: category.id,
     });
 
     // Update status to done
@@ -124,7 +123,7 @@ describe('SchedulerService (Database Integration)', () => {
     expect(dbTask?.status).toBe('done');
   });
 
-  it('should cascade delete subjects and tasks when their parent category is deleted', async () => {
+  it('should cascade delete tasks when their parent category is deleted', async () => {
     const userId = 'user-cascade';
 
     const category = await service.createCategory(userId, {
@@ -132,14 +131,9 @@ describe('SchedulerService (Database Integration)', () => {
       color: '#000000',
     });
 
-    const subject = await service.createSubject(userId, {
-      name: 'Disappearing Subject',
-      categoryId: category.id,
-    });
-
     const task = await service.createTask(userId, {
       title: 'Disappearing Task',
-      subjectId: subject.id,
+      categoryId: category.id,
     });
 
     // Delete category
@@ -150,12 +144,6 @@ describe('SchedulerService (Database Integration)', () => {
       where: { id: category.id },
     });
     expect(dbCategory).toBeNull();
-
-    // Verify subject is cascade deleted
-    const dbSubject = await prisma.subject.findUnique({
-      where: { id: subject.id },
-    });
-    expect(dbSubject).toBeNull();
 
     // Verify task is cascade deleted
     const dbTask = await prisma.task.findUnique({

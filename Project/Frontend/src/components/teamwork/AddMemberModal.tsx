@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { X, UserPlus, Spinner, MagnifyingGlass, Check, Warning, User } from '@phosphor-icons/react';
 import { useInviteGroupMember } from '@/hooks/useGroups';
 import { useSearchUsers } from '@/hooks/useProfile';
@@ -18,25 +18,76 @@ export function AddMemberModal({ group, onClose, onSuccess }: AddMemberModalProp
   const [results, setResults] = useState<UserType[]>([]);
   const [selectedUser, setSelectedUser] = useState<UserType | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [debouncedQuery, setDebouncedQuery] = useState('');
 
   const inviteMutation = useInviteGroupMember();
   const searchMutation = useSearchUsers();
 
-  // Debounce search
+  // Create a stable ref to avoid missing dependency lint warning without triggering re-runs
+  const searchRef = useRef(searchMutation.mutateAsync);
   useEffect(() => {
-    if (!query.trim()) return;
+    searchRef.current = searchMutation.mutateAsync;
+  }, [searchMutation.mutateAsync]);
 
-    const timer = setTimeout(async () => {
-      try {
-        const data = await searchMutation.mutateAsync(query);
-        setResults(data || []);
-      } catch (err) {
-        console.error('Search error:', err);
-      }
-    }, 300);
+  // 1. Debounce the query input state
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(query);
+    }, 400);
 
     return () => clearTimeout(timer);
-  }, [query, searchMutation, searchMutation.mutateAsync]);
+  }, [query]);
+
+  // 2. Perform search with race condition prevention and error handling
+  useEffect(() => {
+    const trimmed = debouncedQuery.trim();
+    if (!trimmed) {
+      const clearTimer = setTimeout(() => {
+        setResults([]);
+      }, 0);
+      return () => clearTimeout(clearTimer);
+    }
+    if (trimmed.length < 2) {
+      return;
+    }
+
+    let active = true;
+
+    // Defer state update to prevent synchronous cascading renders warning
+    const resetTimer = setTimeout(() => {
+      if (active) {
+        setError(null);
+      }
+    }, 0);
+
+    const performSearch = async () => {
+      try {
+        const data = await searchRef.current(trimmed);
+        if (active) {
+          setResults(data || []);
+        }
+      } catch (err) {
+        if (active) {
+          console.error('Search error:', err);
+          const e = err as { response?: { status?: number; data?: { message?: string } } };
+          if (e.response?.status === 429) {
+            setError('Quá nhiều yêu cầu tìm kiếm. Vui lòng thử lại sau giây lát.');
+          } else {
+            setError(e.response?.data?.message || 'Có lỗi xảy ra khi tìm kiếm');
+          }
+        }
+      }
+    };
+
+    performSearch();
+
+    return () => {
+      active = false;
+      clearTimeout(resetTimer);
+    };
+  }, [debouncedQuery]);
+
+  const isSearching = searchMutation.isPending || query.trim() !== debouncedQuery.trim();
 
   const handleInvite = async () => {
     if (!selectedUser) return;
@@ -96,12 +147,18 @@ export function AddMemberModal({ group, onClose, onSuccess }: AddMemberModalProp
                 className="w-full pl-11 pr-4 py-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all font-medium"
                 placeholder="Tên, Gmail, hoặc tên người dùng..."
               />
-              {searchMutation.isPending && (
+              {isSearching && (
                 <div className="absolute right-4 top-1/2 -translate-y-1/2">
                   <Spinner size={18} className="animate-spin text-gray-400" />
                 </div>
               )}
             </div>
+            {error && (
+              <div className="flex items-center gap-1.5 text-xs text-red-500 font-semibold bg-red-50 border border-red-100 rounded-lg px-3 py-1.5 animate-in fade-in duration-200">
+                <Warning size={14} weight="bold" className="shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
           </div>
 
           {/* Results List */}
@@ -156,7 +213,7 @@ export function AddMemberModal({ group, onClose, onSuccess }: AddMemberModalProp
                   );
                 })}
               </div>
-            ) : query.trim() && !searchMutation.isPending ? (
+            ) : query.trim() && !isSearching ? (
               <div className="flex flex-col items-center justify-center py-12 text-gray-400">
                 <Warning size={32} weight="duotone" className="mb-2" />
                 <p className="text-sm font-medium">Không tìm thấy người dùng nào</p>

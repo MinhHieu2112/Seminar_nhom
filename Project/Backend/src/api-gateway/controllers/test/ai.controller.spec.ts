@@ -66,6 +66,7 @@ describe('AiGatewayController', () => {
         'ai-service',
         'ai.normalize',
         { userId: 'u1', type: 'manual', data: 'hello' },
+        expect.any(Function),
       );
       expect(result).toEqual({ normalized: 'data' });
     });

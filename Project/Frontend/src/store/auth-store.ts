@@ -43,6 +43,18 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: () => {
+        // Fire-and-forget API call to backend logout to securely delete keys & blacklist session
+        const token = useAuthStore.getState().accessToken;
+        const userObj = useAuthStore.getState().user;
+        if (token && userObj) {
+          // Dynamic import to avoid circular dependency
+          import('@/services/auth.service')
+            .then(({ authService }) => {
+              authService.logout(userObj.id).catch(() => {});
+            })
+            .catch(() => {});
+        }
+
         clearAuth();
         set({
           user: null,

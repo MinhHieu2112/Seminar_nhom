@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { loginSchema, type LoginFormData } from '@/lib/schemas';
 import { authService } from '@/services/auth.service';
 import { useAuthStore } from '@/store/auth-store';
@@ -46,6 +47,7 @@ interface LoginFormProps {
 export function LoginForm({ isSliding = false, onForgotPassword }: LoginFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
   const login = useAuthStore((state) => state.login);
   
   const urlError = searchParams.get('error');
@@ -94,6 +96,7 @@ export function LoginForm({ isSliding = false, onForgotPassword }: LoginFormProp
         throw new Error('Missing auth payload');
       }
       const { accessToken, refreshToken, user } = result;
+      queryClient.clear(); // Ensure no stale data from previous sessions
       login(accessToken, refreshToken, user);
       router.push('/dashboard');
     } catch (err: unknown) {

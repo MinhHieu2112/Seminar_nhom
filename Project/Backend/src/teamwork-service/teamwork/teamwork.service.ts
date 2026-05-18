@@ -14,6 +14,7 @@ import {
 } from './dto/group-task.dto';
 import { ClientProxy } from '@nestjs/microservices';
 import { NotificationService } from '../notification/notification.service';
+import { MessageGateway } from '../message/message.gateway';
 
 @Injectable()
 export class TeamworkService {
@@ -21,6 +22,7 @@ export class TeamworkService {
     private prisma: PrismaService,
     @Inject('REDIS_CLIENT') private readonly redisClient: ClientProxy,
     private readonly notificationService: NotificationService,
+    private readonly messageGateway: MessageGateway,
   ) {}
 
   // ============ Group Management ============
@@ -50,11 +52,16 @@ export class TeamworkService {
   async getGroups(userId: string) {
     const groups = await this.prisma.group.findMany({
       where: {
-        members: {
-          some: {
-            userId,
+        OR: [
+          { creatorId: userId },
+          {
+            members: {
+              some: {
+                userId,
+              },
+            },
           },
-        },
+        ],
       },
       include: {
         _count: {
@@ -106,18 +113,26 @@ export class TeamworkService {
       throw new ForbiddenException('Only group admins can update the group');
     }
 
-    return await this.prisma.group.update({
+    const updated = await this.prisma.group.update({
       where: { id: groupId },
       data: {
         ...(dto.name && { name: dto.name }),
         ...(dto.description !== undefined && { description: dto.description }),
       },
     });
+
+    this.messageGateway.broadcastToRoom(`group_${groupId}`, 'groupUpdated', {
+      groupId,
+      updatedGroup: updated,
+    });
+
+    return updated;
   }
 
   async deleteGroup(userId: string, groupId: string) {
     const group = await this.prisma.group.findUnique({
       where: { id: groupId },
+      include: { members: true },
     });
 
     if (!group) throw new NotFoundException('Group not found');
@@ -126,6 +141,14 @@ export class TeamworkService {
       throw new ForbiddenException(
         'Only the group creator can delete the group',
       );
+    }
+
+    if (group.members) {
+      for (const m of group.members) {
+        this.messageGateway.sendEventToUser(m.userId, 'groupDeleted', {
+          groupId,
+        });
+      }
     }
 
     return await this.prisma.group.delete({ where: { id: groupId } });
@@ -156,11 +179,19 @@ export class TeamworkService {
       throw new ForbiddenException('User is already a member');
     }
 
-    return await this.prisma.groupInvitation.upsert({
+    const invitation = await this.prisma.groupInvitation.upsert({
       where: { groupId_userId: { groupId, userId: dto.userId } },
       update: { inviterId, status: 'PENDING' },
       create: { groupId, userId: dto.userId, inviterId, status: 'PENDING' },
     });
+
+    // Realtime notification to the invited user
+    this.messageGateway.sendEventToUser(dto.userId, 'invitationReceived', {
+      groupId,
+      inviterId,
+    });
+
+    return invitation;
   }
 
   async getInvitations(userId: string) {
@@ -192,6 +223,22 @@ export class TeamworkService {
         }),
         this.prisma.groupInvitation.delete({ where: { id: invitationId } }),
       ]);
+
+      // Emit socket event to the invitee that accepted
+      this.messageGateway.sendEventToUser(userId, 'invitationAccepted', {
+        groupId: invitation.groupId,
+      });
+
+      // Emit socket event to other members of the group
+      this.messageGateway.broadcastToRoom(
+        `group_${invitation.groupId}`,
+        'memberJoined',
+        {
+          groupId: invitation.groupId,
+          userId,
+        },
+      );
+
       return { success: true, message: 'Invitation accepted' };
     } else {
       await this.prisma.groupInvitation.delete({ where: { id: invitationId } });
@@ -222,6 +269,17 @@ export class TeamworkService {
 
     await this.prisma.groupMember.delete({
       where: { groupId_userId: { groupId, userId: targetUserId } },
+    });
+
+    // Notify the target user that they are removed
+    this.messageGateway.sendEventToUser(targetUserId, 'memberRemoved', {
+      groupId,
+    });
+
+    // Notify other group members
+    this.messageGateway.broadcastToRoom(`group_${groupId}`, 'memberLeft', {
+      groupId,
+      userId: targetUserId,
     });
 
     return { success: true, message: 'Member removed' };
@@ -280,7 +338,10 @@ export class TeamworkService {
   }
 
   async updateGroupTask(userId: string, id: string, dto: UpdateGroupTaskDto) {
-    const task = await this.prisma.groupTask.findUnique({ where: { id } });
+    const task = await this.prisma.groupTask.findUnique({
+      where: { id },
+      include: { group: true },
+    });
     if (!task) throw new NotFoundException('Task not found');
 
     // Check membership
@@ -289,26 +350,64 @@ export class TeamworkService {
     });
     if (!member) throw new ForbiddenException('Not a member of this group');
 
+    let finalLeaderComments = task.leaderComments;
+
     if (dto.leaderComments !== undefined) {
-      let isAssigneeAdmin = false;
-      if (task.assigneeId) {
-        const assigneeMember = await this.prisma.groupMember.findUnique({
-          where: {
-            groupId_userId: { groupId: task.groupId, userId: task.assigneeId },
-          },
-        });
-        const groupDetail = await this.prisma.group.findUnique({
-          where: { id: task.groupId },
-        });
-        isAssigneeAdmin =
-          assigneeMember?.role === 'admin' ||
-          groupDetail?.creatorId === task.assigneeId;
+      // 1. Cannot self-review
+      if (task.assigneeId === userId) {
+        throw new ForbiddenException(
+          'You cannot review or comment on your own assigned task',
+        );
       }
 
-      if (!isAssigneeAdmin && member.role !== 'admin') {
-        throw new ForbiddenException(
-          'Only group admins can update leader comments',
-        );
+      // 2. Fetch commenter profile to store in JSON comment list
+      const commenter = await this.prisma.userProjection.findUnique({
+        where: { id: userId },
+      });
+
+      // Parse existing comments
+      let commentsList: any[] = [];
+      if (task.leaderComments) {
+        try {
+          const parsed = JSON.parse(task.leaderComments);
+          if (Array.isArray(parsed)) {
+            commentsList = parsed;
+          } else {
+            // Legacy single string comment from admin
+            commentsList = [
+              {
+                userId: task.group.creatorId,
+                userName: 'Trưởng nhóm',
+                userAvatar: null,
+                comment: task.leaderComments,
+                createdAt: task.updatedAt.toISOString(),
+              },
+            ];
+          }
+        } catch {
+          // Legacy single string comment from admin
+          commentsList = [
+            {
+              userId: task.group.creatorId,
+              userName: 'Trưởng nhóm',
+              userAvatar: null,
+              comment: task.leaderComments,
+              createdAt: task.updatedAt.toISOString(),
+            },
+          ];
+        }
+      }
+
+      // 3. Append new comment if non-empty
+      if (dto.leaderComments && dto.leaderComments.trim() !== '') {
+        commentsList.push({
+          userId,
+          userName: commenter?.name || commenter?.email || 'Thành viên',
+          userAvatar: commenter?.avatar || null,
+          comment: dto.leaderComments.trim(),
+          createdAt: new Date().toISOString(),
+        });
+        finalLeaderComments = JSON.stringify(commentsList);
       }
     }
 
@@ -324,7 +423,7 @@ export class TeamworkService {
         ...(dto.priority !== undefined && { priority: dto.priority }),
         ...(dto.status && { status: dto.status }),
         ...(dto.leaderComments !== undefined && {
-          leaderComments: dto.leaderComments,
+          leaderComments: finalLeaderComments,
         }),
       },
     });
@@ -345,18 +444,21 @@ export class TeamworkService {
       });
     }
 
-    // 2. Nhận xét mới của trưởng nhóm
+    // 2. Nhận xét mới của thành viên nhóm
     if (
       dto.leaderComments !== undefined &&
-      dto.leaderComments !== task.leaderComments &&
-      dto.leaderComments &&
       updatedTask.assigneeId &&
       updatedTask.assigneeId !== userId
     ) {
+      const commenter = await this.prisma.userProjection.findUnique({
+        where: { id: userId },
+      });
+      const commenterName =
+        commenter?.name || commenter?.email || 'Thành viên nhóm';
       void this.notificationService.sendNotification({
         userId: updatedTask.assigneeId,
-        title: 'Nhận xét mới từ trưởng nhóm',
-        message: `Trưởng nhóm đã thêm nhận xét góp ý cho công việc "${updatedTask.title}".`,
+        title: 'Nhận xét mới từ thành viên nhóm',
+        message: `${commenterName} đã thêm nhận xét góp ý cho công việc "${updatedTask.title}".`,
         type: 'group',
         taskId: updatedTask.id,
       });
@@ -543,9 +645,16 @@ export class TeamworkService {
       ),
     );
 
+    const isUploaderAdmin =
+      member.role === 'admin' ||
+      (task.group && task.group.creatorId === userId);
+
     const updatedTask = await this.prisma.groupTask.update({
       where: { id: taskId },
-      data: { submittedForReview: true },
+      data: {
+        submittedForReview: isUploaderAdmin ? false : true,
+        status: isUploaderAdmin ? 'done' : task.status,
+      },
       include: { attachments: true },
     });
 
@@ -606,5 +715,197 @@ export class TeamworkService {
 
     this.redisClient.emit('grouptask.updated', updatedTask);
     return updatedTask;
+  }
+
+  async getAnalyticsSummary(userId: string) {
+    // 1. pendingApprovals query
+    const pendingTasks = await this.prisma.groupTask.findMany({
+      where: {
+        group: { creatorId: userId },
+        submittedForReview: true,
+        status: { not: 'done' },
+      },
+      select: {
+        id: true,
+        title: true,
+        assigneeId: true,
+        priority: true,
+        dueTime: true,
+      },
+      orderBy: { dueTime: 'asc' },
+    });
+
+    // 2. contributionRows query
+    const userGroups = await this.prisma.groupMember.findMany({
+      where: { userId },
+      select: { groupId: true },
+    });
+    const groupIds = userGroups.map((ug) => ug.groupId);
+
+    const contributionRows = await this.prisma.groupTask.groupBy({
+      by: ['assigneeId'],
+      where: {
+        groupId: { in: groupIds },
+        status: 'done',
+        assigneeId: { not: null },
+      },
+      _count: {
+        id: true,
+      },
+    });
+
+    // Resolve User Projections for pending approvals and contributions
+    const assigneeIds = new Set<string>();
+    for (const row of pendingTasks) {
+      if (row.assigneeId) {
+        assigneeIds.add(row.assigneeId);
+      }
+    }
+    for (const row of contributionRows) {
+      if (row.assigneeId && row.assigneeId !== userId) {
+        assigneeIds.add(row.assigneeId);
+      }
+    }
+
+    const idsList = Array.from(assigneeIds);
+    const userProjections =
+      idsList.length > 0
+        ? await this.prisma.userProjection.findMany({
+            where: { id: { in: idsList } },
+            select: { id: true, name: true, email: true },
+          })
+        : [];
+
+    const userMap = new Map<
+      string,
+      { id: string; name: string | null; email: string }
+    >();
+    for (const u of userProjections) {
+      userMap.set(u.id, u);
+    }
+
+    // Format pendingApprovals
+    const pendingApprovals = pendingTasks.map((row) => {
+      let assigneeName = 'Thành viên khác';
+      if (row.assigneeId) {
+        const userProj = userMap.get(row.assigneeId);
+        if (userProj) {
+          assigneeName = userProj.name || userProj.email;
+        }
+      }
+
+      let priorityStr: 'low' | 'medium' | 'high' = 'medium';
+      if (row.priority >= 3) priorityStr = 'high';
+      else if (row.priority === 1) priorityStr = 'low';
+
+      return {
+        id: row.id,
+        title: row.title,
+        assignee: assigneeName,
+        priority: priorityStr,
+        dueDate: row.dueTime
+          ? new Date(row.dueTime).toLocaleDateString('vi-VN')
+          : 'Không có hạn',
+      };
+    });
+
+    // Format team contributions for teamwork members
+    const teamContribution: any[] = [];
+    let userCompletedCount = 0;
+
+    for (const row of contributionRows) {
+      if (row.assigneeId === userId) {
+        userCompletedCount = row._count.id;
+      } else {
+        const userProj = row.assigneeId
+          ? userMap.get(row.assigneeId)
+          : undefined;
+        const nameStr = userProj
+          ? userProj.name || userProj.email
+          : 'Thành viên khác';
+        teamContribution.push({
+          name: nameStr,
+          tasks: row._count.id,
+          hours: Math.round(row._count.id * 1.5),
+        });
+      }
+    }
+
+    // 3. teamworkStats queries
+    const total = await this.prisma.groupTask.count({
+      where: { groupId: { in: groupIds } },
+    });
+    const completed = await this.prisma.groupTask.count({
+      where: { groupId: { in: groupIds }, status: 'done' },
+    });
+    const pending = await this.prisma.groupTask.count({
+      where: {
+        groupId: { in: groupIds },
+        status: { not: 'done' },
+        submittedForReview: false,
+        OR: [{ dueTime: null }, { dueTime: { gte: new Date() } }],
+      },
+    });
+    const reviewing = await this.prisma.groupTask.count({
+      where: {
+        groupId: { in: groupIds },
+        submittedForReview: true,
+        status: { not: 'done' },
+      },
+    });
+    const overdue = await this.prisma.groupTask.count({
+      where: {
+        groupId: { in: groupIds },
+        status: { not: 'done' },
+        dueTime: { lt: new Date() },
+      },
+    });
+
+    // 4. pendingInvitations
+    const pendingInvitations = await this.prisma.groupInvitation.count({
+      where: { userId, status: 'PENDING' },
+    });
+
+    // 5. activeGroupTasks
+    const activeGroupTasks = await this.prisma.groupTask.count({
+      where: { assigneeId: userId, status: { not: 'done' } },
+    });
+
+    // 6. collaboratorsCount
+    const collaborators = await this.prisma.groupMember.findMany({
+      where: {
+        groupId: { in: groupIds },
+        userId: { not: userId },
+      },
+      distinct: ['userId'],
+      select: { userId: true },
+    });
+    const collaboratorsCount = collaborators.length;
+
+    // 7. waitingResponseTasks
+    const waitingResponseTasks = await this.prisma.groupTask.count({
+      where: {
+        assigneeId: userId,
+        submittedForReview: true,
+        status: { not: 'done' },
+      },
+    });
+
+    return {
+      teamworkStats: {
+        total,
+        completed,
+        pending,
+        reviewing,
+        overdue,
+      },
+      pendingInvitations,
+      activeGroupTasks,
+      collaboratorsCount,
+      waitingResponseTasks,
+      pendingApprovals,
+      teamContribution,
+      userCompletedCount,
+    };
   }
 }

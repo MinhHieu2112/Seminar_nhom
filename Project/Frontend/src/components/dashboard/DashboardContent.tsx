@@ -66,15 +66,9 @@ export function DashboardContent() {
     summary: { 
       totalGoals: 0, activeGoals: 0, completedGoals: 0, 
       individualTasks: { total: 0, completed: 0, pending: 0, overdue: 0 },
-      teamTasks: { total: 0, completed: 0, pending: 0, overdue: 0 },
       plannedBlocks: 0, completedBlocks: 0, totalStudyMins: 0 
     },
-    teamwork: { pendingInvitations: 0, activeGroupTasks: 0, collaboratorsCount: 0, waitingResponseTasks: 0 },
     weeklyOverview: { scheduledBlocks: 0, studyHours: 0, completedTasks: 0 },
-    teamContribution: [],
-    burndown: [],
-    performance: [],
-    pendingApprovals: [],
     nextDeadline: undefined,
   };
 
@@ -172,7 +166,7 @@ export function DashboardContent() {
           <div className="flex items-center gap-6 w-full md:w-auto justify-between md:justify-end relative z-10">
             <div className="flex gap-5 text-xs font-bold text-gray-500">
               <div className="flex items-center gap-2"><ListChecks weight="bold" size={20} className="text-pink-400" /> {analytics.summary.activeGoals} Đang làm</div>
-              <div className="flex items-center gap-2"><Clock weight="bold" size={20} className="text-green-400" /> {analytics.summary.individualTasks.total + analytics.summary.teamTasks.total} Tổng số</div>
+              <div className="flex items-center gap-2"><Clock weight="bold" size={20} className="text-green-400" /> {analytics.summary.individualTasks.total} Tổng số</div>
             </div>
             <Link href="/scheduler" className="bg-indigo-600 hover:bg-indigo-700 text-white transition-all flex items-center gap-2.5 px-6 py-3 rounded-2xl font-black text-[11px] whitespace-nowrap shadow-lg shadow-indigo-100">
               <Play weight="fill" size={14} /> TIẾP TỤC
@@ -183,7 +177,7 @@ export function DashboardContent() {
         {/* Status Cards - SPLIT INDIVIDUAL VS TEAMWORK */}
         <div>
           <h3 className="font-black text-gray-900 text-xl mb-6 ml-2">Trạng thái tổng quan</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
 
             {/* Card 1: Tiến độ cá nhân */}
             <div className={`bg-[#fffaf0]/80 rounded-3xl p-6 flex flex-col justify-between border border-orange-100/50 ${softShadowClass}`}>
@@ -217,65 +211,7 @@ export function DashboardContent() {
                 </div>
               </div>
             </div>
-
-            {/* Card 2: Tiến độ teamwork */}
-            <div className={`bg-[#fff5f8]/80 rounded-3xl p-6 flex flex-col justify-between border border-pink-100/50 ${softShadowClass}`}>
-              <div className="flex justify-between items-start mb-4">
-                <div className="flex-1">
-                  <div className="bg-pink-500/10 p-2.5 rounded-2xl inline-flex text-pink-600 mb-4">
-                    <Users weight="bold" size={24} />
-                  </div>
-                  <div className="text-xl font-black text-gray-900 tracking-tight leading-tight">Teamwork</div>
-                  <p className="text-[11px] font-bold text-gray-400 mt-1 uppercase tracking-widest">Tiến độ nhóm</p>
-                </div>
-                <CircularProgress 
-                  percent={analytics.summary.teamTasks.total > 0 ? Math.round((analytics.summary.teamTasks.completed / analytics.summary.teamTasks.total) * 100) : 0} 
-                  colorClass="text-pink-500" 
-                />
-              </div>
-              <div className="mt-auto">
-                <div className="space-y-1.5">
-                  <div className="flex justify-between text-[11px] font-black">
-                    <span className="text-emerald-600 uppercase">Xong</span>
-                    <span className="text-slate-700">{analytics.summary.teamTasks.completed}</span>
-                  </div>
-                  <div className="flex justify-between text-[11px] font-black">
-                    <span className="text-amber-500 uppercase">Chưa xong</span>
-                    <span className="text-slate-700">{analytics.summary.teamTasks.pending}</span>
-                  </div>
-                  <div className="flex justify-between text-[11px] font-black">
-                    <span className="text-rose-500 uppercase tracking-tighter">Quá hạn</span>
-                    <span className="text-rose-600">{analytics.summary.teamTasks.overdue}</span>
-                  </div>
-                </div>
-              </div>
             </div>
-
-            {/* Card 3: Tình hình teamwork */}
-            <div className={`bg-[#f0fdf4]/80 rounded-3xl p-6 flex flex-col justify-between border border-emerald-100/50 ${softShadowClass}`}>
-              <div className="flex justify-between items-start mb-4">
-                <div className="flex-1">
-                  <div className="bg-emerald-500/10 p-2.5 rounded-2xl inline-flex text-emerald-600 mb-4">
-                    <ChatCircleDots weight="bold" size={24} />
-                  </div>
-                  <div className="text-xl font-black text-gray-900 tracking-tight leading-tight">Tình hình</div>
-                  <p className="text-[11px] font-bold text-gray-400 mt-1 uppercase tracking-widest">Tương tác</p>
-                </div>
-                <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 font-black text-xl">
-                  {analytics.teamwork.waitingResponseTasks}
-                </div>
-              </div>
-              <div className="mt-auto">
-                <p className="text-[14px] font-black text-slate-800 leading-tight">
-                  {analytics.teamwork.waitingResponseTasks} task đang chờ bạn phản hồi
-                </p>
-                <div className="mt-3 flex items-center gap-2 text-[10px] font-black text-emerald-600 uppercase tracking-widest">
-                  <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
-                  Hoạt động tích cực
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* My Plans List */}

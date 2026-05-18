@@ -18,6 +18,7 @@ import { TcpClientService } from '../tcp-client.service';
 import { JwtService } from '@nestjs/jwt';
 import { safeSend, extractUserId } from '../gateway.utils';
 import { CloudinaryService } from '../cloudinary.service';
+import { Throttle, seconds } from '@nestjs/throttler';
 
 @Controller('api/v1/users')
 export class UsersGatewayController {
@@ -81,6 +82,7 @@ export class UsersGatewayController {
   }
 
   @Get('search')
+  @Throttle({ search: { limit: 30, ttl: seconds(10) } })
   search(@Query('q') query: string) {
     if (!query) {
       throw new BadRequestException('Search query is required');

@@ -8,6 +8,13 @@ export const AiTaskSchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Deadline must be YYYY-MM-DD format')
     .optional(),
+  type: z.enum(['TASK', 'SESSION']).default('TASK'),
+  sessionData: z
+    .object({
+      startTime: z.string(),
+      endTime: z.string(),
+    })
+    .optional(),
 });
 
 export const AiBusySlotSchema = z.object({

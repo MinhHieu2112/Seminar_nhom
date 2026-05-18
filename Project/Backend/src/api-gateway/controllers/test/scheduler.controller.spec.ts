@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { SchedulerGatewayController } from '../scheduler.controller';
 import { HttpClientService } from '../../http-client.service';
 import { JwtService } from '@nestjs/jwt';
+import { GatewaySocketGateway } from '../../gateway.socket';
 import * as gatewayUtils from '../../gateway.utils';
 import { BadRequestException } from '@nestjs/common';
 
@@ -25,12 +26,18 @@ describe('SchedulerGatewayController', () => {
     verify: jest.fn(),
   };
 
+  const mockGatewaySocketGateway = {
+    sendEventToUser: jest.fn(),
+    broadcastToRoom: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [SchedulerGatewayController],
       providers: [
         { provide: HttpClientService, useValue: mockHttpClientService },
         { provide: JwtService, useValue: mockJwtService },
+        { provide: GatewaySocketGateway, useValue: mockGatewaySocketGateway },
       ],
     }).compile();
 

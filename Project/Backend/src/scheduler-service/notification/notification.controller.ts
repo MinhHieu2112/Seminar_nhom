@@ -1,14 +1,25 @@
-import { Controller, Get, Post, Param, Headers } from '@nestjs/common';
-import { EventPattern, Payload } from '@nestjs/microservices';
+import {
+  Controller,
+  Get,
+  Post,
+  Param,
+  Headers,
+  UseGuards,
+} from '@nestjs/common';
 import { NotificationService } from './notification.service';
+import { InternalAuthGuard } from '../../common/internal-auth.guard';
 
-@Controller('api/v1/scheduler/notifications')
+@UseGuards(InternalAuthGuard)
+@Controller('internal/notifications')
 export class NotificationController {
   constructor(private readonly notificationService: NotificationService) {}
 
   @Get()
-  getNotifications(@Headers('x-user-id') userId: string) {
-    return this.notificationService.getNotifications(userId);
+  async getNotifications(@Headers('x-user-id') userId: string) {
+    const notifications =
+      await this.notificationService.getNotifications(userId);
+    const unreadCount = await this.notificationService.getUnreadCount(userId);
+    return { notifications, unreadCount };
   }
 
   @Post(':id/read')
@@ -19,20 +30,5 @@ export class NotificationController {
   @Post('read-all')
   markAllAsRead(@Headers('x-user-id') userId: string) {
     return this.notificationService.markAllAsRead(userId);
-  }
-
-  @EventPattern('notification.create')
-  async handleNotificationCreate(
-    @Payload()
-    data: {
-      userId: string;
-      title: string;
-      message: string;
-      type?: string;
-      taskId?: string;
-    },
-  ) {
-    console.log('[SchedulerService] Received notification.create event:', data);
-    return await this.notificationService.createNotification(data);
   }
 }

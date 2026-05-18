@@ -33,6 +33,7 @@ import {
 } from '@/hooks/useScheduler';
 import { UploadEvidenceModal } from '@/components/teamwork/UploadEvidenceModal';
 import { ChatTab } from '@/components/teamwork/ChatTab';
+import { StatsTab } from '@/components/teamwork/StatsTab';
 
 
 function getErrorMessage(error: unknown, fallback: string) {
@@ -84,10 +85,11 @@ export default function GroupDetailsPage() {
   const deleteGroupMutation = useDeleteGroup();
   const removeMemberMutation = useRemoveMember();
 
-  const [activeTab, setActiveTab] = useState<'tasks' | 'members' | 'chat'>('tasks');
+  const [activeTab, setActiveTab] = useState<'tasks' | 'members' | 'chat' | 'stats'>('tasks');
   const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [uploadModalTaskId, setUploadModalTaskId] = useState<string | null>(null);
   const [taskError, setTaskError] = useState<string | null>(null);
 
@@ -102,6 +104,10 @@ export default function GroupDetailsPage() {
     assigneeId: '',
   });
 
+  const [taskFilter, setTaskFilter] = useState<'all' | 'my'>('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [lastNavigatedTaskId, setLastNavigatedTaskId] = useState<string | null>(null);
+
   const orderedTasks = useMemo(() => {
     return [...groupTasks].sort((a, b) => {
       const aTime = a.dueTime ? new Date(a.dueTime).getTime() : Number.MAX_SAFE_INTEGER;
@@ -110,17 +116,50 @@ export default function GroupDetailsPage() {
     });
   }, [groupTasks]);
 
+  const filteredTasks = useMemo(() => {
+    if (taskFilter === 'my') {
+      return orderedTasks.filter((task) => task.assigneeId === currentUser?.id);
+    }
+    return orderedTasks;
+  }, [orderedTasks, taskFilter, currentUser?.id]);
+
+  const itemsPerPage = 10;
+  const paginatedTasks = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredTasks.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredTasks, currentPage]);
+
+  const totalPages = useMemo(() => {
+    return Math.ceil(filteredTasks.length / itemsPerPage) || 1;
+  }, [filteredTasks.length]);
+
+  if (highlightedTaskId && lastNavigatedTaskId !== highlightedTaskId) {
+    const taskIndex = filteredTasks.findIndex((t) => t.id === highlightedTaskId);
+    if (taskIndex !== -1) {
+      const targetPage = Math.floor(taskIndex / itemsPerPage) + 1;
+      setLastNavigatedTaskId(highlightedTaskId);
+      if (currentPage !== targetPage) {
+        setCurrentPage(targetPage);
+      }
+    }
+  }
+
+
   useEffect(() => {
     if (!highlightedTaskId) return;
 
-    const row = taskRowRefs.current[highlightedTaskId];
-    if (!row) return;
+    // Allow time for state change to render
+    const timer = setTimeout(() => {
+      const row = taskRowRefs.current[highlightedTaskId];
+      if (!row) return;
+      row.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+    }, 100);
 
-    row.scrollIntoView({
-      behavior: 'smooth',
-      block: 'center',
-    });
-  }, [highlightedTaskId, orderedTasks]);
+    return () => clearTimeout(timer);
+  }, [highlightedTaskId, currentPage]);
 
   const handleDeleteGroup = async () => {
     if (!confirm('Bạn có chắc chắn muốn xóa nhóm này? Hành động này không thể hoàn tác.')) {
@@ -155,18 +194,26 @@ export default function GroupDetailsPage() {
     }
 
     try {
-      await createTask.mutateAsync({
+      const payload = {
         title: taskForm.title.trim(),
         description: taskForm.description.trim() || undefined,
-        dueTime: taskForm.dueTime ? new Date(taskForm.dueTime).toISOString() : undefined,
+        dueTime: taskForm.dueTime ? new Date(taskForm.dueTime).toISOString() : null,
         priority: Number(taskForm.priority),
         groupId: group?.id,
-        assigneeId: taskForm.assigneeId || undefined,
-      });
+        assigneeId: taskForm.assigneeId || null,
+      };
+
+      if (editingTaskId) {
+        await updateTask.mutateAsync({ id: editingTaskId, data: payload });
+      } else {
+        await createTask.mutateAsync(payload as any);
+      }
+      
       setTaskForm({ title: '', description: '', dueTime: '', priority: '3', assigneeId: '' });
+      setEditingTaskId(null);
       setIsTaskModalOpen(false);
     } catch (submitError) {
-      setTaskError(getErrorMessage(submitError, 'Không thể tạo task nhóm.'));
+      setTaskError(getErrorMessage(submitError, editingTaskId ? 'Không thể cập nhật task.' : 'Không thể tạo task nhóm.'));
     }
   };
 
@@ -240,6 +287,8 @@ export default function GroupDetailsPage() {
               <button
                 onClick={() => {
                   setTaskError(null);
+                  setEditingTaskId(null);
+                  setTaskForm({ title: '', description: '', dueTime: '', priority: '3', assigneeId: '' });
                   setIsTaskModalOpen(true);
                 }}
                 className="px-6 py-2.5 rounded-2xl bg-blue-600 text-white hover:bg-blue-700 font-bold text-sm transition-all shadow-lg shadow-blue-600/20 flex items-center gap-2 active:scale-95"
@@ -280,6 +329,15 @@ export default function GroupDetailsPage() {
           >
             Thảo luận
           </button>
+          <button
+            onClick={() => setActiveTab('stats')}
+            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all relative ${activeTab === 'stats'
+                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
+                : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
+              }`}
+          >
+            Thống kê
+          </button>
         </div>
       </div>
 
@@ -287,6 +345,48 @@ export default function GroupDetailsPage() {
       <div className="flex-1 overflow-y-auto bg-gray-50/50">
         {activeTab === 'tasks' && (
           <div className="p-8">
+            {/* Bộ lọc công việc */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+              <div className="flex items-center bg-gray-100 p-1 rounded-2xl w-fit">
+                <button
+                  onClick={() => {
+                    setTaskFilter('all');
+                    setCurrentPage(1);
+                  }}
+                  className={`px-5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                    taskFilter === 'all'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-900'
+                  }`}
+                >
+                  Tất cả công việc
+                  <span className={`px-2 py-0.5 rounded-md text-[10px] ${
+                    taskFilter === 'all' ? 'bg-blue-50 text-blue-600' : 'bg-gray-200 text-gray-600'
+                  }`}>
+                    {orderedTasks.length}
+                  </span>
+                </button>
+                <button
+                  onClick={() => {
+                    setTaskFilter('my');
+                    setCurrentPage(1);
+                  }}
+                  className={`px-5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                    taskFilter === 'my'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-900'
+                  }`}
+                >
+                  Công việc của tôi
+                  <span className={`px-2 py-0.5 rounded-md text-[10px] ${
+                    taskFilter === 'my' ? 'bg-blue-50 text-blue-600' : 'bg-gray-200 text-gray-600'
+                  }`}>
+                    {orderedTasks.filter((t) => t.assigneeId === currentUser?.id).length}
+                  </span>
+                </button>
+              </div>
+            </div>
+
             <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
               <table className="w-full text-left table-fixed">
                 <colgroup>
@@ -314,8 +414,8 @@ export default function GroupDetailsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {orderedTasks.length > 0 ? (
-                    orderedTasks.map((task, index) => {
+                  {paginatedTasks.length > 0 ? (
+                    paginatedTasks.map((task, index) => {
                       return (
                         <tr
                           key={task.id}
@@ -327,7 +427,9 @@ export default function GroupDetailsPage() {
                               : 'hover:bg-gray-50/50'
                             }`}
                         >
-                          <td className="px-4 py-4 text-sm font-bold text-gray-400">{index + 1}</td>
+                          <td className="px-4 py-4 text-sm font-bold text-gray-400">
+                            {(currentPage - 1) * itemsPerPage + index + 1}
+                          </td>
                           <td className="px-4 py-4">
                             <div className="flex flex-col min-w-0">
                               <span className="text-sm font-bold text-gray-900 group-hover:text-blue-600 transition-colors truncate">
@@ -354,12 +456,22 @@ export default function GroupDetailsPage() {
                             </span>
                           </td>
                           <td className="px-4 py-4">
-                            <span className={`flex items-center gap-1 text-xs font-bold ${task.status === 'done' ? 'text-emerald-500' :
-                                task.submittedForReview ? 'text-blue-500' : 'text-amber-500'
-                              }`}>
-                              {task.status === 'done' ? <CheckCircle size={13} weight="fill" /> : <Clock size={13} weight="fill" />}
-                              {task.status === 'done' ? 'Xong' : task.submittedForReview ? 'Chờ duyệt' : 'Chờ'}
-                            </span>
+                            {(() => {
+                              const isOverdue = task.status !== 'done' && !task.submittedForReview && task.dueTime && new Date(task.dueTime) < new Date();
+                              const colorClass = task.status === 'done' ? 'text-emerald-500' :
+                                task.submittedForReview ? 'text-blue-500' :
+                                  isOverdue ? 'text-red-500' : 'text-amber-500';
+                              const label = task.status === 'done' ? 'Xong' :
+                                task.submittedForReview ? 'Chờ duyệt' :
+                                  isOverdue ? 'Trễ hạn' : 'Chờ';
+                              
+                              return (
+                                <span className={`flex items-center gap-1 text-xs font-bold ${colorClass}`}>
+                                  {task.status === 'done' ? <CheckCircle size={13} weight="fill" /> : <Clock size={13} weight="fill" />}
+                                  {label}
+                                </span>
+                              );
+                            })()}
                           </td>
                           <td className="px-4 py-4">
                             <select
@@ -407,6 +519,37 @@ export default function GroupDetailsPage() {
                                     <X size={16} weight="bold" />
                                   </button>
                                 </>
+                              )}
+
+                              {isAdmin && task.status !== 'done' && (
+                                <button
+                                  onClick={() => {
+                                    setTaskError(null);
+                                    setEditingTaskId(task.id);
+                                    
+                                    // Chuyển đổi dueTime sang định dạng YYYY-MM-DDThh:mm cho input datetime-local
+                                    let formattedDueTime = '';
+                                    if (task.dueTime) {
+                                      const d = new Date(task.dueTime);
+                                      // Fix múi giờ cho datetime-local
+                                      const localISOTime = (new Date(d.getTime() - d.getTimezoneOffset() * 60000)).toISOString().slice(0,16);
+                                      formattedDueTime = localISOTime;
+                                    }
+                                    
+                                    setTaskForm({
+                                      title: task.title,
+                                      description: task.description || '',
+                                      dueTime: formattedDueTime,
+                                      priority: String(task.priority || 3),
+                                      assigneeId: task.assigneeId || '',
+                                    });
+                                    setIsTaskModalOpen(true);
+                                  }}
+                                  className="p-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-all opacity-0 group-hover:opacity-100"
+                                  title="Chỉnh sửa task"
+                                >
+                                  <PencilSimple size={16} weight="bold" />
+                                </button>
                               )}
 
                               {task.assigneeId === currentUser?.id && task.status !== 'done' && (
@@ -457,6 +600,44 @@ export default function GroupDetailsPage() {
                   )}
                 </tbody>
               </table>
+
+              {/* Phân trang */}
+              {totalPages > 1 && (
+                <div className="px-6 py-4 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50">
+                  <span className="text-xs font-semibold text-slate-500">
+                    Hiển thị {Math.min(filteredTasks.length, (currentPage - 1) * itemsPerPage + 1)} - {Math.min(filteredTasks.length, currentPage * itemsPerPage)} trong tổng số {filteredTasks.length} công việc
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                      disabled={currentPage === 1}
+                      className="px-3 py-1.5 rounded-xl border border-gray-200 bg-white text-xs font-bold text-gray-600 hover:bg-gray-50 transition-all disabled:opacity-50 disabled:hover:bg-white flex items-center gap-1 active:scale-95"
+                    >
+                      Trước
+                    </button>
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                      <button
+                        key={page}
+                        onClick={() => setCurrentPage(page)}
+                        className={`w-8 h-8 rounded-xl text-xs font-bold transition-all flex items-center justify-center active:scale-95 ${
+                          currentPage === page
+                            ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
+                            : 'border border-gray-200 bg-white text-slate-600 hover:bg-gray-50'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                      disabled={currentPage === totalPages}
+                      className="px-3 py-1.5 rounded-xl border border-gray-200 bg-white text-xs font-bold text-gray-600 hover:bg-gray-50 transition-all disabled:opacity-50 disabled:hover:bg-white flex items-center gap-1 active:scale-95"
+                    >
+                      Sau
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -542,6 +723,16 @@ export default function GroupDetailsPage() {
             />
           </div>
         )}
+
+        {activeTab === 'stats' && (
+          <div className="p-8 animate-in fade-in zoom-in-95 duration-300">
+            <StatsTab
+              group={group}
+              tasks={groupTasks}
+              profiles={profiles}
+            />
+          </div>
+        )}
       </div>
 
       {/* Modals */}
@@ -553,10 +744,10 @@ export default function GroupDetailsPage() {
           <div className="w-full max-w-lg rounded-3xl bg-white shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/60">
               <div>
-                <h2 className="font-bold text-lg text-gray-900">Thêm task nhóm mới</h2>
-                <p className="text-sm text-gray-500 mt-1">Lên kế hoạch công việc dùng chung cho nhóm.</p>
+                <h2 className="font-bold text-lg text-gray-900">{editingTaskId ? 'Chỉnh sửa task' : 'Thêm task nhóm mới'}</h2>
+                <p className="text-sm text-gray-500 mt-1">{editingTaskId ? 'Cập nhật thông tin công việc, gia hạn deadline.' : 'Lên kế hoạch công việc dùng chung cho nhóm.'}</p>
               </div>
-              <button onClick={() => setIsTaskModalOpen(false)} className="p-2 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-200">
+              <button onClick={() => { setIsTaskModalOpen(false); setEditingTaskId(null); }} className="p-2 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-200">
                 <X size={18} weight="bold" />
               </button>
             </div>
@@ -617,19 +808,19 @@ export default function GroupDetailsPage() {
               <div className="flex justify-end gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => setIsTaskModalOpen(false)}
+                  onClick={() => { setIsTaskModalOpen(false); setEditingTaskId(null); }}
                   className="px-5 py-2.5 rounded-xl text-sm font-bold text-gray-600 hover:bg-gray-100 transition-all"
-                  disabled={createTask.isPending}
+                  disabled={createTask.isPending || updateTask.isPending}
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
                   className="px-6 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 flex items-center gap-2 shadow-lg shadow-blue-600/20 disabled:opacity-70 transition-all"
-                  disabled={createTask.isPending}
+                  disabled={createTask.isPending || updateTask.isPending}
                 >
-                  {createTask.isPending && <Spinner size={16} className="animate-spin" />}
-                  Lưu task nhóm
+                  {(createTask.isPending || updateTask.isPending) && <Spinner size={16} className="animate-spin" />}
+                  {editingTaskId ? 'Cập nhật task' : 'Lưu task nhóm'}
                 </button>
               </div>
             </form>

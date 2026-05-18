@@ -2,27 +2,39 @@ import {
   UnauthorizedException,
   BadRequestException,
   InternalServerErrorException,
+  ServiceUnavailableException,
+  ForbiddenException,
+  ConflictException,
+  NotFoundException,
+  HttpException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { TcpClientService } from './tcp-client.service';
 import type { JwtPayload } from '../users-service/auth/auth.service';
 
-export function extractUserId(
+export function extractTokenPayload(
   authHeader: string,
   jwtService: JwtService,
-): string {
+): JwtPayload {
   if (!authHeader?.startsWith('Bearer ')) {
     throw new UnauthorizedException('No token provided');
   }
   const token = authHeader.substring(7);
   try {
-    const payload = jwtService.verify<JwtPayload>(token, {
+    return jwtService.verify<JwtPayload>(token, {
       secret: process.env.JWT_SECRET,
     });
-    return payload.sub;
   } catch {
     throw new UnauthorizedException('Invalid token');
   }
+}
+
+export function extractUserId(
+  authHeader: string,
+  jwtService: JwtService,
+): string {
+  const payload = extractTokenPayload(authHeader, jwtService);
+  return payload.sub;
 }
 
 export async function safeSend<T>(
@@ -30,30 +42,67 @@ export async function safeSend<T>(
   service: string,
   pattern: string,
   data: unknown,
+  fallback?: () => Promise<T> | T,
 ): Promise<T> {
   try {
     return await tcpClient.send<T>(service, pattern, data);
   } catch (error: any) {
-    // If the error is already formatted as { statusCode, message } from RpcException filter
+    // Check if the service is completely offline, timed out, or blocked by opossum circuit breaker
+    const isServiceUnavailable =
+      error?.code === 'EOPENBREAKER' ||
+      error?.message?.includes('Request timeout') ||
+      error?.message?.includes('ECONNREFUSED') ||
+      error?.message?.includes('not registered');
+
+    if (isServiceUnavailable && fallback) {
+      try {
+        return await fallback();
+      } catch (fallbackError) {
+        // Log fallback error but fall through to throwing standard exception
+        console.error(
+          `Fallback failed for ${service}.${pattern}:`,
+          fallbackError,
+        );
+      }
+    }
+
+    if (error?.code === 'EOPENBREAKER') {
+      throw new ServiceUnavailableException({
+        statusCode: 503,
+        message: `Dịch vụ ${service} đang tạm thời gián đoạn (Circuit Breaker OPEN). Vui lòng thử lại sau.`,
+        code: 'SERVICE_UNAVAILABLE',
+      });
+    }
+
+    if (error?.message?.includes('Request timeout')) {
+      throw new ServiceUnavailableException({
+        statusCode: 503,
+        message: `Yêu cầu đến dịch vụ ${service} bị hết hạn (Request Timeout). Vui lòng thử lại sau.`,
+        code: 'REQUEST_TIMEOUT',
+      });
+    }
+
+    // If the error is already formatted as { statusCode, message, code } from AllRpcExceptionsFilter
     if (error && error.statusCode && error.message) {
       const errMessage = Array.isArray(error.message)
         ? error.message.join(', ')
         : error.message;
-      if (error.statusCode === 400) throw new BadRequestException(errMessage);
-      if (error.statusCode === 401) throw new UnauthorizedException(errMessage);
-      if (error.statusCode === 404) throw new BadRequestException(errMessage); // To maintain old logic somewhat, but standardizing later
-      // We will let the RPC exception filter handle the mapping in phase 2, but for now we throw custom formatted.
-      const CustomHttpError: any = class extends Error {
-        constructor() {
-          super();
-          Object.assign(this, {
-            response: errMessage,
-            status: error.statusCode,
-            message: errMessage,
-          });
-        }
+      const errCode = error.code || 'UNKNOWN_ERROR';
+      const payload = {
+        statusCode: error.statusCode,
+        message: errMessage,
+        code: errCode,
       };
-      throw new CustomHttpError();
+
+      if (error.statusCode === 400) throw new BadRequestException(payload);
+      if (error.statusCode === 401) throw new UnauthorizedException(payload);
+      if (error.statusCode === 403) throw new ForbiddenException(payload);
+      if (error.statusCode === 404) throw new NotFoundException(payload);
+      if (error.statusCode === 409) throw new ConflictException(payload);
+      if (error.statusCode === 503)
+        throw new ServiceUnavailableException(payload);
+
+      throw new HttpException(payload, error.statusCode);
     }
 
     // Legacy string matching fallback
@@ -64,12 +113,24 @@ export async function safeSend<T>(
           ? error
           : error?.message || 'Unknown error';
     if (msg.includes('not found') || msg.includes('Not found')) {
-      throw new BadRequestException(msg);
+      throw new NotFoundException({
+        statusCode: 404,
+        message: msg,
+        code: 'NOT_FOUND',
+      });
     }
     if (msg.includes('Invalid') || msg.includes('invalid')) {
-      throw new BadRequestException(msg);
+      throw new BadRequestException({
+        statusCode: 400,
+        message: msg,
+        code: 'BAD_REQUEST',
+      });
     }
-    throw new InternalServerErrorException(`Service error: ${msg}`);
+    throw new InternalServerErrorException({
+      statusCode: 500,
+      message: `Service error: ${msg}`,
+      code: 'INTERNAL_SERVER_ERROR',
+    });
   }
 }
 /**

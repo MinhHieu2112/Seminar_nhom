@@ -37,6 +37,29 @@ export const createScheduleFunctionDeclaration = {
               description:
                 'Exam or deadline date in YYYY-MM-DD format. Optional.',
             },
+            type: {
+              type: GenAIType.STRING,
+              description:
+                'Whether this is a standard task ("TASK") or a specific study session ("SESSION") with exact time range (e.g. from 16:00 to 18:00). Defaults to "TASK".',
+              enum: ['TASK', 'SESSION'],
+            },
+            sessionData: {
+              type: GenAIType.OBJECT,
+              description:
+                'Required ONLY if type is "SESSION". Object containing startTime and endTime in ISO 8601 format.',
+              properties: {
+                startTime: {
+                  type: GenAIType.STRING,
+                  description:
+                    'The start date and time of the study session in ISO 8601 format (UTC), e.g. "2026-05-19T09:00:00.000Z" (which is 16:00 UTC+7). Use correct timezone relative to today.',
+                },
+                endTime: {
+                  type: GenAIType.STRING,
+                  description:
+                    'The end date and time of the study session in ISO 8601 format (UTC), e.g. "2026-05-19T11:00:00.000Z" (which is 18:00 UTC+7). Use correct timezone relative to today.',
+                },
+              },
+            },
           },
           required: ['title'],
         },
@@ -96,4 +119,7 @@ RULES:
 - For deadlines like "thi ngày 20/5", convert to YYYY-MM-DD format based on the current year.
 - For relative dates like "tuần sau", "3 ngày nữa", compute the actual date relative to today.
 - If user mentions busy time like "thứ 2 bận 8h-10h", convert to proper busySlots format.
-- Priority hints: "quan trọng", "ưu tiên cao" → 5; "bình thường" → 3; "ít quan trọng" → 1.`;
+- Priority hints: "quan trọng", "ưu tiên cao" → 5; "bình thường" → 3; "ít quan trọng" → 1.
+- Identify whether each study task is a standard task ("TASK") or a specific scheduled study session ("SESSION").
+- If the user specifies a particular time slot for studying (e.g. "học toán từ 16h đến 18h ngày mai", "học Văn lúc 8:30 đến 10:00 sáng chủ nhật"), set type = "SESSION", and generate sessionData with startTime and endTime in ISO 8601 format using the correct date based on today (${today}). Adjust to UTC time or include offset.
+- If no specific time slot is mentioned (e.g. "lên lịch học Toán 2 tiếng"), set type = "TASK" and do not include sessionData.`;

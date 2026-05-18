@@ -11,13 +11,11 @@ import { ClientProxy } from '@nestjs/microservices';
 import { firstValueFrom } from 'rxjs';
 import {
   CreateCategoryDto,
-  CreateSubjectDto,
   CreateScheduleDto,
   CreateTaskDto,
   CreateTaskAllocationDto,
   UpdateUserPreferenceDto,
   UpdateCategoryDto,
-  UpdateSubjectDto,
   UpdateTaskDto,
 } from './dto/scheduler.dto';
 
@@ -74,7 +72,15 @@ export class SchedulerService {
   async getCategories(userId: string) {
     return await this.prisma.category.findMany({
       where: { userId },
-      include: { subjects: true },
+      include: {
+        tasks: {
+          include: {
+            allocations: true,
+            attachments: true,
+          },
+        },
+        schedules: true,
+      },
     });
   }
 
@@ -111,60 +117,12 @@ export class SchedulerService {
     }
   }
 
-  // ============ Subject Management ============
-
-  async createSubject(userId: string, dto: CreateSubjectDto) {
-    return await this.prisma.subject.create({
-      data: { ...dto, userId },
-    });
-  }
-
-  async getSubjects(userId: string) {
-    return await this.prisma.subject.findMany({
-      where: { userId },
-      include: { category: true },
-    });
-  }
-
-  async updateSubject(userId: string, id: string, dto: UpdateSubjectDto) {
-    try {
-      const exists = await this.prisma.subject.findFirst({
-        where: { id, userId },
-      });
-      if (!exists) return null;
-
-      return await this.prisma.subject.update({
-        where: { id },
-        data: dto,
-      });
-    } catch (error) {
-      console.error('[SchedulerService] Error updating subject:', error);
-      throw error;
-    }
-  }
-
-  async deleteSubject(userId: string, id: string) {
-    try {
-      const exists = await this.prisma.subject.findFirst({
-        where: { id, userId },
-      });
-      if (!exists) return null;
-
-      return await this.prisma.subject.delete({
-        where: { id },
-      });
-    } catch (error) {
-      console.error('[SchedulerService] Error deleting subject:', error);
-      throw error;
-    }
-  }
-
   // ============ Schedule Management ============
 
   async createSchedule(userId: string, dto: CreateScheduleDto) {
     return await this.prisma.schedule.create({
       data: {
-        subjectId: dto.subjectId,
+        categoryId: dto.categoryId,
         groupId: dto.groupId,
         userId,
         startTime: new Date(dto.startTime),
@@ -178,7 +136,7 @@ export class SchedulerService {
     return await this.prisma.schedule.findMany({
       where: { userId },
       include: {
-        subject: true,
+        category: true,
       },
     });
   }
@@ -191,18 +149,70 @@ export class SchedulerService {
         id,
         userId,
       },
+      include: {
+        allocations: true,
+      },
     });
   }
 
   async createTask(userId: string, dto: CreateTaskDto) {
     try {
-      const { dueTime, ...rest } = dto;
-      const task = await this.prisma.task.create({
-        data: {
-          ...rest,
-          userId,
-          dueTime: dueTime ? new Date(dueTime) : null,
-        },
+      const { dueTime, type = 'TASK', sessionData, ...rest } = dto;
+
+      // 1. Validation Logic
+      if (type === 'SESSION') {
+        if (!sessionData) {
+          throw new BadRequestException(
+            'sessionData is required when type is SESSION',
+          );
+        }
+        const start = new Date(sessionData.startTime);
+        const end = new Date(sessionData.endTime);
+        if (start >= end) {
+          throw new BadRequestException('startTime must be before endTime');
+        }
+        if (
+          start.getUTCFullYear() !== end.getUTCFullYear() ||
+          start.getUTCMonth() !== end.getUTCMonth() ||
+          start.getUTCDate() !== end.getUTCDate()
+        ) {
+          throw new BadRequestException(
+            'startTime and endTime must be on the same day',
+          );
+        }
+      }
+
+      // 2. Transaction
+      const task = await this.prisma.$transaction(async (tx) => {
+        // Determine effective dueTime
+        let effectiveDueTime = dueTime ? new Date(dueTime) : null;
+        if (type === 'SESSION' && sessionData) {
+          // Automatically set dueTime to endTime for sessions if not explicitly provided
+          effectiveDueTime = effectiveDueTime || new Date(sessionData.endTime);
+        }
+
+        // Create Task
+        const createdTask = await tx.task.create({
+          data: {
+            ...rest,
+            userId,
+            dueTime: effectiveDueTime,
+          },
+        });
+
+        // Create Allocation if SESSION
+        if (type === 'SESSION' && sessionData) {
+          await tx.taskAllocation.create({
+            data: {
+              userId,
+              taskId: createdTask.id,
+              startTime: new Date(sessionData.startTime),
+              endTime: new Date(sessionData.endTime),
+            },
+          });
+        }
+
+        return createdTask;
       });
 
       this.redisClient.emit('task.created', task);
@@ -217,7 +227,7 @@ export class SchedulerService {
     return await this.prisma.task.findMany({
       where: { userId },
       include: {
-        subject: true,
+        category: true,
         allocations: true,
         attachments: true,
       },
@@ -251,20 +261,111 @@ export class SchedulerService {
         throw new NotFoundException('Task not found');
       }
 
-      const task = await this.prisma.task.update({
-        where: { id },
-        data: {
-          ...(dto.title && { title: dto.title }),
-          ...(dto.description !== undefined && {
-            description: dto.description,
-          }),
-          ...(dto.dueTime !== undefined && {
-            dueTime: dto.dueTime ? new Date(dto.dueTime) : null,
-          }),
-          ...(dto.subjectId !== undefined && { subjectId: dto.subjectId }),
-          ...(dto.priority !== undefined && { priority: dto.priority }),
-          ...(dto.status && { status: dto.status }),
-        },
+      // Determine final task type
+      const currentIsSession =
+        exists.allocations && exists.allocations.length > 0;
+      const targetType = dto.type || (currentIsSession ? 'SESSION' : 'TASK');
+
+      // Validation
+      if (targetType === 'SESSION') {
+        const hasSessionData =
+          dto.sessionData || (currentIsSession && exists.allocations[0]);
+        if (!hasSessionData) {
+          throw new BadRequestException(
+            'Session data is required for SESSION tasks',
+          );
+        }
+
+        const startTime = dto.sessionData?.startTime
+          ? new Date(dto.sessionData.startTime)
+          : new Date(exists.allocations[0].startTime);
+
+        const endTime = dto.sessionData?.endTime
+          ? new Date(dto.sessionData.endTime)
+          : new Date(exists.allocations[0].endTime);
+
+        if (startTime >= endTime) {
+          throw new BadRequestException('startTime must be before endTime');
+        }
+        if (
+          startTime.getUTCFullYear() !== endTime.getUTCFullYear() ||
+          startTime.getUTCMonth() !== endTime.getUTCMonth() ||
+          startTime.getUTCDate() !== endTime.getUTCDate()
+        ) {
+          throw new BadRequestException(
+            'startTime and endTime must be on the same day',
+          );
+        }
+      }
+
+      const task = await this.prisma.$transaction(async (tx) => {
+        // Determine effective dueTime
+        let effectiveDueTime =
+          dto.dueTime !== undefined
+            ? dto.dueTime
+              ? new Date(dto.dueTime)
+              : null
+            : undefined;
+
+        if (targetType === 'SESSION') {
+          if (dto.dueTime === undefined) {
+            // Automatically set dueTime to endTime for sessions if not explicitly provided
+            const sessionEndTime = dto.sessionData?.endTime
+              ? new Date(dto.sessionData.endTime)
+              : new Date(exists.allocations[0].endTime);
+            effectiveDueTime = sessionEndTime;
+          }
+        }
+
+        // Update task basic fields
+        const updatedTask = await tx.task.update({
+          where: { id },
+          data: {
+            ...(dto.title && { title: dto.title }),
+            ...(dto.description !== undefined && {
+              description: dto.description,
+            }),
+            ...(effectiveDueTime !== undefined && {
+              dueTime: effectiveDueTime,
+            }),
+            ...(dto.categoryId !== undefined && { categoryId: dto.categoryId }),
+            ...(dto.priority !== undefined && { priority: dto.priority }),
+            ...(dto.status && { status: dto.status }),
+          },
+        });
+
+        // Sync Allocations
+        if (targetType === 'SESSION') {
+          const startTime = dto.sessionData?.startTime
+            ? new Date(dto.sessionData.startTime)
+            : new Date(exists.allocations[0].startTime);
+
+          const endTime = dto.sessionData?.endTime
+            ? new Date(dto.sessionData.endTime)
+            : new Date(exists.allocations[0].endTime);
+
+          // Clean old allocations
+          await tx.taskAllocation.deleteMany({
+            where: { taskId: id },
+          });
+
+          // Create new allocation
+          await tx.taskAllocation.create({
+            data: {
+              userId,
+              taskId: id,
+              startTime,
+              endTime,
+            },
+          });
+        } else {
+          // If updated/reverted to TASK, clean up all allocations
+          await tx.taskAllocation.deleteMany({
+            where: { taskId: id },
+          });
+        }
+
+        return updatedTask;
       });
 
       this.redisClient.emit('task.updated', task);

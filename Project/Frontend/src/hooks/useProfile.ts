@@ -14,7 +14,13 @@ export function useProfile() {
     queryKey: [...PROFILE_QUERY_KEY, user?.id],
     queryFn: async () => {
       const response = await profileService.get();
-      return response.data;
+      const updatedUser = response.data;
+      if (updatedUser) {
+        setTimeout(() => {
+          useAuthStore.getState().setUser(updatedUser);
+        }, 0);
+      }
+      return updatedUser;
     },
     enabled: !!user,
     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -32,7 +38,7 @@ export function useUpdateProfile() {
       return response.data;
     },
     onSuccess: (updatedUser: User) => {
-      queryClient.setQueryData([...PROFILE_QUERY_KEY, updatedUser.id], updatedUser);
+      queryClient.invalidateQueries({ queryKey: PROFILE_QUERY_KEY });
       setUser(updatedUser);
     },
   });
@@ -76,7 +82,7 @@ export function useUploadAvatar() {
       return response.data;
     },
     onSuccess: (updatedUser: User) => {
-      queryClient.setQueryData([...PROFILE_QUERY_KEY, updatedUser.id], updatedUser);
+      queryClient.invalidateQueries({ queryKey: PROFILE_QUERY_KEY });
       setUser(updatedUser);
     },
   });

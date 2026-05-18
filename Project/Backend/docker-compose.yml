@@ -32,6 +32,32 @@ services:
     networks:
       - user-service-network
 
+  migration-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runner
+    container_name: migration-runner-app
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${DB_USERNAME:-studyplan}:${DB_PASSWORD:-secret}@postgres-db:5432/db_user
+      SCHEDULER_DATABASE_URL: postgresql://${DB_USERNAME:-studyplan}:${DB_PASSWORD:-secret}@postgres-db:5432/db_scheduler
+      TEAMWORK_DATABASE_URL: postgresql://${DB_USERNAME:-studyplan}:${DB_PASSWORD:-secret}@postgres-db:5432/db_teamwork
+    entrypoint: >
+      sh -c "
+      echo 'Running users-service migrations...' &&
+      ./node_modules/.bin/prisma migrate deploy --schema=src/users-service/prisma/schema.prisma &&
+      echo 'Running scheduler-service migrations...' &&
+      ./node_modules/.bin/prisma migrate deploy --schema=src/scheduler-service/scheduler/prisma/schema.prisma &&
+      echo 'Running teamwork-service migrations...' &&
+      ./node_modules/.bin/prisma migrate deploy --schema=src/teamwork-service/prisma/schema.prisma &&
+      echo 'All migrations completed successfully!'
+      "
+    networks:
+      - user-service-network
+
   user-service:
     build:
       context: .
@@ -49,14 +75,14 @@ services:
       REDIS_URL: redis://redis:6379
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      JWT_SECRET: ${JWT_SECRET:-dev_jwt_secret_change_in_production}
-      REFRESH_TOKEN_SECRET: ${REFRESH_TOKEN_SECRET:-dev_refresh_secret_change_in_production}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
       HTTP_PORT: 8011
       TCP_PORT: 8001
     ports:
       - "8001:8001"
     healthcheck:
-      test: ["CMD", "nc", "-z", "localhost", "8001"]
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:8011/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -65,6 +91,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migration-runner:
+        condition: service_completed_successfully
     networks:
       - user-service-network
     restart: unless-stopped
@@ -85,10 +113,12 @@ services:
       TCP_PORT: 8004
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      TEAMWORK_SERVICE_HOST: teamwork-service-app
+      TEAMWORK_SERVICE_PORT: 8007
     ports:
       - "8004:8004"
     healthcheck:
-      test: ["CMD", "nc", "-z", "localhost", "8004"]
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:8003/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -97,6 +127,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migration-runner:
+        condition: service_completed_successfully
     networks:
       - user-service-network
     restart: unless-stopped
@@ -110,6 +142,8 @@ services:
     environment:
       NODE_ENV: production
       TCP_PORT: 8005
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
     ports:
       - "8005:8005"
     healthcheck:
@@ -141,9 +175,8 @@ services:
       GIPHY_API_KEY: ${GIPHY_API_KEY:-}
     ports:
       - "8007:8007"
-      - "8006:8006"
     healthcheck:
-      test: ["CMD", "nc", "-z", "localhost", "8007"]
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:8006/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -152,6 +185,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migration-runner:
+        condition: service_completed_successfully
     networks:
       - user-service-network
     restart: unless-stopped
@@ -167,8 +202,13 @@ services:
       TZ: Asia/Ho_Chi_Minh
       GATEWAY_PORT: 8000
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
-      JWT_SECRET: ${JWT_SECRET:-dev_jwt_secret_change_in_production}
-      REFRESH_TOKEN_SECRET: ${REFRESH_TOKEN_SECRET:-dev_refresh_secret_change_in_production}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}
       # Microservice TCP connections (user + analytics + ai use TCP)
       USER_SERVICE_URL: http://user-service-app:8001
       USER_SERVICE_HOST: user-service-app
@@ -200,6 +240,11 @@ services:
       LINKEDIN_CALLBACK_URL: ${LINKEDIN_CALLBACK_URL:-http://localhost:8000/api/v1/auth/linkedin/callback}
     ports:
       - "8000:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:8000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     depends_on:
       user-service:
         condition: service_healthy
