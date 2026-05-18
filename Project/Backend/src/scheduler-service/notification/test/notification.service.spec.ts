@@ -2,7 +2,10 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
 import { NotificationService } from '../notification.service';
 import { PrismaService } from '../../scheduler/prisma/prisma.service';
-import { cleanupMocks, restoreConsoleSpies } from '../../../test/mocks/setup';
+import {
+  cleanupMocks,
+  restoreConsoleSpies,
+} from '../../../../test/mocks/setup';
 
 describe('NotificationService', () => {
   let service: NotificationService;
@@ -25,7 +28,7 @@ describe('NotificationService', () => {
   beforeEach(async () => {
     // Suppress console.error during tests, but store the spy for restoration
     consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-    
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         NotificationService,

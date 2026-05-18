@@ -5,9 +5,8 @@ import {
   createSocketMock,
   createSocketServerMock,
   addSocketToServer,
-  getSocketsInRoom,
   cleanupSocketServer,
-} from '../../../test/mocks/socket.io.mock';
+} from '../../../../test/mocks/socket.io.mock';
 
 describe('MessageGateway (WebSocket)', () => {
   let gateway: MessageGateway;

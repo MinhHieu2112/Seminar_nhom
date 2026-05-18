@@ -8,11 +8,11 @@ import { BadRequestException } from '@nestjs/common';
 import {
   setupTestEnvironment,
   clearDatabase,
-} from '../../test/utils/test-db-setup';
+} from '../../../../test/utils/test-db-setup';
 import {
   createRedisClientMock,
   cleanupMocks,
-} from '../../test/mocks/setup';
+} from '../../../../test/mocks/setup';
 
 describe('SchedulerService (Database Integration)', () => {
   let service: SchedulerService;

@@ -18,7 +18,7 @@ import {
   createConfigServiceMock,
   createRedisClientMock,
   createTokenServiceMock,
-} from '../../../test/mocks/setup';
+} from '../../../../test/mocks/setup';
 
 describe('AuthService', () => {
   let service: AuthService;

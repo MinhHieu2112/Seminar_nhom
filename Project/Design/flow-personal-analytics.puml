@@ -1,0 +1,129 @@
+@startuml Personal Analytics Flow
+
+skinparam {
+    BackgroundColor #FAFAFA
+    ArrowColor #555555
+    ArrowThickness 1.5
+    defaultFontName Arial
+    defaultFontSize 12
+    shadowing false
+    Padding 5
+    Margin 3
+    SequenceArrowThickness 1.5
+    SequenceBoxBorderColor #AAAAAA
+    SequenceBoxBackgroundColor #F9F9F9
+    SequenceLifeLineBorderColor #888888
+    SequenceLifeLineBackgroundColor #FFFFFF
+    ParticipantBorderColor #888888
+    ParticipantBackgroundColor #FFFFFF
+    ActorBorderColor #555555
+    NoteBackgroundColor #FFFFF0
+    NoteBorderColor #CCCCCC
+}
+
+title Luồng Thống Kê Cá Nhân (Personal Analytics)
+
+actor "Người dùng" as User
+participant "AnalyticsPage\n(page.tsx)" as Page
+participant "useAnalyticsDashboard\n(hook)" as Hook
+participant "useSchedulerTasks\n(hook)" as TaskHook
+participant "schedulerService\n(API client)" as Service
+participant "API Gateway\n:8000" as Gateway
+participant "Scheduler Service\n:8002" as Backend
+database "PostgreSQL\ndb_scheduler" as DB
+participant "useAnalyticsSocket\n(WebSocket)" as WS
+participant "Scheduler Service\nWebSocket :8003" as WSBackend
+
+== 1. Khởi tạo trang ==
+
+User -> Page : Truy cập /scheduler/analytics
+activate Page
+
+Page -> Hook : useAnalyticsDashboard(period, customFrom, customTo)
+activate Hook
+
+Hook -> TaskHook : useSchedulerTasks()
+activate TaskHook
+
+TaskHook -> Service : schedulerService.getTasks()
+activate Service
+Service -> Gateway : GET /api/v1/scheduler/tasks\n[Authorization: Bearer token]
+activate Gateway
+Gateway -> Backend : HTTP forward
+activate Backend
+Backend -> DB : SELECT tasks\nWHERE userId = ?
+activate DB
+DB --> Backend : tasks[]
+deactivate DB
+Backend --> Gateway : tasks[]
+deactivate Backend
+Gateway --> Service : tasks[]
+deactivate Gateway
+Service --> TaskHook : tasks[]
+deactivate Service
+TaskHook --> Hook : tasks[]
+deactivate TaskHook
+
+== 2. Xử lý dữ liệu (client-side) ==
+
+note over Hook
+  **calculateDateRange(period)**
+  weekly: -7 ngày
+  monthly: -30 ngày
+  yearly: -365 ngày
+  custom: customFrom → customTo
+end note
+
+Hook -> Hook : Lọc personalTasks\n(tasks không có groupId)
+Hook -> Hook : Lọc rangedAllocations\ntheo khoảng thời gian
+Hook -> Hook : **splitAllocByBucket()**\nPhân loại: sáng/chiều/tối
+Hook -> Hook : **buildTaskStats()**\ntotal, completed, overdue
+Hook -> Hook : **buildSuggestions()**\nGợi ý dựa trên tỉ lệ hoàn thành
+Hook -> Hook : Tính completionRate, productivityScore
+Hook -> Hook : Xây dựng timeBreakdown[]\n(Sáng/Chiều/Tối + %)
+Hook -> Hook : Xây dựng InsightsData\n(isOverloaded, message, recommendations)
+
+Hook --> Page : { dashboardData, insightsData, isLoading }
+deactivate Hook
+
+== 3. Kết nối WebSocket (Realtime) ==
+
+Page -> WS : useAnalyticsSocket(onDashboardUpdate)
+activate WS
+WS -> WSBackend : io(ANALYTICS_WS_URL)\n{ userId }
+WSBackend --> WS : connect
+WS -> WS : Lắng nghe\ndashboard-update-{userId}
+
+== 4. Render giao diện ==
+
+Page -> Page : Render KPICards\n(completedTasks, overdueTasks, totalTasks)
+Page -> Page : Render AnalyticsFilters\n(period selector, date range)
+Page -> Page : Render TimeStackedBarChart\n(timeBreakdown: Sáng/Chiều/Tối)
+Page -> Page : Render TaskStatusPieChart\n(completed / pending / overdue)
+Page -> Page : Render Suggestions\n(gợi ý cải thiện)
+Page --> User : Hiển thị dashboard đầy đủ
+
+== 5. Người dùng thay đổi bộ lọc ==
+
+User -> Page : Chọn period (weekly/monthly/yearly)\nhoặc nhập Custom range
+Page -> Hook : Gọi lại useAnalyticsDashboard\n(period mới)
+Hook -> Hook : Tính lại dateRange\nvà filter lại dữ liệu
+Hook --> Page : dashboardData mới
+Page --> User : Cập nhật biểu đồ realtime
+
+== 6. Cập nhật tự động qua WebSocket ==
+
+WSBackend -> WS : Emit dashboard-update-{userId}\n(khi task mới được tạo/cập nhật)
+WS -> Hook : onDashboardUpdate()
+Hook -> TaskHook : queryClient.invalidateQueries()
+TaskHook -> Service : Refetch tasks
+Service --> TaskHook : tasks mới
+TaskHook --> Hook : tasks mới
+Hook -> Hook : Tính toán lại toàn bộ
+Hook --> Page : dashboardData cập nhật
+Page --> User : Biểu đồ tự động cập nhật
+
+deactivate Page
+deactivate WS
+
+@enduml
