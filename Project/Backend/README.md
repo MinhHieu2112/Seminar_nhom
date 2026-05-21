@@ -2,6 +2,11 @@
   <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
 </p>
 
+> [!IMPORTANT]
+> **Đây là thư mục Backend của dự án StudyPlan.**
+> Để xem hướng dẫn cài đặt môi trường, cấu hình biến môi trường, Docker Compose và tài khoản chạy thử toàn bộ hệ thống (cả Frontend và Backend), vui lòng tham khảo [**Tài liệu Onboarding Master tại đây**](../../README.md).
+
+
 [circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
 [circleci-url]: https://circleci.com/gh/nestjs/nest
 

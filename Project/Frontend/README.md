@@ -1,5 +1,9 @@
 # Frontend Architecture (Five S Standard)
 
+> [!IMPORTANT]
+> **Đây là thư mục Frontend của dự án StudyPlan.**
+> Để xem hướng dẫn cài đặt môi trường, cấu hình `.env.local` và khởi chạy toàn bộ hệ sinh thái (Frontend + Backend + DBs + Redis + Docker), vui lòng xem [**Tài liệu Onboarding Master tại đây**](../../README.md).
+
 This project follows the **Five S** methodology for frontend architecture to ensure a clean, maintainable, and scalable codebase.
 
 ## 🚀 Getting Started
