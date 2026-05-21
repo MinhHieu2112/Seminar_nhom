@@ -93,6 +93,7 @@ export class AgentAiService {
 
   // ─── Phase 1: Normalize Input (Single Source of Truth) ───────────────────
 
+  // Chuẩn hóa dữ liệu đầu vào (từ CSV hoặc chuỗi nhập tay) sang cấu trúc chung
   normalizeInput(payload: NormalizeInputDto): UnifiedInputDto {
     this.logger.log(
       `Normalizing input of type: ${payload.type} for user ${payload.userId}`,
@@ -135,6 +136,7 @@ export class AgentAiService {
     };
   }
 
+  // Phân tích cú pháp dữ liệu CSV thành danh sách các task
   private parseCsvToTasks(csv: string): UnifiedTaskDto[] {
     const lines = csv
       .split('\n')
@@ -162,6 +164,7 @@ export class AgentAiService {
     return tasks;
   }
 
+  // Phân tích cú pháp chuỗi văn bản tự do thành danh sách các task
   private parseTextToTasks(text: string): UnifiedTaskDto[] {
     const lines = text
       .split('\n')
@@ -178,6 +181,7 @@ export class AgentAiService {
     });
   }
 
+  // Tạo cấu trúc thời gian trống mặc định trong 7 ngày tới
   private generateDefaultAvailableTime(): TimeSlotDto[] {
     const slots: TimeSlotDto[] = [];
     const today = new Date();
@@ -192,6 +196,7 @@ export class AgentAiService {
     return slots;
   }
 
+  // Định dạng ngày thành chuỗi YYYY-MM-DD
   private formatLocalDate(date: Date): string {
     const year = date.getFullYear();
     const month = `${date.getMonth() + 1}`.padStart(2, '0');
@@ -201,6 +206,7 @@ export class AgentAiService {
 
   // ─── Main: Generate from Form ─────────────────────────────────────────────
 
+  // Tạo lịch trình học từ thông tin form đăng ký
   generateScheduleFromForm(
     payload: GenerateSchedulePayload,
   ): GenerateScheduleResult {
@@ -231,6 +237,7 @@ export class AgentAiService {
 
   // ─── Slot Computation ────────────────────────────────────────────────────
 
+  // Tính toán các khung giờ trống khả dụng trong khoảng ngày chỉ định
   private computeAvailableSlots(
     fromDate: string,
     toDate: string,
@@ -271,6 +278,7 @@ export class AgentAiService {
     return slots;
   }
 
+  // Chuyển đổi các khung giờ rảnh từ tệp CSV sang khoảng thời gian thực tế
   private convertCsvSlotsToDateRange(
     csvSlots: CsvSlot[],
     fromDate: string,

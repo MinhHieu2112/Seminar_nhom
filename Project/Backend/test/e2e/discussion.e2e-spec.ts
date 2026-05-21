@@ -1,3 +1,4 @@
+// Kiểm thử E2E cho tính năng thảo luận nhóm (real-time chat qua Socket.io)
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import { IoAdapter } from '@nestjs/platform-socket.io';
@@ -5,6 +6,7 @@ import { io, Socket as ClientSocket } from 'socket.io-client';
 import { MessageModule } from '../../src/teamwork-service/message/message.module';
 import { PrismaService } from '../../src/teamwork-service/prisma/prisma.service';
 import { NotificationService } from '../../src/teamwork-service/notification/notification.service';
+import { InternalAuthGuard } from '../../src/common/internal-auth.guard';
 import { setupTestEnvironment, clearDatabase } from '../utils/test-db-setup';
 
 describe('Discussion Gateway (E2E Real-time)', () => {
@@ -25,6 +27,8 @@ describe('Discussion Gateway (E2E Real-time)', () => {
     })
       .overrideProvider(NotificationService)
       .useValue(mockNotificationService)
+      .overrideGuard(InternalAuthGuard)
+      .useValue({ canActivate: () => true })
       .compile();
 
     app = moduleFixture.createNestApplication();
@@ -87,6 +91,10 @@ describe('Discussion Gateway (E2E Real-time)', () => {
 
     // 2. Connect, join, send message, and await real-time gateway events
     await new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(
+        () => reject(new Error('messageReceived event not received within 4s')),
+        4000,
+      );
       clientSocket = io(`http://localhost:${port}`, {
         query: { userId: senderId },
         transports: ['websocket'],
@@ -111,6 +119,7 @@ describe('Discussion Gateway (E2E Real-time)', () => {
 
       // Listen for message broadcasts and assert expectations
       clientSocket.on('messageReceived', async (message) => {
+        clearTimeout(timeout);
         try {
           expect(message.senderId).toBe(senderId);
           expect(message.content).toContain('let us fix this bug!');

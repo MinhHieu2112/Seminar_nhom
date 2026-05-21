@@ -12,6 +12,7 @@ import Redis from 'ioredis';
 export class HealthController {
   constructor(private readonly configService: ConfigService) {}
 
+  // Kiểm tra tình trạng hoạt động của API Gateway (chủ yếu kết nối Redis)
   @Get()
   @HttpCode(HttpStatus.OK)
   async checkHealth() {

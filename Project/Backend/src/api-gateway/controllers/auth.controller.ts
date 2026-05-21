@@ -28,6 +28,7 @@ export class AuthGatewayController {
     private readonly jwtService: JwtService,
   ) {}
 
+  // Đăng ký tài khoản hệ thống mới (Local Auth) qua API Gateway
   @Post('register')
   @Throttle({ default: { limit: 10, ttl: seconds(60) } })
   @HttpCode(HttpStatus.CREATED)
@@ -35,6 +36,7 @@ export class AuthGatewayController {
     return safeSend(this.tcpClient, 'user-service', 'user.register', dto);
   }
 
+  // Đăng nhập bằng email và mật khẩu qua API Gateway
   @Post('login')
   @Throttle({ default: { limit: 10, ttl: seconds(60) } })
   @HttpCode(HttpStatus.OK)
@@ -42,12 +44,14 @@ export class AuthGatewayController {
     return safeSend(this.tcpClient, 'user-service', 'user.login', dto);
   }
 
+  // Cấp phát lại Access Token mới (dựa trên Refresh Token hợp lệ)
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   refresh(@Body() dto: any) {
     return safeSend(this.tcpClient, 'user-service', 'user.refresh', dto);
   }
 
+  // Đăng xuất người dùng, vô hiệu hóa token hiện tại hoặc toàn bộ session
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   logout(
@@ -79,6 +83,7 @@ export class AuthGatewayController {
     });
   }
 
+  // Bắt đầu luồng quên mật khẩu, gửi OTP qua email
   @Post('forgot-password')
   @Throttle({ default: { limit: 10, ttl: seconds(60) } })
   @HttpCode(HttpStatus.OK)
@@ -91,6 +96,7 @@ export class AuthGatewayController {
     );
   }
 
+  // Xác thực OTP (bước kiểm tra hợp lệ trên giao diện UI)
   @Post('verify-otp')
   @Throttle({ default: { limit: 10, ttl: seconds(60) } })
   @HttpCode(HttpStatus.OK)
@@ -103,6 +109,7 @@ export class AuthGatewayController {
     );
   }
 
+  // Đặt lại mật khẩu mới thông qua OTP hợp lệ
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
   resetPassword(@Body() dto: any) {
@@ -111,21 +118,14 @@ export class AuthGatewayController {
 
   // ── Google OAuth ────────────────────────────────────────────────────────────
 
-  /**
-   * Bước 1: Redirect người dùng đến Google consent screen.
-   * Passport tự động xử lý redirect — không cần body/response.
-   */
+  // Khởi tạo luồng xác thực Google OAuth và redirect tới Google
   @Get('google')
   @UseGuards(AuthGuard('google'))
   googleAuth() {
     // Passport handles the redirect automatically
   }
 
-  /**
-   * Bước 2: Google redirect về đây sau khi người dùng đồng ý.
-   * Passport gọi GoogleStrategy.validate() → đặt profile vào req.user.
-   * Ta forward profile tới users-service qua TCP, nhận JWT, redirect về frontend.
-   */
+  // Xử lý Callback từ Google OAuth, lấy token và redirect về ứng dụng frontend
   @Get('google/callback')
   @UseGuards(AuthGuard('google'))
   async googleCallback(
@@ -161,18 +161,14 @@ export class AuthGatewayController {
 
   // ── Discord OAuth ───────────────────────────────────────────────────────────
 
-  /**
-   * Redirect người dùng đến Discord login screen.
-   */
+  // Khởi tạo luồng xác thực Discord OAuth và redirect tới Discord
   @Get('discord')
   @UseGuards(AuthGuard('discord'))
   discordAuth() {
     // Passport handles the redirect
   }
 
-  /**
-   * Discord redirect về đây sau khi người dùng đồng ý.
-   */
+  // Xử lý Callback từ Discord OAuth, lấy token và redirect về ứng dụng frontend
   @Get('discord/callback')
   @UseGuards(AuthGuard('discord'))
   async discordCallback(
@@ -207,12 +203,14 @@ export class AuthGatewayController {
 
   // ── GitHub OAuth ────────────────────────────────────────────────────────────
 
+  // Khởi tạo luồng xác thực GitHub OAuth và redirect tới GitHub
   @Get('github')
   @UseGuards(AuthGuard('github'))
   githubAuth() {
     // Passport handles the redirect
   }
 
+  // Xử lý Callback từ GitHub OAuth, lấy token và redirect về ứng dụng frontend
   @Get('github/callback')
   @UseGuards(AuthGuard('github'))
   async githubCallback(
@@ -245,12 +243,14 @@ export class AuthGatewayController {
 
   // ── LinkedIn OAuth ──────────────────────────────────────────────────────────
 
+  // Khởi tạo luồng xác thực LinkedIn OAuth và redirect tới LinkedIn
   @Get('linkedin')
   @UseGuards(AuthGuard('linkedin'))
   linkedinAuth() {
     // Passport handles the redirect
   }
 
+  // Xử lý Callback từ LinkedIn OAuth, lấy token và redirect về ứng dụng frontend
   @Get('linkedin/callback')
   @UseGuards(AuthGuard('linkedin'))
   async linkedinCallback(

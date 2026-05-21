@@ -39,6 +39,7 @@ export class AuthService {
     @Inject('REDIS_CLIENT') private readonly redisClient: ClientProxy,
   ) {}
 
+  // Đăng ký tài khoản mới bằng email và mật khẩu (Local Auth)
   async register(dto: RegisterDto): Promise<AuthResult> {
     const existing = await this.prisma.user.findUnique({
       where: { email: dto.email },
@@ -76,6 +77,7 @@ export class AuthService {
     return { accessToken, refreshToken, user: userWithoutPassword };
   }
 
+  // Xác thực thông tin đăng nhập bằng email và mật khẩu
   async login(dto: LoginDto): Promise<AuthResult> {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
@@ -118,9 +120,7 @@ export class AuthService {
     return { accessToken, refreshToken, user: userWithoutPassword };
   }
 
-  /**
-   * Phương thức chung cho Social Login (Google, Facebook, v.v.)
-   */
+  // Xử lý chung cho luồng đăng nhập bằng mạng xã hội (OAuth)
   private async socialLogin(
     profile: {
       id: string;
@@ -255,6 +255,7 @@ export class AuthService {
     return { accessToken, refreshToken, user: userWithoutPassword };
   }
 
+  // Đăng nhập hoặc tạo tài khoản mới bằng Google
   async googleLogin(dto: GoogleLoginDto): Promise<AuthResult> {
     return this.socialLogin(
       {
@@ -269,6 +270,7 @@ export class AuthService {
     );
   }
 
+  // Đăng nhập hoặc tạo tài khoản mới bằng Discord
   async discordLogin(dto: DiscordLoginDto): Promise<AuthResult> {
     return this.socialLogin(
       {
@@ -281,6 +283,7 @@ export class AuthService {
     );
   }
 
+  // Đăng nhập hoặc tạo tài khoản mới bằng Github
   async githubLogin(dto: GithubLoginDto): Promise<AuthResult> {
     return this.socialLogin(
       {
@@ -293,6 +296,7 @@ export class AuthService {
     );
   }
 
+  // Đăng nhập hoặc tạo tài khoản mới bằng LinkedIn
   async linkedinLogin(dto: LinkedinLoginDto): Promise<AuthResult> {
     return this.socialLogin(
       {
@@ -307,6 +311,7 @@ export class AuthService {
     );
   }
 
+  // Cấp phát lại Access Token mới dựa trên Refresh Token hợp lệ
   async refresh(
     oldRefreshToken: string,
   ): Promise<{ accessToken: string; refreshToken: string }> {
@@ -335,8 +340,11 @@ export class AuthService {
     }
 
     // 2. Fetch stored refresh token details from Redis
-    const storedTokenDetails = await this.tokenService.getRefreshToken(userId, oldJti);
-    
+    const storedTokenDetails = await this.tokenService.getRefreshToken(
+      userId,
+      oldJti,
+    );
+
     if (!storedTokenDetails) {
       // Token not found in Redis. Could be expired or wiped during a previous reuse violation.
       throw new RpcException({
@@ -428,6 +436,7 @@ export class AuthService {
     return { accessToken, refreshToken };
   }
 
+  // Đăng xuất và vô hiệu hóa token hiện tại hoặc toàn bộ token của người dùng
   async logout(userId: string, jti: string): Promise<{ success: boolean }> {
     await this.tokenService.blacklistToken(jti);
     if (jti === 'logout-all') {
@@ -438,6 +447,7 @@ export class AuthService {
     return { success: true };
   }
 
+  // Tạo cặp Access Token và Refresh Token mới kèm theo lưu trữ vào Redis
   private async generateTokens(
     user: User,
   ): Promise<{ accessToken: string; refreshToken: string }> {

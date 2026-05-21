@@ -1,3 +1,4 @@
+// Kiểm thử Unit cho MessageService (xử lý logic lưu tin nhắn và đề cập thành viên)
 import { Test, TestingModule } from '@nestjs/testing';
 import { MessageService } from '../message.service';
 import { PrismaService } from '../../prisma/prisma.service';

@@ -1,3 +1,4 @@
+// Kiểm thử Unit cho AgentAiController (các API tiếp nhận yêu cầu hỗ trợ từ AI)
 import { Test, TestingModule } from '@nestjs/testing';
 import { AgentAiController } from '../agent-ai.controller';
 import { AiScheduleGeneratorService } from '../ai-schedule-generator.service';

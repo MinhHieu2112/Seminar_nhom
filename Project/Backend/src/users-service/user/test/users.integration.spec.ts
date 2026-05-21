@@ -1,3 +1,4 @@
+// Kiểm thử Tích hợp cho UserService (xử lý truy vấn thông tin người dùng thực tế từ database)
 import { Test, TestingModule } from '@nestjs/testing';
 import { UserService } from '../user.service';
 import { PrismaService } from '../../prisma/prisma.service';

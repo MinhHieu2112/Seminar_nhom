@@ -1,3 +1,4 @@
+// Kiểm thử E2E cho hệ thống xác thực (đăng nhập, đăng ký, phân quyền)
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
@@ -18,7 +19,9 @@ describe('Authentication (E2E Gateway)', () => {
       }
       if (pattern === 'user.login') {
         if (data.password === 'wrong') {
-          return Promise.reject(new Error('Unauthorized'));
+          return Promise.reject(
+            Object.assign(new Error('Unauthorized'), { statusCode: 401 }),
+          );
         }
         return Promise.resolve({
           accessToken: 'jwt-access-token',
@@ -82,6 +85,6 @@ describe('Authentication (E2E Gateway)', () => {
         email: 'register@e2e.com',
         password: 'wrong',
       })
-      .expect(500); // gateway safeSend converts microservice errors to 500
+      .expect(401);
   });
 });

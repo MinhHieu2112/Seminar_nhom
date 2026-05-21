@@ -1,4 +1,10 @@
-import { Controller, Get, HttpCode, HttpStatus, ServiceUnavailableException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import Redis from 'ioredis';
@@ -10,6 +16,7 @@ export class HealthController {
     private readonly configService: ConfigService,
   ) {}
 
+  // Kiểm tra tình trạng của dịch vụ, bao gồm kết nối Database và Redis
   @Get()
   @HttpCode(HttpStatus.OK)
   async checkHealth() {
@@ -26,7 +33,8 @@ export class HealthController {
     let redisError: string | null = null;
     const host = this.configService.get<string>('REDIS_HOST', 'redis');
     const port = this.configService.get<number>('REDIS_PORT', 6379);
-    const password = this.configService.get<string>('REDIS_PASSWORD') || undefined;
+    const password =
+      this.configService.get<string>('REDIS_PASSWORD') || undefined;
 
     const client = new Redis({
       host,
@@ -48,7 +56,8 @@ export class HealthController {
     }
 
     const payload = {
-      status: dbStatus === 'up' && redisStatus === 'up' ? 'healthy' : 'unhealthy',
+      status:
+        dbStatus === 'up' && redisStatus === 'up' ? 'healthy' : 'unhealthy',
       timestamp: new Date().toISOString(),
       database: dbStatus,
       redis: redisStatus,

@@ -1,3 +1,4 @@
+// Kiểm thử Unit cho AgentAiService (xử lý logic tương tác với AI và phân tích yêu cầu)
 import { Test, TestingModule } from '@nestjs/testing';
 import { AgentAiService } from '../agent-ai.service';
 import { AiScheduleOutputSchema } from '../dto/ai-schema.dto';

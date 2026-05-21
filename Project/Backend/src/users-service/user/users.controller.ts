@@ -33,99 +33,75 @@ export class UsersController {
     private readonly notificationQueue: Queue,
   ) {}
 
-  /**
-   * Handle generic registration RPC call
-   */
+  // Đăng ký tài khoản người dùng mới (Local Auth)
   @MessagePattern('user.register')
   register(@Payload() dto: RegisterDto) {
     return this.authService.register(dto);
   }
 
-  /**
-   * Handle credential-based login RPC call
-   */
+  // Đăng nhập bằng email và mật khẩu (Local Auth)
   @MessagePattern('user.login')
   login(@Payload() dto: LoginDto) {
     return this.authService.login(dto);
   }
 
-  /**
-   * Handle Google OAuth login RPC call
-   */
+  // Đăng nhập hoặc đăng ký bằng tài khoản Google (OAuth)
   @MessagePattern('user.google.login')
   googleLogin(@Payload() dto: GoogleLoginDto) {
     return this.authService.googleLogin(dto);
   }
 
-  /**
-   * Handle Discord OAuth login RPC call
-   */
+  // Đăng nhập hoặc đăng ký bằng tài khoản Discord (OAuth)
   @MessagePattern('user.discord.login')
   discordLogin(@Payload() dto: DiscordLoginDto) {
     return this.authService.discordLogin(dto);
   }
 
-  /**
-   * Handle Github OAuth login RPC call
-   */
+  // Đăng nhập hoặc đăng ký bằng tài khoản Github (OAuth)
   @MessagePattern('user.github.login')
   githubLogin(@Payload() dto: GithubLoginDto) {
     return this.authService.githubLogin(dto);
   }
 
-  /**
-   * Handle LinkedIn OAuth login RPC call
-   */
+  // Đăng nhập hoặc đăng ký bằng tài khoản LinkedIn (OAuth)
   @MessagePattern('user.linkedin.login')
   linkedinLogin(@Payload() dto: LinkedinLoginDto) {
     return this.authService.linkedinLogin(dto);
   }
 
-  /**
-   * Issue a new access token based on valid refresh token
-   */
+  // Cấp phát lại Access Token mới bằng Refresh Token hợp lệ
   @MessagePattern('user.refresh')
   refresh(@Payload() dto: RefreshDto) {
     return this.authService.refresh(dto.refreshToken);
   }
 
-  /**
-   * Handle user logout RPC call and invalidate specific token JTI
-   */
+  // Đăng xuất và vô hiệu hóa token hiện tại (JTI) trong phiên làm việc
   @MessagePattern('user.logout')
   logout(@Payload() data: { userId: string; jti: string }) {
     return this.authService.logout(data.userId, data.jti);
   }
 
-  /**
-   * Retrieve the current session user's profile details
-   */
+  // Lấy thông tin hồ sơ của người dùng hiện tại
   @MessagePattern('user.profile.get')
   getProfile(@Payload() data: { userId: string }) {
     return this.userService.getProfile(data.userId);
   }
 
-  /**
-   * Update the user profile properties (like bio, address, names)
-   */
+  // Cập nhật các trường thông tin trong hồ sơ cá nhân
   @MessagePattern('user.profile.update')
   updateProfile(@Payload() data: { userId: string } & UpdateProfileDto) {
     const { userId, ...dto } = data;
     return this.userService.updateProfile(userId, dto);
   }
 
-  /**
-   * Securely verify standard credentials and rotate to a new password
-   */
+  // Xác thực mật khẩu cũ và đổi sang mật khẩu mới
   @MessagePattern('user.password.change')
   changePassword(@Payload() data: { userId: string } & ChangePasswordDto) {
     const { userId, ...dto } = data;
     return this.userService.changePassword(userId, dto);
   }
 
-  /**
-   * Initiates forgot-password sequence: queues an OTP email
-   */
+  // Bắt đầu luồng quên mật khẩu: tạo và gửi mã OTP qua email
   @MessagePattern('user.password.forgot')
   async forgotPassword(@Payload() dto: ForgotPasswordDto) {
     const user = await this.userService.findByEmail(dto.email);
@@ -167,9 +143,7 @@ export class UsersController {
     return response;
   }
 
-  /**
-   * Performs an ad-hoc OTP check (used for UI validation step)
-   */
+  // Kiểm tra tính hợp lệ của mã OTP (không hủy mã) để chuyển bước trên UI
   @MessagePattern('user.password.verify-otp')
   async verifyOtp(@Payload() dto: { email: string; otp: string }) {
     const isValid = await this.otpService.verifyOtp(dto.email, dto.otp, false);
@@ -182,9 +156,7 @@ export class UsersController {
     return { success: true };
   }
 
-  /**
-   * Finalizes the password reset flow using the OTP token validity
-   */
+  // Hoàn tất việc đặt lại mật khẩu mới sau khi xác thực OTP thành công
   @MessagePattern('user.password.reset')
   async resetPassword(@Payload() dto: ResetPasswordDto) {
     const isValid = await this.otpService.verifyOtp(dto.email, dto.otp);
@@ -201,41 +173,31 @@ export class UsersController {
     return { success: true, message: 'Password reset successful' };
   }
 
-  /**
-   * Admin-scope RPC: Fetch paginated platform Users
-   */
+  // (Admin) Lấy danh sách toàn bộ người dùng trong hệ thống có phân trang
   @MessagePattern('user.admin.list')
   adminListUsers(@Payload() data: { page?: number; limit?: number }) {
     return this.userService.adminListUsers(data.page, data.limit);
   }
 
-  /**
-   * Admin-scope RPC: Mutate user access locks
-   */
+  // (Admin) Bật/tắt trạng thái hoạt động của tài khoản người dùng
   @MessagePattern('user.admin.toggle')
   adminToggleUser(@Payload() data: { userId: string }) {
     return this.userService.adminToggleUser(data.userId);
   }
 
-  /**
-   * Search for a user by email
-   */
+  // Tìm kiếm thông tin người dùng theo email (chính xác)
   @MessagePattern('user.find-by-email')
   findByEmail(@Payload() data: { email: string }) {
     return this.userService.findByEmail(data.email);
   }
 
-  /**
-   * Search for users by keyword
-   */
+  // Tìm kiếm danh sách người dùng theo từ khóa (tên, email)
   @MessagePattern('user.search')
   search(@Payload() data: { query: string }) {
     return this.userService.search(data.query);
   }
 
-  /**
-   * Fetch multiple users by their IDs
-   */
+  // Lấy thông tin nhiều người dùng cùng lúc dựa trên danh sách ID
   @MessagePattern('user.find-many')
   findManyByIds(@Payload() data: { ids: string[] }) {
     return this.userService.findManyByIds(data.ids);

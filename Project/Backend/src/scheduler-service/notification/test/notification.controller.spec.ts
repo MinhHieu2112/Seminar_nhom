@@ -1,3 +1,4 @@
+// Kiểm thử Unit cho NotificationController (API cấu hình và gửi thông báo)
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { NotificationController } from '../notification.controller';

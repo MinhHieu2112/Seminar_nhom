@@ -1,3 +1,4 @@
+// Kiểm thử Unit cho NotificationService (gửi thông báo nhắc nhở qua Firebase/email)
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
 import { NotificationService } from '../notification.service';

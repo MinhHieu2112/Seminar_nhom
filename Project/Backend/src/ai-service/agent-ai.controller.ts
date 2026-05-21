@@ -13,15 +13,13 @@ export class AgentAiController {
     private readonly aiScheduleGenerator: AiScheduleGeneratorService,
   ) {}
 
-  /**
-   * ai.generate-schedule
-   * Nhận form data (+ optional CSV slots đã parse) → trả về tasks + availableSlots
-   */
+  // Xử lý tạo lịch trình tự động từ form và lưu trữ vào database
   @MessagePattern('ai.generate-schedule')
   handleGenerateSchedule(@Payload() payload: GenerateSchedulePayload) {
     return this.agentAiService.generateScheduleFromForm(payload);
   }
 
+  // Chuẩn hóa dữ liệu văn bản hoặc CSV đầu vào
   @MessagePattern('ai.normalize')
   normalizeInput(@Payload() payload: NormalizeInputDto) {
     try {
@@ -37,11 +35,7 @@ export class AgentAiController {
     }
   }
 
-  /**
-   * ai.generate-from-prompt
-   * Nhận prompt tự nhiên (tiếng Việt / tiếng Anh) → AI phân tích
-   * → trả về JSON đã validate bằng Zod để người dùng xem trước
-   */
+  // Xử lý tạo lịch trình xem trước từ natural language prompt
   @MessagePattern('ai.generate-from-prompt')
   async handleGenerateFromPrompt(@Payload() payload: AiGenerateScheduleDto) {
     try {
@@ -61,11 +55,7 @@ export class AgentAiController {
     }
   }
 
-  /**
-   * ai.generate-from-image
-   * Nhận hình ảnh Base64 → AI phân tích
-   * → trả về JSON đã validate bằng Zod để người dùng xem trước
-   */
+  // Xử lý trích xuất lịch trình xem trước từ hình ảnh (Base64)
   @MessagePattern('ai.generate-from-image')
   async handleGenerateFromImage(
     @Payload()

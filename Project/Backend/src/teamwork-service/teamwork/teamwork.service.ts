@@ -27,6 +27,7 @@ export class TeamworkService {
 
   // ============ Group Management ============
 
+  // Tạo mới nhóm làm việc và gán quyền admin cho người tạo
   async createGroup(userId: string, dto: CreateGroupDto) {
     console.log(
       `[TeamworkService] createGroup: userId=${userId}, name=${dto.name}`,
@@ -49,6 +50,7 @@ export class TeamworkService {
     });
   }
 
+  // Lấy danh sách các nhóm mà người dùng đã tham gia hoặc làm trưởng nhóm
   async getGroups(userId: string) {
     const groups = await this.prisma.group.findMany({
       where: {
@@ -69,11 +71,10 @@ export class TeamworkService {
         },
       },
     });
-
-    // Enrich with member details from UserProjection if needed
     return groups;
   }
 
+  // Lấy thông tin chi tiết của nhóm bao gồm danh sách thành viên
   async getGroupDetails(groupId: string) {
     const group = await this.prisma.group.findUnique({
       where: { id: groupId },
@@ -100,6 +101,7 @@ export class TeamworkService {
     return { ...group, members: enrichedMembers };
   }
 
+  // Cập nhật thông tin cơ bản của nhóm (chỉ dành cho admin)
   async updateGroup(userId: string, groupId: string, dto: UpdateGroupDto) {
     const group = await this.prisma.group.findUnique({
       where: { id: groupId },
@@ -129,6 +131,7 @@ export class TeamworkService {
     return updated;
   }
 
+  // Xóa nhóm làm việc và gửi thông báo realtime cho các thành viên
   async deleteGroup(userId: string, groupId: string) {
     const group = await this.prisma.group.findUnique({
       where: { id: groupId },
@@ -156,6 +159,7 @@ export class TeamworkService {
 
   // ============ Member Management ============
 
+  // Mời một người dùng mới tham gia vào nhóm làm việc (chỉ dành cho admin)
   async inviteMember(inviterId: string, groupId: string, dto: AddMemberDto) {
     console.log(
       `[TeamworkService] inviteMember: inviterId=${inviterId}, groupId=${groupId}, targetUserId=${dto.userId}`,
@@ -194,6 +198,7 @@ export class TeamworkService {
     return invitation;
   }
 
+  // Lấy danh sách các lời mời tham gia nhóm đang chờ phản hồi của người dùng
   async getInvitations(userId: string) {
     return await this.prisma.groupInvitation.findMany({
       where: { userId, status: 'PENDING' },
@@ -203,6 +208,7 @@ export class TeamworkService {
     });
   }
 
+  // Phản hồi (chấp nhận/từ chối) lời mời tham gia nhóm
   async respondToInvitation(
     userId: string,
     invitationId: string,
@@ -246,6 +252,7 @@ export class TeamworkService {
     }
   }
 
+  // Xóa một thành viên khỏi nhóm (chỉ dành cho admin)
   async removeMember(
     requesterId: string,
     groupId: string,
@@ -287,6 +294,7 @@ export class TeamworkService {
 
   // ============ Group Task Management ============
 
+  // Tạo một công việc mới trong nhóm và gửi thông báo nếu có người được giao
   async createGroupTask(userId: string, dto: CreateGroupTaskDto) {
     const { dueTime, groupId, assigneeId, ...rest } = dto;
 
@@ -321,6 +329,7 @@ export class TeamworkService {
     return task;
   }
 
+  // Lấy danh sách toàn bộ công việc trong một nhóm
   async getGroupTasks(userId: string, groupId: string) {
     const member = await this.prisma.groupMember.findUnique({
       where: { groupId_userId: { groupId, userId } },
@@ -337,6 +346,7 @@ export class TeamworkService {
     });
   }
 
+  // Cập nhật thông tin công việc, phân công lại hoặc thêm nhận xét từ trưởng nhóm
   async updateGroupTask(userId: string, id: string, dto: UpdateGroupTaskDto) {
     const task = await this.prisma.groupTask.findUnique({
       where: { id },
@@ -471,6 +481,7 @@ export class TeamworkService {
     return updatedTask;
   }
 
+  // Lấy chi tiết công việc nhóm kèm theo tài liệu đính kèm và thông tin phân bổ
   async getGroupTaskDetails(userId: string, id: string) {
     const task = await this.prisma.groupTask.findUnique({
       where: { id },
@@ -509,6 +520,7 @@ export class TeamworkService {
     };
   }
 
+  // Xóa công việc nhóm (chỉ dành cho admin hoặc người tạo công việc)
   async deleteGroupTask(userId: string, id: string) {
     const task = await this.prisma.groupTask.findUnique({ where: { id } });
     if (!task) throw new NotFoundException('Task not found');
@@ -532,6 +544,7 @@ export class TeamworkService {
     return await this.prisma.groupTask.delete({ where: { id } });
   }
 
+  // Phân bổ thời gian thực hiện cụ thể cho một công việc nhóm
   async allocateGroupTask(userId: string, dto: CreateGroupTaskAllocationDto) {
     const task = await this.prisma.groupTask.findUnique({
       where: { id: dto.taskId },
@@ -553,6 +566,7 @@ export class TeamworkService {
     });
   }
 
+  // Trưởng nhóm phê duyệt kết quả thực hiện công việc
   async approveGroupTask(userId: string, taskId: string) {
     const task = await this.prisma.groupTask.findUnique({
       where: { id: taskId },
@@ -583,6 +597,7 @@ export class TeamworkService {
     return updatedTask;
   }
 
+  // Trưởng nhóm từ chối kết quả công việc và yêu cầu làm lại
   async rejectGroupTask(userId: string, taskId: string) {
     const task = await this.prisma.groupTask.findUnique({
       where: { id: taskId },
@@ -613,6 +628,7 @@ export class TeamworkService {
     return updatedTask;
   }
 
+  // Tải lên tài liệu đính kèm và tự động đổi trạng thái nộp bài cho công việc nhóm
   async uploadGroupTaskAttachments(
     userId: string,
     taskId: string,
@@ -678,6 +694,7 @@ export class TeamworkService {
     return updatedTask;
   }
 
+  // Xóa một tài liệu đính kèm cụ thể khỏi công việc nhóm
   async deleteGroupTaskAttachment(
     userId: string,
     taskId: string,
@@ -717,6 +734,7 @@ export class TeamworkService {
     return updatedTask;
   }
 
+  // Lấy tổng hợp dữ liệu thống kê để hiển thị trên Analytics Dashboard của teamwork
   async getAnalyticsSummary(userId: string) {
     // 1. pendingApprovals query
     const pendingTasks = await this.prisma.groupTask.findMany({

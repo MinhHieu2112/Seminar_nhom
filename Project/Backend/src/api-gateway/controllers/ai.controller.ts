@@ -3,13 +3,11 @@ import {
   Controller,
   Post,
   Body,
-  Param,
   Headers,
   HttpCode,
   HttpStatus,
   UseInterceptors,
   UploadedFile,
-  NotFoundException,
   BadRequestException,
   InternalServerErrorException,
 } from '@nestjs/common';
@@ -29,6 +27,7 @@ export class AiGatewayController {
     private readonly jwtService: JwtService,
   ) {}
 
+  // Chuẩn hóa dữ liệu văn bản thô do AI xử lý (với cơ chế dự phòng khi lỗi mạng)
   @Post('normalize')
   @UseInterceptors(FileInterceptor('file'))
   @HttpCode(HttpStatus.OK)
@@ -63,6 +62,7 @@ export class AiGatewayController {
     );
   }
 
+  // Tự động phân tích CSV/Form và tạo lịch trình qua AI, sau đó lưu vào cơ sở dữ liệu
   @Post('generate-schedule')
   @UseInterceptors(FileInterceptor('csvFile'))
   @HttpCode(HttpStatus.CREATED)
@@ -184,11 +184,7 @@ export class AiGatewayController {
     };
   }
 
-  /**
-   * POST /api/v1/ai/generate-from-prompt
-   * Nhận prompt tự nhiên → AI phân tích → trả về JSON để người dùng xem trước
-   * Chưa lưu vào DB, chỉ trả preview data.
-   */
+  // Nhận prompt tự nhiên, AI phân tích và trả về JSON xem trước (chưa lưu Database)
   @Post('generate-from-prompt')
   @HttpCode(HttpStatus.OK)
   async generateFromPrompt(
@@ -211,10 +207,7 @@ export class AiGatewayController {
     return result;
   }
 
-  /**
-   * POST /api/v1/ai/generate-from-image
-   * Nhận hình ảnh → AI phân tích → trả về JSON để người dùng xem trước
-   */
+  // Trích xuất văn bản từ hình ảnh (OCR) và dùng AI phân tích để tạo lịch xem trước
   @Post('generate-from-image')
   @UseInterceptors(FileInterceptor('image'))
   @HttpCode(HttpStatus.OK)

@@ -1,3 +1,4 @@
+// Kiểm thử Unit cho CronService (các tác vụ định kỳ tự động kiểm tra và gửi thông báo)
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotificationCronService } from '../cron.service';
 import { PrismaService } from '../../scheduler/prisma/prisma.service';

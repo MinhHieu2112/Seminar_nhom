@@ -223,8 +223,8 @@ export function useAnalyticsDashboard(
     // ── Insights ──────────────────────────────────────────────────────────────
     const isOverloaded = allStats.overdue >= 3 || (allStats.total > 0 && completionRate < 30);
     const message = isOverloaded
-      ? '⚠️ Lịch học của bạn đang quá tải — cần cân bằng lại!'
-      : '✅ Lịch học đang ổn định — hãy tiếp tục!';
+      ? ' Lịch học của bạn đang quá tải — cần cân bằng lại!'
+      : ' Lịch học đang ổn định — hãy tiếp tục!';
 
     const recommendations: string[] = [];
     if (allStats.overdue > 0)

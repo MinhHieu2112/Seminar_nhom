@@ -27,5 +27,5 @@ export interface AiProvider {
     mimeType: string,
     context: PromptContext,
     prompt?: string,
-  ): Promise<AiScheduleOutput>;
+  ): Promise<any>;
 }

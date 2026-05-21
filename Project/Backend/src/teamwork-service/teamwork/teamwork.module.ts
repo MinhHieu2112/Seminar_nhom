@@ -11,6 +11,7 @@ import { MessageModule } from '../message/message.module';
 
 @Module({
   imports: [
+    ConfigModule.forRoot(),
     NotificationModule,
     MessageModule,
     ClientsModule.registerAsync([

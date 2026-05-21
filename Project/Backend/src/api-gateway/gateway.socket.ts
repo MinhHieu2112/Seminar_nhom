@@ -32,6 +32,7 @@ export class GatewaySocketGateway
 
   constructor(private readonly jwtService: JwtService) {}
 
+  // Trích xuất JWT token từ handshake (auth, header, hoặc query string)
   private extractToken(client: Socket): string | null {
     if (client.handshake.auth?.token) {
       return client.handshake.auth.token;
@@ -46,6 +47,7 @@ export class GatewaySocketGateway
     return null;
   }
 
+  // Xác thực JWT khi client kết nối và tạo proxy socket tới teamwork-service
   handleConnection(client: Socket) {
     this.logger.log(`Incoming connection request on gateway: ${client.id}`);
 
@@ -109,6 +111,7 @@ export class GatewaySocketGateway
     }
   }
 
+  // Đóng proxy socket tới teamwork-service khi client ngắt kết nối
   handleDisconnect(client: Socket) {
     this.logger.log(`Client connection closed: ${client.id}`);
     const targetSocket = this.proxySockets.get(client.id);
@@ -120,6 +123,7 @@ export class GatewaySocketGateway
 
   // ============ Event Forwarding/Relaying to Internal Service ============
 
+  // Chuyển tiếp sự kiện gia nhập phòng (joinGroup) tới teamwork-service
   @SubscribeMessage('joinGroup')
   handleJoinGroup(@ConnectedSocket() client: Socket, @MessageBody() data: any) {
     const targetSocket = this.proxySockets.get(client.id);
@@ -128,6 +132,7 @@ export class GatewaySocketGateway
     }
   }
 
+  // Chuyển tiếp sự kiện rời phòng (leaveGroup) tới teamwork-service
   @SubscribeMessage('leaveGroup')
   handleLeaveGroup(
     @ConnectedSocket() client: Socket,
@@ -139,6 +144,7 @@ export class GatewaySocketGateway
     }
   }
 
+  // Chuyển tiếp tin nhắn chat (sendMessage) tới teamwork-service
   @SubscribeMessage('sendMessage')
   handleSendMessage(
     @ConnectedSocket() client: Socket,
@@ -150,6 +156,7 @@ export class GatewaySocketGateway
     }
   }
 
+  // Chuyển tiếp sự kiện đang gõ (typingStart) tới teamwork-service
   @SubscribeMessage('typingStart')
   handleTypingStart(
     @ConnectedSocket() client: Socket,
@@ -161,6 +168,7 @@ export class GatewaySocketGateway
     }
   }
 
+  // Chuyển tiếp sự kiện dừng gõ (typingEnd) tới teamwork-service
   @SubscribeMessage('typingEnd')
   handleTypingEnd(@ConnectedSocket() client: Socket, @MessageBody() data: any) {
     const targetSocket = this.proxySockets.get(client.id);
@@ -169,6 +177,7 @@ export class GatewaySocketGateway
     }
   }
 
+  // Chuyển tiếp sự kiện xóa tin nhắn (deleteMessage) tới teamwork-service
   @SubscribeMessage('deleteMessage')
   handleDeleteMessage(
     @ConnectedSocket() client: Socket,
@@ -180,6 +189,7 @@ export class GatewaySocketGateway
     }
   }
 
+  // Phát sự kiện realtime tới tất cả socket đang kết nối của một người dùng cụ thể
   emitToUser(userId: string, event: string, data: any) {
     if (!this.server) {
       this.logger.warn('WebSocket server is not initialized yet');

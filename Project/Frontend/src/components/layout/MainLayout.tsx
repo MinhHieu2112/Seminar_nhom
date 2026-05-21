@@ -33,13 +33,13 @@ export function MainLayout({ children }: MainLayoutProps) {
 
       {/* Header - Moved outside main to avoid stacking context issues */}
       {shouldShowGlobalHeader && (
-        <div className={`transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'ml-20' : 'ml-64'}`}>
+        <div className={`transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'ml-16' : 'ml-64'}`}>
           <Header />
         </div>
       )}
 
       {/* Main Content Area */}
-      <main className={`transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'ml-20' : 'ml-64'}`}>
+      <main className={`transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'ml-16' : 'ml-64'}`}>
         <div className={`${shouldShowGlobalHeader ? 'min-h-[calc(100vh-4rem)] pt-4' : 'min-h-screen pt-6'} px-4 pb-8 lg:px-8`}>
           <div className="mx-auto max-w-7xl">
             {children}

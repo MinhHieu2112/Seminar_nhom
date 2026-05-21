@@ -6,7 +6,10 @@
 /**
  * Creates a mock Socket client with all necessary methods and properties
  */
-export function createSocketMock(socketId = 'socket-mock-1', userId = 'user-1') {
+export function createSocketMock(
+  socketId = 'socket-mock-1',
+  userId = 'user-1',
+): any {
   const rooms = new Set<string>([socketId]); // Socket's own room
   const joinSpy = jest.fn().mockImplementation((room: string) => {
     rooms.add(room);
@@ -61,7 +64,7 @@ export function createSocketMock(socketId = 'socket-mock-1', userId = 'user-1') 
 /**
  * Creates a mock Socket.io Server
  */
-export function createSocketServerMock() {
+export function createSocketServerMock(): any {
   const sockets = new Map<string, any>(); // socketId -> Socket
   const rooms = new Map<string, Set<string>>(); // roomName -> Set of socketIds
   const toSpy = jest.fn().mockReturnThis();
@@ -128,7 +131,11 @@ export function createSocketServerMock() {
 /**
  * Helper to set up connected socket in server
  */
-export function addSocketToServer(server: any, socket: any, rooms: string[] = []) {
+export function addSocketToServer(
+  server: any,
+  socket: any,
+  rooms: string[] = [],
+) {
   server._addSocket(socket);
   // Add socket to its own room (Socket.io default behavior)
   server._addToRoom(socket.id, socket.id);
@@ -141,7 +148,11 @@ export function addSocketToServer(server: any, socket: any, rooms: string[] = []
 /**
  * Helper to simulate socket connection to a room
  */
-export function simulateSocketJoinRoom(server: any, socket: any, roomName: string) {
+export function simulateSocketJoinRoom(
+  server: any,
+  socket: any,
+  roomName: string,
+) {
   const mockJoin = socket.join as jest.Mock;
   mockJoin.mockImplementationOnce(() => {
     server._addToRoom(roomName, socket.id);
@@ -160,7 +171,9 @@ export function checkSocketEmitted(socket: any, event: string, data?: any) {
   );
 
   if (data !== undefined) {
-    return emits.some((call) => JSON.stringify(call[1]) === JSON.stringify(data));
+    return emits.some(
+      (call) => JSON.stringify(call[1]) === JSON.stringify(data),
+    );
   }
 
   return emits.length > 0;

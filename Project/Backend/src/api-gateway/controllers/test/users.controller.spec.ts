@@ -1,3 +1,4 @@
+// Kiểm thử Unit cho UsersController tại API Gateway (định tuyến quản lý thông tin người dùng)
 import { Test, TestingModule } from '@nestjs/testing';
 import { UsersGatewayController } from '../users.controller';
 import { TcpClientService } from '../../tcp-client.service';

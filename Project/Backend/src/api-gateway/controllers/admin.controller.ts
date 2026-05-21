@@ -19,6 +19,7 @@ export class AdminGatewayController {
     private readonly jwtService: JwtService,
   ) {}
 
+  // Lấy danh sách toàn bộ người dùng trong hệ thống (dành cho quản trị viên)
   @Get('users')
   listUsers(
     @Headers('authorization') authHeader: string,
@@ -32,6 +33,7 @@ export class AdminGatewayController {
     });
   }
 
+  // Khóa hoặc mở khóa tài khoản của người dùng (dành cho quản trị viên)
   @Post('users/:userId/toggle')
   @HttpCode(HttpStatus.OK)
   toggleUser(

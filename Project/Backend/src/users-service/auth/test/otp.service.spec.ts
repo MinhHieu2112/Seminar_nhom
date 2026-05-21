@@ -1,3 +1,4 @@
+// Kiểm thử Unit cho OtpService (xử lý mã OTP xác thực đăng nhập hoặc khôi phục mật khẩu)
 import { Test, TestingModule } from '@nestjs/testing';
 import { OtpService } from '../otp.service';
 

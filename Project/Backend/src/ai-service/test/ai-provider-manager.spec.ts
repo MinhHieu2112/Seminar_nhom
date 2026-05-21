@@ -1,3 +1,4 @@
+// Kiểm thử Unit cho AiProviderManager (quản lý các mô hình AI khác nhau như Gemini, OpenAI)
 import { Test, TestingModule } from '@nestjs/testing';
 import { AiProviderManager } from '../providers/ai-provider-manager.service';
 import { GeminiProvider } from '../providers/gemini.provider';
@@ -56,7 +57,10 @@ describe('AiProviderManager Cooldown and Fallback', () => {
     it('should successfully use Gemini first and not fall back if Gemini succeeds', async () => {
       mockGeminiProvider.generateFromText.mockResolvedValue(mockSuccessOutput);
 
-      const result = await manager.generateFromTextWithFallback('Học toán ngày mai', mockContext);
+      const result = await manager.generateFromTextWithFallback(
+        'Học toán ngày mai',
+        mockContext,
+      );
 
       expect(result).toEqual(mockSuccessOutput);
       expect(mockGeminiProvider.generateFromText).toHaveBeenCalledTimes(1);
@@ -70,7 +74,10 @@ describe('AiProviderManager Cooldown and Fallback', () => {
       mockGeminiProvider.generateFromText.mockRejectedValue(quotaError);
       mockOpenAIProvider.generateFromText.mockResolvedValue(mockSuccessOutput);
 
-      const result = await manager.generateFromTextWithFallback('Học toán ngày mai', mockContext);
+      const result = await manager.generateFromTextWithFallback(
+        'Học toán ngày mai',
+        mockContext,
+      );
 
       expect(result).toEqual(mockSuccessOutput);
       expect(mockGeminiProvider.generateFromText).toHaveBeenCalledTimes(1);
@@ -80,7 +87,10 @@ describe('AiProviderManager Cooldown and Fallback', () => {
       mockGeminiProvider.generateFromText.mockClear();
       mockOpenAIProvider.generateFromText.mockClear();
 
-      const result2 = await manager.generateFromTextWithFallback('Học toán ngày mai', mockContext);
+      const result2 = await manager.generateFromTextWithFallback(
+        'Học toán ngày mai',
+        mockContext,
+      );
       expect(result2).toEqual(mockSuccessOutput);
       // Gemini should be bypassed entirely
       expect(mockGeminiProvider.generateFromText).not.toHaveBeenCalled();
@@ -105,7 +115,10 @@ describe('AiProviderManager Cooldown and Fallback', () => {
       mockOpenAIProvider.generateFromText.mockClear();
 
       // Second call - should retry Gemini because cooldown expired
-      const result = await manager.generateFromTextWithFallback('Học toán', mockContext);
+      const result = await manager.generateFromTextWithFallback(
+        'Học toán',
+        mockContext,
+      );
       expect(result).toEqual(mockSuccessOutput);
       expect(mockGeminiProvider.generateFromText).toHaveBeenCalledTimes(1);
       expect(mockOpenAIProvider.generateFromText).not.toHaveBeenCalled();
@@ -115,10 +128,17 @@ describe('AiProviderManager Cooldown and Fallback', () => {
     });
 
     it('should fallback to local heuristic if both providers fail', async () => {
-      mockGeminiProvider.generateFromText.mockRejectedValue(new Error('Gemini API is down'));
-      mockOpenAIProvider.generateFromText.mockRejectedValue(new Error('OpenAI API is down'));
+      mockGeminiProvider.generateFromText.mockRejectedValue(
+        new Error('Gemini API is down'),
+      );
+      mockOpenAIProvider.generateFromText.mockRejectedValue(
+        new Error('OpenAI API is down'),
+      );
 
-      const result = await manager.generateFromTextWithFallback('từ 16h đến 18h học toán', mockContext);
+      const result = await manager.generateFromTextWithFallback(
+        'Học toán từ 16h đến 18h',
+        mockContext,
+      );
 
       expect(result.goalTitle).toBe('Lịch học Toán');
       expect(result.tasks[0].title).toBe('Học Toán');

@@ -1,3 +1,4 @@
+// Kiểm thử Tích hợp cho SchedulerService (xử lý logic lập lịch và lưu trữ vào database)
 import { Test, TestingModule } from '@nestjs/testing';
 import { SchedulerService } from '../scheduler.service';
 import { PrismaService } from '../prisma/prisma.service';

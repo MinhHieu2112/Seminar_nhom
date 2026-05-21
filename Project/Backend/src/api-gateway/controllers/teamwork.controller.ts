@@ -33,6 +33,7 @@ export class TeamworkGatewayController {
 
   // ============ Group Management ============
 
+  // Tạo nhóm làm việc mới qua API Gateway
   @Post('groups')
   createGroup(@Headers('authorization') authHeader: string, @Body() dto: any) {
     return this.httpClient.request(
@@ -44,6 +45,7 @@ export class TeamworkGatewayController {
     );
   }
 
+  // Lấy danh sách nhóm của người dùng hiện tại
   @Get('groups')
   getGroups(@Headers('authorization') authHeader: string) {
     return this.httpClient.request(
@@ -55,6 +57,7 @@ export class TeamworkGatewayController {
     );
   }
 
+  // Lấy thông tin chi tiết của nhóm (bao gồm thành viên)
   @Get('groups/:groupId')
   getGroupDetails(
     @Headers('authorization') authHeader: string,
@@ -69,6 +72,7 @@ export class TeamworkGatewayController {
     );
   }
 
+  // Cập nhật thông tin cơ bản của nhóm (chỉ admin nhóm)
   @Put('groups/:groupId')
   updateGroup(
     @Headers('authorization') authHeader: string,
@@ -84,6 +88,7 @@ export class TeamworkGatewayController {
     );
   }
 
+  // Xóa nhóm làm việc khỏi hệ thống (chỉ admin nhóm)
   @Delete('groups/:groupId')
   deleteGroup(
     @Headers('authorization') authHeader: string,
@@ -100,6 +105,7 @@ export class TeamworkGatewayController {
 
   // ============ Member Management ============
 
+  // Gửi lời mời tham gia nhóm cho người dùng khác
   @Post('groups/:groupId/invitations')
   inviteMember(
     @Headers('authorization') authHeader: string,
@@ -115,6 +121,7 @@ export class TeamworkGatewayController {
     );
   }
 
+  // Lấy danh sách lời mời tham gia nhóm đang chờ của tôi
   @Get('groups/invitations/me')
   getInvitations(@Headers('authorization') authHeader: string) {
     return this.httpClient.request(
@@ -126,6 +133,7 @@ export class TeamworkGatewayController {
     );
   }
 
+  // Phản hồi (chấp nhận/từ chối) lời mời tham gia nhóm
   @Post('groups/invitations/:invitationId/respond')
   respondToInvitation(
     @Headers('authorization') authHeader: string,
@@ -141,6 +149,7 @@ export class TeamworkGatewayController {
     );
   }
 
+  // Xóa thành viên ra khỏi nhóm (chỉ admin nhóm)
   @Delete('groups/:groupId/members/:targetUserId')
   removeMember(
     @Headers('authorization') authHeader: string,
@@ -158,6 +167,7 @@ export class TeamworkGatewayController {
 
   // ============ Group Task Management ============
 
+  // Tạo công việc nhóm mới
   @Post('tasks')
   createGroupTask(
     @Headers('authorization') authHeader: string,
@@ -172,6 +182,7 @@ export class TeamworkGatewayController {
     );
   }
 
+  // Lấy danh sách công việc trong một nhóm cụ thể
   @Get('groups/:groupId/tasks')
   getGroupTasks(
     @Headers('authorization') authHeader: string,
@@ -186,6 +197,7 @@ export class TeamworkGatewayController {
     );
   }
 
+  // Lấy thông tin chi tiết của công việc nhóm
   @Get('tasks/:id')
   getGroupTaskDetails(
     @Headers('authorization') authHeader: string,
@@ -200,6 +212,7 @@ export class TeamworkGatewayController {
     );
   }
 
+  // Cập nhật thông tin công việc nhóm (tiêu đề, mô tả, hạn chót, v.v.)
   @Put('tasks/:id')
   updateGroupTask(
     @Headers('authorization') authHeader: string,
@@ -215,6 +228,7 @@ export class TeamworkGatewayController {
     );
   }
 
+  // Xóa công việc nhóm khỏi hệ thống
   @Delete('tasks/:id')
   deleteGroupTask(
     @Headers('authorization') authHeader: string,
@@ -229,6 +243,7 @@ export class TeamworkGatewayController {
     );
   }
 
+  // Phân bổ thời gian thực hiện cụ thể cho công việc nhóm
   @Post('tasks/allocations')
   allocateTask(@Headers('authorization') authHeader: string, @Body() dto: any) {
     return this.httpClient.request(
@@ -240,6 +255,7 @@ export class TeamworkGatewayController {
     );
   }
 
+  // Trưởng nhóm phê duyệt kết quả thực hiện công việc nhóm
   @Patch('tasks/:id/approve')
   approveTask(
     @Headers('authorization') authHeader: string,
@@ -254,6 +270,7 @@ export class TeamworkGatewayController {
     );
   }
 
+  // Trưởng nhóm từ chối kết quả và yêu cầu làm lại công việc nhóm
   @Patch('tasks/:id/reject')
   rejectTask(
     @Headers('authorization') authHeader: string,
@@ -269,6 +286,7 @@ export class TeamworkGatewayController {
   }
 
   // --- Teamwork Task Attachments ---
+  // Tải lên tài liệu đính kèm để nộp bài công việc nhóm (tối đa 50MB)
   @Post('tasks/:taskId/attachments')
   @UseInterceptors(
     FilesInterceptor('files', 10, {
@@ -310,6 +328,7 @@ export class TeamworkGatewayController {
     );
   }
 
+  // Xóa tài liệu đính kèm đã tải lên của công việc nhóm
   @Delete('tasks/:taskId/attachments/:attachmentId')
   async deleteAttachment(
     @Headers('authorization') authHeader: string,
@@ -325,6 +344,7 @@ export class TeamworkGatewayController {
     );
   }
 
+  // Lấy lịch sử tin nhắn trò chuyện của nhóm (hỗ trợ phân trang và filter theo task)
   @Get('groups/:groupId/messages')
   async getMessages(
     @Headers('authorization') authHeader: string,
@@ -349,6 +369,7 @@ export class TeamworkGatewayController {
     );
   }
 
+  // Tải lên các tệp đính kèm trong tin nhắn chat nhóm
   @Post('groups/:groupId/chat/upload')
   @UseInterceptors(
     FilesInterceptor('files', 5, {
@@ -375,6 +396,7 @@ export class TeamworkGatewayController {
     }));
   }
 
+  // Xóa tin nhắn chat nhóm cụ thể (chỉ chủ tin nhắn hoặc admin nhóm)
   @Delete('messages/:messageId')
   async deleteMessage(
     @Headers('authorization') authHeader: string,
@@ -389,6 +411,7 @@ export class TeamworkGatewayController {
     );
   }
 
+  // Lấy danh sách sticker thịnh hành phục vụ chat nhóm
   @Get('stickers/trending')
   async getStickersTrending(@Headers('authorization') authHeader: string) {
     return this.httpClient.request(
@@ -400,6 +423,7 @@ export class TeamworkGatewayController {
     );
   }
 
+  // Tìm kiếm sticker theo từ khóa để gửi tin nhắn chat nhóm
   @Get('stickers/search')
   async getStickersSearch(
     @Headers('authorization') authHeader: string,

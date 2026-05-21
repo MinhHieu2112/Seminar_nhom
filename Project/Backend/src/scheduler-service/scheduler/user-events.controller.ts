@@ -6,6 +6,7 @@ import { PrismaService } from './prisma/prisma.service';
 export class UserEventsController {
   constructor(private readonly prisma: PrismaService) {}
 
+  // Lắng nghe sự kiện đăng ký tài khoản mới để đồng bộ thông tin Projection
   @EventPattern('user.created')
   async handleUserCreated(@Payload() data: any) {
     console.log('Syncing user projection (created):', data.id);
@@ -27,6 +28,7 @@ export class UserEventsController {
     });
   }
 
+  // Lắng nghe sự kiện cập nhật thông tin cá nhân để đồng bộ thông tin Projection
   @EventPattern('user.profile.updated')
   async handleUserProfileUpdated(@Payload() data: any) {
     console.log('Syncing user projection (updated):', data.id);

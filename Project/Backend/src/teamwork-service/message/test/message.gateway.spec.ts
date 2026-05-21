@@ -1,3 +1,4 @@
+// Kiểm thử Unit cho MessageGateway (xử lý kết nối websocket và gửi nhận tin nhắn real-time)
 import { Test, TestingModule } from '@nestjs/testing';
 import { MessageGateway } from '../message.gateway';
 import { MessageService } from '../message.service';
@@ -192,13 +193,15 @@ describe('MessageGateway (WebSocket)', () => {
       const messageDto = {
         groupId: 'group-1',
         content: 'Hello group',
-        taskId: null,
       };
 
       const result = await gateway.handleSendMessage(socket, messageDto);
 
-      expect(result.status).toBe('ok');
-      expect(mockMessageService.create).toHaveBeenCalledWith('user-1', messageDto);
+      expect(result!.status).toBe('ok');
+      expect(mockMessageService.create).toHaveBeenCalledWith(
+        'user-1',
+        messageDto,
+      );
     });
 
     it('should emit messageReceived event to group', async () => {
@@ -210,7 +213,6 @@ describe('MessageGateway (WebSocket)', () => {
       const messageDto = {
         groupId: 'group-1',
         content: 'Hello',
-        taskId: null,
       };
 
       const emitSpy = jest.spyOn(mockServer, 'to').mockReturnThis();
@@ -229,13 +231,12 @@ describe('MessageGateway (WebSocket)', () => {
       const messageDto = {
         groupId: 'group-1',
         content: 'Hello',
-        taskId: null,
       };
 
       const result = await gateway.handleSendMessage(socket, messageDto);
 
-      expect(result.status).toBe('error');
-      expect(result.message).toContain('Database error');
+      expect(result!.status).toBe('error');
+      expect(result!.message).toContain('Database error');
     });
 
     it('should handle send message without userId', async () => {
@@ -244,11 +245,10 @@ describe('MessageGateway (WebSocket)', () => {
       const messageDto = {
         groupId: 'group-1',
         content: 'Hello',
-        taskId: null,
       };
 
       // Should not throw, just return
-      const result = await gateway.handleSendMessage(socket, messageDto);
+      await gateway.handleSendMessage(socket, messageDto);
 
       expect(mockMessageService.create).not.toHaveBeenCalled();
     });
@@ -259,13 +259,11 @@ describe('MessageGateway (WebSocket)', () => {
 
       gateway.handleConnection(socket);
 
-      const emitSpy = jest.spyOn(mockServer, 'to').mockReturnThis();
-
       const result = await gateway.handleDeleteMessage(socket, {
         messageId: 'msg-1',
       });
 
-      expect(result.status).toBe('ok');
+      expect(result!.status).toBe('ok');
       expect(mockMessageService.delete).toHaveBeenCalledWith('user-1', 'msg-1');
     });
 
@@ -279,8 +277,8 @@ describe('MessageGateway (WebSocket)', () => {
         messageId: 'msg-1',
       });
 
-      expect(result.status).toBe('error');
-      expect(result.message).toContain('Not authorized');
+      expect(result!.status).toBe('error');
+      expect(result!.message).toContain('Not authorized');
     });
   });
 
@@ -299,7 +297,6 @@ describe('MessageGateway (WebSocket)', () => {
 
     it('should emit userTypingStart event with user info', () => {
       const socket = createSocketMock('socket-1', 'user-1');
-      const toSpy = jest.spyOn(socket, 'to').mockReturnThis();
       const emitSpy = jest.spyOn(socket, 'emit');
 
       gateway.handleTypingStart(socket, {
@@ -363,14 +360,12 @@ describe('MessageGateway (WebSocket)', () => {
       gateway.sendEventToUser('user-1', 'notification', { data: 'test' });
 
       // Both sockets of the user should receive event
-      expect(socket1.emit).toHaveBeenCalledWith(
-        'notification',
-        { data: 'test' },
-      );
-      expect(socket2.emit).toHaveBeenCalledWith(
-        'notification',
-        { data: 'test' },
-      );
+      expect(socket1.emit).toHaveBeenCalledWith('notification', {
+        data: 'test',
+      });
+      expect(socket2.emit).toHaveBeenCalledWith('notification', {
+        data: 'test',
+      });
     });
 
     it('should not error when sending to non-existent user', () => {
@@ -415,7 +410,6 @@ describe('MessageGateway (WebSocket)', () => {
 
       // Mock broadcast to capture online members
       const emitSpy = jest.spyOn(mockServer, 'to').mockReturnThis();
-      const emitEventSpy = jest.spyOn(mockServer, 'emit');
 
       // Simulate joining room
       mockServer._addToRoom('group_group-1', 'socket-1');
@@ -460,4 +454,3 @@ describe('MessageGateway (WebSocket)', () => {
     });
   });
 });
-

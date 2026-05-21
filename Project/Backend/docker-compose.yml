@@ -10,7 +10,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./init-db:/docker-entrypoint-initdb.d
     ports:
-      - "5432:5432"
+      - "${EXTERNAL_POSTGRES_PORT:-5432}:5432"
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U ${DB_USERNAME:-studyplan} -d postgres" ]
       interval: 5s
@@ -23,7 +23,7 @@ services:
     image: redis:7-alpine
     container_name: user-service-redis
     ports:
-      - "6379:6379"
+      - "${EXTERNAL_REDIS_PORT:-6379}:6379"
     healthcheck:
       test: [ "CMD", "redis-cli", "ping" ]
       interval: 5s
@@ -45,16 +45,29 @@ services:
       DATABASE_URL: postgresql://${DB_USERNAME:-studyplan}:${DB_PASSWORD:-secret}@postgres-db:5432/db_user
       SCHEDULER_DATABASE_URL: postgresql://${DB_USERNAME:-studyplan}:${DB_PASSWORD:-secret}@postgres-db:5432/db_scheduler
       TEAMWORK_DATABASE_URL: postgresql://${DB_USERNAME:-studyplan}:${DB_PASSWORD:-secret}@postgres-db:5432/db_teamwork
-    entrypoint: >
-      sh -c "
-      echo 'Running users-service migrations...' &&
-      ./node_modules/.bin/prisma migrate deploy --schema=src/users-service/prisma/schema.prisma &&
-      echo 'Running scheduler-service migrations...' &&
-      ./node_modules/.bin/prisma migrate deploy --schema=src/scheduler-service/scheduler/prisma/schema.prisma &&
-      echo 'Running teamwork-service migrations...' &&
-      ./node_modules/.bin/prisma migrate deploy --schema=src/teamwork-service/prisma/schema.prisma &&
-      echo 'All migrations completed successfully!'
-      "
+    entrypoint:
+      - sh
+      - -c
+      - |
+        echo 'Running users-service migrations...'
+        if ! ./node_modules/.bin/prisma migrate deploy --schema=src/users-service/prisma/schema.prisma; then
+          echo ' FATAL: users-service migration failed!'
+          exit 1
+        fi
+        
+        echo 'Running scheduler-service migrations...'
+        if ! ./node_modules/.bin/prisma migrate deploy --schema=src/scheduler-service/scheduler/prisma/schema.prisma; then
+          echo ' FATAL: scheduler-service migration failed!'
+          exit 1
+        fi
+        
+        echo 'Running teamwork-service migrations...'
+        if ! ./node_modules/.bin/prisma migrate deploy --schema=src/teamwork-service/prisma/schema.prisma; then
+          echo ' FATAL: teamwork-service migration failed!'
+          exit 1
+        fi
+        
+        echo ' All migrations completed successfully!'
     networks:
       - user-service-network
 
@@ -80,7 +93,7 @@ services:
       HTTP_PORT: 8011
       TCP_PORT: 8001
     ports:
-      - "8001:8001"
+      - "${EXTERNAL_USER_SERVICE_PORT:-8001}:8001"
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:8011/health || exit 1"]
       interval: 10s
@@ -116,7 +129,7 @@ services:
       TEAMWORK_SERVICE_HOST: teamwork-service-app
       TEAMWORK_SERVICE_PORT: 8007
     ports:
-      - "8004:8004"
+      - "${EXTERNAL_SCHEDULER_SERVICE_PORT:-8004}:8004"
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:8003/health || exit 1"]
       interval: 10s
@@ -145,7 +158,7 @@ services:
       GEMINI_API_KEY: ${GEMINI_API_KEY}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
     ports:
-      - "8005:8005"
+      - "${EXTERNAL_AI_SERVICE_PORT:-8005}:8005"
     healthcheck:
       test: ["CMD", "nc", "-z", "localhost", "8005"]
       interval: 10s
@@ -174,7 +187,7 @@ services:
       REDIS_PORT: 6379
       GIPHY_API_KEY: ${GIPHY_API_KEY:-}
     ports:
-      - "8007:8007"
+      - "${EXTERNAL_TEAMWORK_SERVICE_PORT:-8007}:8007"
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:8006/health || exit 1"]
       interval: 10s
@@ -239,7 +252,7 @@ services:
       LINKEDIN_CLIENT_SECRET: ${LINKEDIN_CLIENT_SECRET:-}
       LINKEDIN_CALLBACK_URL: ${LINKEDIN_CALLBACK_URL:-http://localhost:8000/api/v1/auth/linkedin/callback}
     ports:
-      - "8000:8000"
+      - "${GATEWAY_PORT:-8000}:8000"
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:8000/health || exit 1"]
       interval: 10s

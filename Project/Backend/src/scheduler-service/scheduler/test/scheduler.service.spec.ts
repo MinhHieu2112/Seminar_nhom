@@ -1,3 +1,4 @@
+// Kiểm thử Unit cho SchedulerService (quản lý lịch học tập, tạo sự kiện và danh sách công việc)
 import { Test, TestingModule } from '@nestjs/testing';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';

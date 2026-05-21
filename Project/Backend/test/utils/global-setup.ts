@@ -1,17 +1,18 @@
 import { Client } from 'pg';
 import { execSync } from 'child_process';
 import {
+  BASE_DB_URL,
   TEST_DATABASE_URL,
   TEST_SCHEDULER_DATABASE_URL,
   TEST_TEAMWORK_DATABASE_URL,
 } from './test-db-setup';
 
 export default async function () {
-  console.log('\n🚀 Starting global test database setup...');
+  console.log('\n Starting global test database setup...');
 
   // 1. Create databases if they do not exist
   const client = new Client({
-    connectionString: 'postgresql://studyplan:secret@localhost:5432/postgres',
+    connectionString: `${BASE_DB_URL}/postgres`,
   });
 
   try {
@@ -20,13 +21,13 @@ export default async function () {
     for (const db of dbs) {
       try {
         await client.query(`CREATE DATABASE ${db}`);
-        console.log(`✅ Created test database: ${db}`);
+        console.log(` Created test database: ${db}`);
       } catch (err: any) {
         if (err.code === '42P04') {
           // Database already exists, safe to ignore
         } else {
           console.warn(
-            `⚠️ Warning: Could not create database ${db}:`,
+            ` Warning: Could not create database ${db}:`,
             err.message,
           );
         }
@@ -34,7 +35,7 @@ export default async function () {
     }
   } catch (err: any) {
     console.error(
-      '❌ Failed to connect to default postgres database to verify/create test databases:',
+      ' Failed to connect to default postgres database to verify/create test databases:',
       err.message,
     );
   } finally {
@@ -71,9 +72,9 @@ export default async function () {
         },
       },
     );
-    console.log('✅ Isolated test databases are fully synced and ready!\n');
+    console.log(' Isolated test databases are fully synced and ready!\n');
   } catch (error) {
-    console.error('❌ Failed to sync Prisma schemas to test databases:', error);
+    console.error(' Failed to sync Prisma schemas to test databases:', error);
     throw error;
   }
 }

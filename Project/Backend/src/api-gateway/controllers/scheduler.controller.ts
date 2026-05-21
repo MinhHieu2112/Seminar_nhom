@@ -34,6 +34,7 @@ export class SchedulerGatewayController {
   }
 
   // --- Categories ---
+  // Tạo mới danh mục cá nhân hoặc nhóm qua API Gateway
   @Post('categories')
   createCategory(
     @Headers('authorization') authHeader: string,
@@ -48,6 +49,7 @@ export class SchedulerGatewayController {
     );
   }
 
+  // Lấy danh sách các danh mục khả dụng cho người dùng
   @Get('categories')
   getCategories(@Headers('authorization') authHeader: string) {
     return this.httpClient.request(
@@ -59,6 +61,7 @@ export class SchedulerGatewayController {
     );
   }
 
+  // Cập nhật thông tin danh mục (tiêu đề, màu sắc, icon)
   @Put('categories/:id')
   updateCategory(
     @Headers('authorization') authHeader: string,
@@ -74,6 +77,7 @@ export class SchedulerGatewayController {
     );
   }
 
+  // Xóa danh mục và xử lý các mục liên quan
   @Delete('categories/:id')
   deleteCategory(
     @Headers('authorization') authHeader: string,
@@ -89,6 +93,7 @@ export class SchedulerGatewayController {
   }
 
   // --- Tasks ---
+  // Lấy danh sách lịch trình cá nhân hoặc theo nhóm
   @Get('schedules')
   getSchedules(
     @Headers('authorization') authHeader: string,
@@ -107,6 +112,7 @@ export class SchedulerGatewayController {
     );
   }
 
+  // Thêm lịch trình mới (event/block) vào hệ thống
   @Post('schedules')
   createSchedule(
     @Headers('authorization') authHeader: string,
@@ -121,6 +127,7 @@ export class SchedulerGatewayController {
     );
   }
 
+  // Tạo mới một công việc (Task) kèm thông tin cấu hình ban đầu
   @Post('tasks')
   createTask(@Headers('authorization') authHeader: string, @Body() dto: any) {
     return this.httpClient.request(
@@ -132,6 +139,7 @@ export class SchedulerGatewayController {
     );
   }
 
+  // Lấy danh sách các công việc cá nhân hoặc theo nhóm
   @Get('tasks')
   getTasks(
     @Headers('authorization') authHeader: string,
@@ -150,6 +158,7 @@ export class SchedulerGatewayController {
     );
   }
 
+  // Cập nhật thông tin chi tiết của một công việc
   @Put('tasks/:id')
   updateTask(
     @Headers('authorization') authHeader: string,
@@ -165,6 +174,7 @@ export class SchedulerGatewayController {
     );
   }
 
+  // Xóa công việc khỏi hệ thống
   @Delete('tasks/:id')
   deleteTask(
     @Headers('authorization') authHeader: string,
@@ -179,6 +189,7 @@ export class SchedulerGatewayController {
     );
   }
 
+  // Cập nhật trạng thái hoàn thành của công việc
   @Post('tasks/:id/status')
   updateTaskStatus(
     @Headers('authorization') authHeader: string,
@@ -195,6 +206,7 @@ export class SchedulerGatewayController {
   }
 
   // --- Task Attachments ---
+  // Tải lên tài liệu đính kèm cho công việc (tối đa 50MB mỗi file)
   @Post('tasks/:taskId/attachments')
   @UseInterceptors(
     FilesInterceptor('files', 10, {
@@ -236,6 +248,7 @@ export class SchedulerGatewayController {
     );
   }
 
+  // Đánh dấu phê duyệt kết quả thực hiện công việc
   @Patch('tasks/:taskId/approve')
   approveTask(
     @Headers('authorization') authHeader: string,
@@ -250,6 +263,7 @@ export class SchedulerGatewayController {
     );
   }
 
+  // Từ chối kết quả công việc và yêu cầu làm lại
   @Patch('tasks/:taskId/reject')
   rejectTask(
     @Headers('authorization') authHeader: string,
@@ -265,6 +279,7 @@ export class SchedulerGatewayController {
   }
 
   // --- Allocations ---
+  // Phân bổ thời gian thực hiện cụ thể (allocation) cho công việc
   @Post('allocations')
   allocateTask(@Headers('authorization') authHeader: string, @Body() dto: any) {
     return this.httpClient.request(
@@ -276,6 +291,7 @@ export class SchedulerGatewayController {
     );
   }
 
+  // Lấy danh sách các khung giờ đã được phân bổ trong một khoảng thời gian
   @Get('allocations')
   getAllocations(
     @Headers('authorization') authHeader: string,
@@ -292,6 +308,7 @@ export class SchedulerGatewayController {
   }
 
   // --- Preferences ---
+  // Lấy cài đặt ưu tiên của người dùng (giờ làm việc, độ dài phiên học)
   @Get('preferences')
   getPreferences(@Headers('authorization') authHeader: string) {
     return this.httpClient.request(
@@ -302,6 +319,7 @@ export class SchedulerGatewayController {
       this.getUid(authHeader),
     );
   }
+  // Cập nhật cài đặt ưu tiên cá nhân cho trình xếp lịch
   @Put('preferences')
   updatePreferences(
     @Headers('authorization') authHeader: string,
@@ -317,6 +335,7 @@ export class SchedulerGatewayController {
   }
 
   // --- Notifications ---
+  // Lấy danh sách thông báo tổng hợp từ Scheduler và Teamwork service
   @Get('notifications')
   async getNotifications(@Headers('authorization') authHeader: string) {
     const userId = this.getUid(authHeader);
@@ -377,6 +396,7 @@ export class SchedulerGatewayController {
     }
   }
 
+  // Đánh dấu một thông báo cụ thể là đã đọc và phát realtime event
   @Post('notifications/:id/read')
   async markNotificationAsRead(
     @Headers('authorization') authHeader: string,
@@ -422,6 +442,7 @@ export class SchedulerGatewayController {
     return res;
   }
 
+  // Đánh dấu toàn bộ thông báo của người dùng là đã đọc
   @Post('notifications/read-all')
   async markAllNotificationsAsRead(
     @Headers('authorization') authHeader: string,

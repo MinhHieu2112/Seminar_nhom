@@ -18,6 +18,7 @@ export class TcpClientService implements OnModuleInit, OnModuleDestroy {
 
   constructor(private readonly configService: ConfigService) {}
 
+  // Khởi tạo kết nối TCP tới các microservice và thiết lập Circuit Breaker cho mỗi service
   async onModuleInit() {
     this.registerClient('user-service', {
       host: this.configService.get('USER_SERVICE_HOST', 'localhost'),
@@ -155,6 +156,7 @@ export class TcpClientService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  // Đóng tất cả circuit breaker và kết nối TCP khi module bị huỷ
   async onModuleDestroy() {
     // Shutdown opossum breakers
     for (const breaker of this.breakers.values()) {
@@ -172,6 +174,7 @@ export class TcpClientService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  // Đăng ký ClientTCP mới cho một microservice vào Map quản lý
   private registerClient(
     name: string,
     options: { host: string; port: number },
@@ -183,6 +186,7 @@ export class TcpClientService implements OnModuleInit, OnModuleDestroy {
     this.clients.set(name, client);
   }
 
+  // Gửi request TCP qua circuit breaker với retry, timeout và xử lý lỗi cấu trúc
   async send<T>(service: string, pattern: string, data: unknown): Promise<T> {
     const breaker = this.breakers.get(service);
     if (!breaker) {

@@ -1,3 +1,4 @@
+// Kiểm thử Unit cho SchedulerController (API quản lý lịch học tập và công việc)
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { SchedulerController } from '../scheduler.controller';

@@ -40,6 +40,7 @@ export class SchedulerService {
 
   // ============ Internal User Service Integration ============
 
+  // Lấy thông tin người dùng từ User Service qua HTTP nội bộ
   async getUserInfo(userId: string) {
     try {
       const response = await firstValueFrom(
@@ -58,6 +59,7 @@ export class SchedulerService {
 
   // ============ Category Management ============
 
+  // Tạo mới một danh mục công việc/học tập
   async createCategory(userId: string, dto: CreateCategoryDto) {
     try {
       return await this.prisma.category.create({
@@ -69,6 +71,7 @@ export class SchedulerService {
     }
   }
 
+  // Lấy danh sách danh mục kèm theo thông tin chi tiết các task và schedule liên quan
   async getCategories(userId: string) {
     return await this.prisma.category.findMany({
       where: { userId },
@@ -84,6 +87,7 @@ export class SchedulerService {
     });
   }
 
+  // Cập nhật thông tin danh mục công việc
   async updateCategory(userId: string, id: string, dto: UpdateCategoryDto) {
     try {
       const exists = await this.prisma.category.findFirst({
@@ -101,6 +105,7 @@ export class SchedulerService {
     }
   }
 
+  // Xóa danh mục công việc
   async deleteCategory(userId: string, id: string) {
     try {
       const exists = await this.prisma.category.findFirst({
@@ -119,6 +124,7 @@ export class SchedulerService {
 
   // ============ Schedule Management ============
 
+  // Tạo mới một khung thời gian học cố định trong tuần (Schedule)
   async createSchedule(userId: string, dto: CreateScheduleDto) {
     return await this.prisma.schedule.create({
       data: {
@@ -132,6 +138,7 @@ export class SchedulerService {
     });
   }
 
+  // Lấy danh sách toàn bộ khung thời gian học cố định của người dùng
   async getSchedules(userId: string) {
     return await this.prisma.schedule.findMany({
       where: { userId },
@@ -143,6 +150,7 @@ export class SchedulerService {
 
   // ============ Task Management ============
 
+  // Tìm kiếm task và kiểm tra quyền truy cập của người dùng
   private async findTaskForAccess(userId: string, id: string) {
     return this.prisma.task.findFirst({
       where: {
@@ -155,6 +163,7 @@ export class SchedulerService {
     });
   }
 
+  // Tạo mới công việc hoặc phiên học tập (Task / Session)
   async createTask(userId: string, dto: CreateTaskDto) {
     try {
       const { dueTime, type = 'TASK', sessionData, ...rest } = dto;
@@ -223,6 +232,7 @@ export class SchedulerService {
     }
   }
 
+  // Lấy toàn bộ danh sách công việc của người dùng
   async getTasks(userId: string) {
     return await this.prisma.task.findMany({
       where: { userId },
@@ -235,6 +245,7 @@ export class SchedulerService {
     });
   }
 
+  // Cập nhật trạng thái hoàn thành của công việc
   async updateTaskStatus(userId: string, id: string, status: string) {
     try {
       const exists = await this.findTaskForAccess(userId, id);
@@ -254,6 +265,7 @@ export class SchedulerService {
     }
   }
 
+  // Cập nhật thông tin chi tiết và phân bổ thời gian của công việc
   async updateTask(userId: string, id: string, dto: UpdateTaskDto) {
     try {
       const exists = await this.findTaskForAccess(userId, id);
@@ -376,6 +388,7 @@ export class SchedulerService {
     }
   }
 
+  // Xóa công việc khỏi hệ thống (ngăn chặn nếu công việc đã hoàn thành hoặc trễ hạn)
   async deleteTask(userId: string, id: string) {
     try {
       const exists = await this.findTaskForAccess(userId, id);
@@ -406,6 +419,7 @@ export class SchedulerService {
 
   // ============ Task Allocation (Time Blocking) ============
 
+  // Phân bổ thời gian (Time Allocation) cho một công việc cụ thể
   async allocateTask(userId: string, dto: CreateTaskAllocationDto) {
     const task = await this.findTaskForAccess(userId, dto.taskId);
     if (!task) {
@@ -424,6 +438,7 @@ export class SchedulerService {
     return allocation;
   }
 
+  // Lấy danh sách phân bổ thời gian của người dùng trong một khoảng thời gian chỉ định
   async getAllocations(userId: string, from: Date, to: Date) {
     return await this.prisma.taskAllocation.findMany({
       where: {
@@ -437,6 +452,7 @@ export class SchedulerService {
 
   // ============ Task Attachments ============
 
+  // Tải lên các tài liệu đính kèm và cập nhật trạng thái nộp bài của công việc
   async uploadAttachments(userId: string, taskId: string, attachments: any[]) {
     const task = await this.findTaskForAccess(userId, taskId);
     if (!task) throw new NotFoundException('Task not found');
@@ -468,6 +484,7 @@ export class SchedulerService {
 
   // ============ User Preferences ============
 
+  // Lấy cấu hình thiết lập cá nhân của người dùng
   async getPreferences(userId: string) {
     let pref = await this.prisma.userPreference.findUnique({
       where: { userId },
@@ -480,6 +497,7 @@ export class SchedulerService {
     return pref;
   }
 
+  // Cập nhật cấu hình thiết lập cá nhân của người dùng
   async updatePreferences(userId: string, dto: UpdateUserPreferenceDto) {
     return await this.prisma.userPreference.upsert({
       where: { userId },

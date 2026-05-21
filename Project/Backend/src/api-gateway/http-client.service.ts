@@ -29,11 +29,13 @@ export class HttpClientService {
     );
   }
 
+  // Đăng ký địa chỉ URL nội bộ của một microservice vào Map
   private registerService(name: string, url: string) {
     this.services.set(name, url);
     this.logger.log(`Registered HTTP client for ${name} at ${url}`);
   }
 
+  // Gửi HTTP request nội bộ đến microservice kèm xác thực HMAC và x-user-id header
   async request(
     serviceName: string,
     method: 'get' | 'post' | 'put' | 'delete' | 'patch',

@@ -1,3 +1,4 @@
+// Kiểm thử Unit cho AuthService (logic xác thực thông tin đăng nhập và cấp quyền)
 jest.mock('uuid', () => ({
   v4: () => 'mocked-uuid',
 }));
@@ -170,6 +171,31 @@ describe('AuthService', () => {
       expect(result.accessToken).toBe('jwt-token');
       expect(result.refreshToken).toBe('jwt-token');
       expect(result.user.email).toBe('user@mail.com');
+    });
+  });
+
+  describe('refresh', () => {
+    it('should throw 401 if refresh token not found in redis', async () => {
+      jwtServiceMock.verifyAsync.mockResolvedValue({ sub: 'u1', jti: 'j1' });
+      tokenServiceMock.isBlacklisted.mockResolvedValue(false);
+      tokenServiceMock.getRefreshToken.mockResolvedValue(null); // không tìm thấy
+
+      await expect(service.refresh('old-token')).rejects.toThrow(RpcException);
+    });
+
+    it('should detect token reuse after grace period and revoke all sessions', async () => {
+      jwtServiceMock.verifyAsync.mockResolvedValue({ sub: 'u1', jti: 'j1' });
+      tokenServiceMock.isBlacklisted.mockResolvedValue(false);
+      tokenServiceMock.getRefreshToken.mockResolvedValue({
+        token: 'old-token',
+        userId: 'u1',
+        jti: 'j1',
+        isRotated: true,
+        rotatedAt: Date.now() - 60000, // 60 giây trước - qua grace period 20s
+      });
+
+      await expect(service.refresh('old-token')).rejects.toThrow(RpcException);
+      expect(tokenServiceMock.revokeAllUserTokens).toHaveBeenCalledWith('u1');
     });
   });
 });

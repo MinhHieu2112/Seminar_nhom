@@ -1,3 +1,4 @@
+// Kiểm thử Unit cho SchedulerController tại API Gateway (định tuyến quản lý thời khóa biểu)
 import { Test, TestingModule } from '@nestjs/testing';
 import { SchedulerGatewayController } from '../scheduler.controller';
 import { HttpClientService } from '../../http-client.service';

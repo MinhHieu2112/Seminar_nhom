@@ -62,6 +62,7 @@ export const TimeStackedBarChart = memo(function TimeStackedBarChart({
               <YAxis
                 axisLine={false}
                 tickLine={false}
+                allowDecimals={false}
                 tick={{ fontSize: 11, fill: '#94a3b8' }}
                 unit="h"
               />

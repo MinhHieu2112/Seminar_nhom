@@ -1,12 +1,20 @@
 import { execSync } from 'child_process';
+import * as dotenv from 'dotenv';
+
+// Load environment variables for credentials
+dotenv.config();
+
+const dbUser = process.env.DB_USERNAME || 'studyplan';
+const dbPass = process.env.DB_PASSWORD || 'secret';
+const dbHost = process.env.DB_HOST || 'localhost';
+const dbPort = process.env.DB_PORT || '5432';
+
+export const BASE_DB_URL = `postgresql://${dbUser}:${dbPass}@${dbHost}:${dbPort}`;
 
 // Override environment variables for test databases
-export const TEST_DATABASE_URL =
-  'postgresql://studyplan:secret@localhost:5432/db_user_test';
-export const TEST_SCHEDULER_DATABASE_URL =
-  'postgresql://studyplan:secret@localhost:5432/db_scheduler_test';
-export const TEST_TEAMWORK_DATABASE_URL =
-  'postgresql://studyplan:secret@localhost:5432/db_teamwork_test';
+export const TEST_DATABASE_URL = `${BASE_DB_URL}/db_user_test`;
+export const TEST_SCHEDULER_DATABASE_URL = `${BASE_DB_URL}/db_scheduler_test`;
+export const TEST_TEAMWORK_DATABASE_URL = `${BASE_DB_URL}/db_teamwork_test`;
 
 export function setupTestEnvironment() {
   process.env.DATABASE_URL = TEST_DATABASE_URL;
@@ -47,9 +55,9 @@ export function syncTestSchemas() {
         },
       },
     );
-    console.log('✅ Test databases synced successfully!');
+    console.log(' Test databases synced successfully!');
   } catch (error) {
-    console.error('❌ Error syncing test database schemas:', error);
+    console.error(' Error syncing test database schemas:', error);
     throw error;
   }
 }

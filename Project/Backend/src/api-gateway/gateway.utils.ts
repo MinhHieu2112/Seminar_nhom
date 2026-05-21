@@ -12,6 +12,7 @@ import { JwtService } from '@nestjs/jwt';
 import { TcpClientService } from './tcp-client.service';
 import type { JwtPayload } from '../users-service/auth/auth.service';
 
+// Giải mã và xác thực JWT token từ Authorization header, trả về payload đầy đủ
 export function extractTokenPayload(
   authHeader: string,
   jwtService: JwtService,
@@ -29,6 +30,7 @@ export function extractTokenPayload(
   }
 }
 
+// Trích xuất userId (sub) từ JWT token trong Authorization header
 export function extractUserId(
   authHeader: string,
   jwtService: JwtService,
@@ -37,6 +39,7 @@ export function extractUserId(
   return payload.sub;
 }
 
+// Gửi lệnh TCP đến microservice với xử lý lỗi, circuit breaker và fallback an toàn
 export async function safeSend<T>(
   tcpClient: TcpClientService,
   service: string,
@@ -133,10 +136,7 @@ export async function safeSend<T>(
     });
   }
 }
-/**
- * Synchronize the system schedule from the queue.
- * @deprecated This was part of a removed queue service and is currently a no-op.
- */
+// Placeholder không làm gì (queue-service đã bị loại bỏ) – giữ lại tránh lỗi TypeScript
 export async function syncSystemScheduleFromQueue(
   _tcpClient: TcpClientService,
   _userId: string,

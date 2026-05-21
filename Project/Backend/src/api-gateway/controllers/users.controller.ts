@@ -28,6 +28,7 @@ export class UsersGatewayController {
     private readonly cloudinaryService: CloudinaryService,
   ) {}
 
+  // Lấy thông tin cá nhân của người dùng hiện tại
   @Get('me')
   getProfile(@Headers('authorization') authHeader: string) {
     const userId = extractUserId(authHeader, this.jwtService);
@@ -36,6 +37,7 @@ export class UsersGatewayController {
     });
   }
 
+  // Cập nhật thông tin cá nhân của người dùng
   @Patch('me')
   updateProfile(
     @Headers('authorization') authHeader: string,
@@ -48,6 +50,7 @@ export class UsersGatewayController {
     });
   }
 
+  // Tải lên và cập nhật ảnh đại diện (avatar) của người dùng
   @Post('avatar')
   @UseInterceptors(FileInterceptor('file'))
   async uploadAvatar(
@@ -68,6 +71,7 @@ export class UsersGatewayController {
     });
   }
 
+  // Thay đổi mật khẩu người dùng đang đăng nhập
   @Post('password/change')
   @HttpCode(HttpStatus.OK)
   changePassword(
@@ -81,6 +85,7 @@ export class UsersGatewayController {
     });
   }
 
+  // Tìm kiếm danh sách người dùng theo từ khóa (có giới hạn rate-limit)
   @Get('search')
   @Throttle({ search: { limit: 30, ttl: seconds(10) } })
   search(@Query('q') query: string) {
@@ -92,6 +97,7 @@ export class UsersGatewayController {
     });
   }
 
+  // Lấy thông tin của nhiều người dùng cùng lúc bằng danh sách ID
   @Post('batch')
   getManyProfiles(@Body('ids') ids: string[]) {
     if (!ids || !Array.isArray(ids)) {

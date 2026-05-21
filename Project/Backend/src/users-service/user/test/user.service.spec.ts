@@ -1,3 +1,4 @@
+// Kiểm thử Unit cho UserService (quản lý thông tin tài khoản, hồ sơ người dùng)
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException, ForbiddenException } from '@nestjs/common';
 import { RpcException } from '@nestjs/microservices';

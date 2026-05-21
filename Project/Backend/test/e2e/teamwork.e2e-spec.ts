@@ -1,9 +1,11 @@
+// Kiểm thử E2E cho luồng làm việc nhóm (quản lý nhóm, giao việc, nộp bài, duyệt)
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { TeamworkModule } from '../../src/teamwork-service/teamwork/teamwork.module';
 import { PrismaService } from '../../src/teamwork-service/prisma/prisma.service';
 import { NotificationService } from '../../src/teamwork-service/notification/notification.service';
+import { InternalAuthGuard } from '../../src/common/internal-auth.guard';
 import { setupTestEnvironment, clearDatabase } from '../utils/test-db-setup';
 
 describe('Teamwork Flow (E2E Teamwork)', () => {
@@ -28,6 +30,8 @@ describe('Teamwork Flow (E2E Teamwork)', () => {
       .useValue(mockRedisClient)
       .overrideProvider(NotificationService)
       .useValue(mockNotificationService)
+      .overrideGuard(InternalAuthGuard)
+      .useValue({ canActivate: () => true })
       .compile();
 
     app = moduleFixture.createNestApplication();

@@ -3,9 +3,16 @@
   "version": "0.0.1",
   "description": "",
   "author": "",
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@9.15.2",
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
+    "postinstall": "pnpm run prisma:generate",
+    "prisma:generate": "npx prisma generate --schema=src/users-service/prisma/schema.prisma && npx prisma generate --schema=src/scheduler-service/scheduler/prisma/schema.prisma && npx prisma generate --schema=src/teamwork-service/prisma/schema.prisma",
     "build": "nest build",
     "format": "prettier --write \"apps/**/*.ts\" \"libs/**/*.ts\"",
     "start": "nest start",
@@ -52,6 +59,7 @@
     "date-fns": "^4.1.0",
     "handlebars": "^4.7.9",
     "ioredis": "^5.10.1",
+    "jimp": "^1.6.1",
     "joi": "^18.2.1",
     "multer": "^2.1.1",
     "nodemailer": "^8.0.5",
@@ -90,6 +98,7 @@
     "@types/streamifier": "^0.1.2",
     "@types/supertest": "^6.0.2",
     "@types/uuid": "^10.0.0",
+    "dotenv": "^17.4.2",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-prettier": "^5.2.2",

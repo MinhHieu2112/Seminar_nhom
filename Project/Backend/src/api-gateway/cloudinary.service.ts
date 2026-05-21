@@ -20,6 +20,7 @@ export class CloudinaryService {
     });
   }
 
+  // Tải ảnh lên Cloudinary (folder avatars) và trả về URL ảnh đã lưu
   uploadImage(file: Express.Multer.File): Promise<UploadApiResponse> {
     return new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(

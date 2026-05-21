@@ -1,3 +1,4 @@
+// Kiểm thử E2E cho các tính năng quản lý công việc cá nhân và đồng bộ dữ liệu
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
@@ -6,6 +7,7 @@ import { SchedulerModule } from '../../src/scheduler-service/scheduler/scheduler
 import { PrismaService } from '../../src/scheduler-service/scheduler/prisma/prisma.service';
 import { HttpService } from '@nestjs/axios';
 import { NotificationService } from '../../src/scheduler-service/notification/notification.service';
+import { InternalAuthGuard } from '../../src/common/internal-auth.guard';
 import { setupTestEnvironment, clearDatabase } from '../utils/test-db-setup';
 
 describe('Tasks Flow (E2E Scheduler)', () => {
@@ -37,6 +39,8 @@ describe('Tasks Flow (E2E Scheduler)', () => {
       .useValue(mockRedisClient)
       .overrideProvider(NotificationService)
       .useValue(mockNotificationService)
+      .overrideGuard(InternalAuthGuard)
+      .useValue({ canActivate: () => true })
       .compile();
 
     app = moduleFixture.createNestApplication();
@@ -53,7 +57,7 @@ describe('Tasks Flow (E2E Scheduler)', () => {
     await app.close();
   });
 
-  it('runs the full category -> subject -> task lifecycle', async () => {
+  it('runs the full category -> task lifecycle', async () => {
     const userId = 'user-123';
 
     // 1. Create a category
@@ -68,19 +72,7 @@ describe('Tasks Flow (E2E Scheduler)', () => {
         categoryId = res.body.id;
       });
 
-    // 2. Create a subject inside category
-    let subjectId = '';
-    await request(app.getHttpServer())
-      .post('/api/v1/scheduler/subjects')
-      .set('x-user-id', userId)
-      .send({ name: 'Calculus IV', categoryId })
-      .expect(201)
-      .expect((res) => {
-        expect(res.body.id).toBeDefined();
-        subjectId = res.body.id;
-      });
-
-    // 3. Create a task inside subject
+    // 2. Create a task inside category
     let taskId = '';
     await request(app.getHttpServer())
       .post('/api/v1/scheduler/tasks')
@@ -89,7 +81,7 @@ describe('Tasks Flow (E2E Scheduler)', () => {
         title: 'Review Chapter 5 Limits',
         description: 'Prepare for midterm examination',
         priority: 1,
-        subjectId,
+        categoryId,
       })
       .expect(201)
       .expect((res) => {
@@ -98,7 +90,7 @@ describe('Tasks Flow (E2E Scheduler)', () => {
         taskId = res.body.id;
       });
 
-    // 4. Retrieve list of tasks
+    // 3. Retrieve list of tasks
     await request(app.getHttpServer())
       .get('/api/v1/scheduler/tasks')
       .set('x-user-id', userId)
@@ -108,7 +100,7 @@ describe('Tasks Flow (E2E Scheduler)', () => {
         expect(res.body[0].id).toBe(taskId);
       });
 
-    // 5. Complete task
+    // 4. Update task status
     await request(app.getHttpServer())
       .post(`/api/v1/scheduler/tasks/${taskId}/status`)
       .set('x-user-id', userId)
@@ -118,7 +110,7 @@ describe('Tasks Flow (E2E Scheduler)', () => {
         expect(res.body.status).toBe('doing');
       });
 
-    // 6. Delete task
+    // 5. Delete task
     await request(app.getHttpServer())
       .delete(`/api/v1/scheduler/tasks/${taskId}`)
       .set('x-user-id', userId)

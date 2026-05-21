@@ -1,3 +1,4 @@
+// Kiểm thử Unit cho HealthController (kiểm tra trạng thái hoạt động của các dịch vụ)
 import { Test, TestingModule } from '@nestjs/testing';
 import { HealthController } from '../health.controller';
 import { ConfigService } from '@nestjs/config';

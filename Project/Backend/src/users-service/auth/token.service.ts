@@ -17,7 +17,12 @@ export class TokenService {
     this.redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
   }
 
-  async saveRefreshToken(userId: string, jti: string, token: string): Promise<void> {
+  // Lưu trữ Refresh Token vào Redis với thời gian hết hạn là 7 ngày
+  async saveRefreshToken(
+    userId: string,
+    jti: string,
+    token: string,
+  ): Promise<void> {
     const ttl = 7 * 24 * 60 * 60; // 7 days in seconds
     const data: StoredTokenDetails = {
       token,
@@ -27,13 +32,22 @@ export class TokenService {
       rotatedAt: null,
     };
     const pipeline = this.redis.pipeline();
-    pipeline.set(`refresh_token:${userId}:${jti}`, JSON.stringify(data), 'EX', ttl);
+    pipeline.set(
+      `refresh_token:${userId}:${jti}`,
+      JSON.stringify(data),
+      'EX',
+      ttl,
+    );
     pipeline.sadd(`active_tokens:${userId}`, jti);
     pipeline.expire(`active_tokens:${userId}`, ttl);
     await pipeline.exec();
   }
 
-  async getRefreshToken(userId: string, jti: string): Promise<StoredTokenDetails | null> {
+  // Truy xuất thông tin Refresh Token đã lưu trữ từ Redis
+  async getRefreshToken(
+    userId: string,
+    jti: string,
+  ): Promise<StoredTokenDetails | null> {
     const data = await this.redis.get(`refresh_token:${userId}:${jti}`);
     if (!data) return null;
     try {
@@ -43,6 +57,7 @@ export class TokenService {
     }
   }
 
+  // Thu hồi Token cũ và cấp Token mới (xoay vòng) với thời gian ân hạn 30 giây
   async rotateRefreshToken(
     userId: string,
     oldJti: string,
@@ -69,16 +84,27 @@ export class TokenService {
 
     const pipeline = this.redis.pipeline();
     // Save new token
-    pipeline.set(`refresh_token:${userId}:${newJti}`, JSON.stringify(newData), 'EX', ttl);
+    pipeline.set(
+      `refresh_token:${userId}:${newJti}`,
+      JSON.stringify(newData),
+      'EX',
+      ttl,
+    );
     pipeline.sadd(`active_tokens:${userId}`, newJti);
 
     // Keep old token for grace period to handle multi-tab concurrency
-    pipeline.set(`refresh_token:${userId}:${oldJti}`, JSON.stringify(rotatedData), 'EX', graceTtl);
+    pipeline.set(
+      `refresh_token:${userId}:${oldJti}`,
+      JSON.stringify(rotatedData),
+      'EX',
+      graceTtl,
+    );
     pipeline.srem(`active_tokens:${userId}`, oldJti);
 
     await pipeline.exec();
   }
 
+  // Xóa Refresh Token cụ thể của người dùng khỏi Redis (đăng xuất thiết bị)
   async deleteRefreshToken(userId: string, jti: string): Promise<void> {
     const pipeline = this.redis.pipeline();
     pipeline.del(`refresh_token:${userId}:${jti}`);
@@ -86,6 +112,7 @@ export class TokenService {
     await pipeline.exec();
   }
 
+  // Xóa toàn bộ Refresh Token của người dùng (đăng xuất mọi thiết bị)
   async revokeAllUserTokens(userId: string): Promise<void> {
     const jtis = await this.redis.smembers(`active_tokens:${userId}`);
     const pipeline = this.redis.pipeline();
@@ -96,11 +123,13 @@ export class TokenService {
     await pipeline.exec();
   }
 
+  // Đưa Access Token (thông qua JTI) vào danh sách đen trong 15 phút
   async blacklistToken(jti: string): Promise<void> {
     const ttl = 15 * 60; // 15 minutes (match access token TTL)
     await this.redis.set(`blacklist:${jti}`, '1', 'EX', ttl);
   }
 
+  // Kiểm tra xem Access Token (thông qua JTI) có bị đưa vào danh sách đen hay không
   async isBlacklisted(jti: string): Promise<boolean> {
     const result = await this.redis.get(`blacklist:${jti}`);
     return result === '1';

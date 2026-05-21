@@ -1,10 +1,9 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import {
   Target,
-  CheckSquare,
   Clock,
   Play,
   CaretLeft,
@@ -12,12 +11,9 @@ import {
   BookOpenText,
   ListChecks,
   Calendar,
-  Users,
   Timer,
-  Warning,
-  ChatCircleDots,
 } from '@phosphor-icons/react';
-import { addDays, startOfDay, endOfDay, isSameDay, format, addMonths, subMonths, parseISO, formatDistanceToNow } from 'date-fns';
+import { addDays, startOfDay, endOfDay, isSameDay, format, addMonths, subMonths, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { useSchedulerTasks, useSchedulerAllocations } from '@/hooks/useScheduler';
 import type { Task, Allocation, AnalyticsDashboard } from '@/types/api';
@@ -145,31 +141,50 @@ export function DashboardContent() {
       <div className="lg:col-span-2 space-y-8">
 
         {/* Active Task Banner */}
-        <div className={`${glassCardClass} flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative group`}>
+        <div className="bg-white rounded-[24px] p-6 md:p-8 shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-slate-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative group hover:shadow-[0_8px_30px_rgba(0,0,0,0.06)] transition-all duration-300">
           <div className="flex items-center gap-5 w-full md:w-auto relative z-10">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white shadow-xl shadow-purple-200 group-hover:scale-105 transition-transform">
-              <Target weight="duotone" size={32} />
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-500 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/30 group-hover:scale-105 transition-transform duration-300 shrink-0">
+              <Target weight="duotone" size={28} />
             </div>
-            <div className="flex-1">
-              <div className="text-gray-400 text-[10px] font-black uppercase tracking-widest mb-1.5">Mục tiêu hiện tại</div>
-              <h2 className="text-gray-900 font-black text-xl leading-tight truncate max-w-[200px] sm:max-w-[400px]">
+            <div className="flex-1 min-w-0">
+              <div className="text-slate-400 text-[11px] font-semibold uppercase tracking-wider mb-1">Mục tiêu hiện tại</div>
+              <h2 className="text-slate-800 font-bold text-lg md:text-xl leading-tight truncate max-w-[220px] sm:max-w-[400px]">
                 {primaryGoal ? primaryGoal.title : 'Chưa có mục tiêu hoạt động'}
               </h2>
-              <div className="mt-4 flex items-center gap-3">
-                <div className="h-1.5 w-48 bg-gray-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-indigo-500 rounded-full" style={{ width: primaryGoal ? '45%' : '0%' }}></div>
+              {primaryGoal ? (
+                <div className="mt-2.5 flex items-center gap-3">
+                  <div className="h-1.5 w-40 bg-slate-100 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-indigo-500 rounded-full transition-all duration-1000 ease-out" 
+                      style={{ width: `${analytics.completionRate || 0}%` }}
+                    />
+                  </div>
+                  <span className="text-xs font-semibold text-slate-500">{Math.round(analytics.completionRate || 0)}%</span>
                 </div>
-                <span className="text-[10px] font-bold text-gray-400">45%</span>
-              </div>
+              ) : (
+                <div className="mt-2.5 inline-flex items-center gap-1.5 text-slate-400 text-xs font-medium">
+                  <span>Hãy lên kế hoạch để bắt đầu</span>
+                </div>
+              )}
             </div>
           </div>
-          <div className="flex items-center gap-6 w-full md:w-auto justify-between md:justify-end relative z-10">
-            <div className="flex gap-5 text-xs font-bold text-gray-500">
-              <div className="flex items-center gap-2"><ListChecks weight="bold" size={20} className="text-pink-400" /> {analytics.summary.activeGoals} Đang làm</div>
-              <div className="flex items-center gap-2"><Clock weight="bold" size={20} className="text-green-400" /> {analytics.summary.individualTasks.total} Tổng số</div>
+          
+          <div className="flex flex-wrap md:flex-nowrap items-center gap-6 w-full md:w-auto justify-between md:justify-end relative z-10">
+            <div className="flex gap-6 text-sm font-medium text-slate-500">
+              <div className="flex items-center gap-2">
+                <ListChecks weight="duotone" size={20} className="text-pink-500" /> 
+                <span><strong className="text-slate-700">{analytics.summary.activeGoals}</strong> Đang làm</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Clock weight="duotone" size={20} className="text-emerald-500" /> 
+                <span><strong className="text-slate-700">{analytics.summary.individualTasks.total}</strong> Tổng số</span>
+              </div>
             </div>
-            <Link href="/scheduler" className="bg-indigo-600 hover:bg-indigo-700 text-white transition-all flex items-center gap-2.5 px-6 py-3 rounded-2xl font-black text-[11px] whitespace-nowrap shadow-lg shadow-indigo-100">
-              <Play weight="fill" size={14} /> TIẾP TỤC
+            <Link 
+              href="/scheduler" 
+              className="bg-indigo-600 hover:bg-indigo-700 text-white transition-colors flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm whitespace-nowrap shadow-md shadow-indigo-600/20 active:scale-95"
+            >
+              <Play weight="fill" size={16} /> TIẾP TỤC
             </Link>
           </div>
         </div>

@@ -1,3 +1,4 @@
+// Kiểm thử Unit cho TeamworkController tại API Gateway (định tuyến các yêu cầu làm việc nhóm)
 import { Test, TestingModule } from '@nestjs/testing';
 import { TeamworkGatewayController } from '../teamwork.controller';
 import { HttpClientService } from '../../http-client.service';

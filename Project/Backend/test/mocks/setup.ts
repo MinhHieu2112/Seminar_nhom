@@ -7,6 +7,7 @@
 import { PrismaService } from '../../src/users-service/prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { TokenService } from '../../src/users-service/auth/token.service';
 
 /**
  * Creates a properly isolated Prisma mock with reset capabilities
@@ -149,7 +150,7 @@ export function createRedisClientMock() {
 export function createSocketMock(
   socketId = 'mock-socket-id',
   userId = 'mock-user-id',
-) {
+): any {
   const joinSpy = jest.fn().mockResolvedValue(undefined);
   const leaveSpy = jest.fn().mockResolvedValue(undefined);
   const emitSpy = jest.fn();
@@ -186,7 +187,7 @@ export function createSocketMock(
 /**
  * Creates a properly isolated Socket.io Server mock
  */
-export function createSocketServerMock() {
+export function createSocketServerMock(): any {
   const toSpy = jest.fn().mockReturnThis();
   const emitSpy = jest.fn();
   const inSpy = jest.fn().mockReturnThis();
@@ -219,9 +220,18 @@ export function createSocketServerMock() {
 export function createTokenServiceMock() {
   return {
     saveRefreshToken: jest.fn().mockResolvedValue(undefined),
-    validateRefreshToken: jest.fn().mockResolvedValue(true),
-    revokeRefreshToken: jest.fn().mockResolvedValue(undefined),
+    getRefreshToken: jest.fn().mockResolvedValue({
+      token: 'mock-refresh-token',
+      userId: 'mock-user-id',
+      jti: 'mock-jti',
+      isRotated: false,
+      rotatedAt: null,
+    }),
+    rotateRefreshToken: jest.fn().mockResolvedValue(undefined),
+    deleteRefreshToken: jest.fn().mockResolvedValue(undefined),
     revokeAllUserTokens: jest.fn().mockResolvedValue(undefined),
+    blacklistToken: jest.fn().mockResolvedValue(undefined),
+    isBlacklisted: jest.fn().mockResolvedValue(false),
   };
 }
 
@@ -252,9 +262,9 @@ export function cleanupMocks(...mocks: any[]) {
 export function restoreConsoleSpies() {
   const spyNames = ['log', 'error', 'warn', 'info', 'debug'];
   for (const name of spyNames) {
-    const spyOn = jest.spyOn(console, name as any);
-    if (spyOn.mockRestore) {
-      spyOn.mockRestore();
+    const consoleMethod = (console as any)[name];
+    if (consoleMethod && typeof consoleMethod.mockRestore === 'function') {
+      consoleMethod.mockRestore();
     }
   }
 }
@@ -309,8 +319,6 @@ export function getMockProviders(
   }
 
   if (options.token) {
-    const TokenService =
-      require('../../src/users-service/auth/token.service').TokenService;
     providers.push({
       provide: TokenService,
       useValue: createTokenServiceMock(),

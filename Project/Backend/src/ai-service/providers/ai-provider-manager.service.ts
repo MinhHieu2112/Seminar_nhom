@@ -20,6 +20,7 @@ export class AiProviderManager {
     this.providers = [this.geminiProvider, this.openAIProvider];
   }
 
+  // Kiểm tra xem lỗi trả về từ API AI có phải là lỗi hết hạn ngạch/giới hạn lượt gọi (Rate Limit) hay không
   private isQuotaError(error: any): boolean {
     if (!error) return false;
 
@@ -40,6 +41,7 @@ export class AiProviderManager {
     );
   }
 
+  // Gọi tạo lịch trình từ văn bản với cơ chế tự động chuyển đổi sang nhà cung cấp dự phòng
   async generateFromTextWithFallback(
     prompt: string,
     context: PromptContext,
@@ -99,12 +101,13 @@ export class AiProviderManager {
     }
   }
 
+  // Gọi trích xuất lịch trình từ hình ảnh với cơ chế tự động chuyển đổi sang nhà cung cấp dự phòng
   async generateFromImageWithFallback(
     imageBuffer: Buffer,
     mimeType: string,
     context: PromptContext,
     prompt?: string,
-  ): Promise<AiScheduleOutput> {
+  ): Promise<any> {
     const errors: string[] = [];
     const now = Date.now();
 
@@ -155,6 +158,7 @@ export class AiProviderManager {
     throw new Error(`All AI providers failed. Errors: ${errors.join(' | ')}`);
   }
 
+  // Thuật toán Heuristic cục bộ để phân tích cú pháp prompt học tập khi các AI API bị sập
   private runHeuristicFallback(
     prompt: string,
     context: PromptContext,

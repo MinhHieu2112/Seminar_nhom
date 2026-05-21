@@ -10,10 +10,7 @@ export class AiScheduleGeneratorService {
 
   constructor(private readonly providerManager: AiProviderManager) {}
 
-  /**
-   * Parse a natural language prompt into structured schedule data using
-   * the strategy manager which supports fallback.
-   */
+  // Tạo lịch trình học từ văn bản tự nhiên (Natural Language Prompt)
   async generateFromPrompt(prompt: string): Promise<AiScheduleOutput> {
     const cleanPrompt = normalizeTextPrompt(prompt);
     this.logger.log(
@@ -28,19 +25,16 @@ export class AiScheduleGeneratorService {
       );
     } catch (error) {
       this.logger.error(`AI schedule generating failed: ${error}`);
-      throw error; // Let the controller handle and return clear messages
+      throw error;
     }
   }
 
-  /**
-   * Parse an uploaded image into structured schedule data using
-   * the strategy manager which supports fallback.
-   */
+  // Trích xuất lịch trình học từ hình ảnh tải lên (OCR + Phân tích cấu trúc)
   async generateFromImage(
     imageBuffer: Buffer,
     mimeType: string,
     prompt?: string,
-  ): Promise<AiScheduleOutput> {
+  ): Promise<any> {
     const cleanPrompt = prompt ? normalizeTextPrompt(prompt) : undefined;
     this.logger.log(`AI schedule generation from image (${mimeType})`);
     const context = this.createContext();
@@ -54,7 +48,6 @@ export class AiScheduleGeneratorService {
       );
     } catch (error) {
       this.logger.error(`AI schedule generating from image failed: ${error}`);
-      // return a clear error about missing fields since validation failed gracefully
       if (
         error instanceof Error &&
         error.message.includes('validation failed')
@@ -65,6 +58,7 @@ export class AiScheduleGeneratorService {
     }
   }
 
+  // Khởi tạo ngữ cảnh thời gian (hôm nay, tuần sau) cho Prompt
   private createContext(): PromptContext {
     const todayDate = new Date();
     const nextWeekDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
@@ -74,6 +68,7 @@ export class AiScheduleGeneratorService {
     };
   }
 
+  // Định dạng ngày thành chuỗi YYYY-MM-DD
   private formatDate(d: Date): string {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   }

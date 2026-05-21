@@ -1,3 +1,4 @@
+// Kiểm thử Unit cho AiController tại API Gateway (định tuyến các yêu cầu AI)
 import { Test, TestingModule } from '@nestjs/testing';
 import { AiGatewayController } from '../ai.controller';
 import { TcpClientService } from '../../tcp-client.service';

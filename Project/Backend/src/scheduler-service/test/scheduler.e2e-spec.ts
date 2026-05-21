@@ -1,3 +1,4 @@
+// Kiểm thử E2E cho dịch vụ lập lịch Scheduler (quản lý sự kiện, công việc, nhắc nhở)
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';

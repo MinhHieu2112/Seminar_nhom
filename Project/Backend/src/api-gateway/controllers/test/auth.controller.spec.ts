@@ -1,8 +1,10 @@
+// Kiểm thử Unit cho AuthController tại API Gateway (định tuyến đăng nhập, đăng ký)
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthGatewayController } from '../auth.controller';
 import { TcpClientService } from '../../tcp-client.service';
 import { JwtService } from '@nestjs/jwt';
 import * as gatewayUtils from '../../gateway.utils';
+import { RpcException } from '@nestjs/microservices';
 
 jest.mock('../../gateway.utils', () => {
   const original = jest.requireActual('../../gateway.utils');
@@ -83,13 +85,15 @@ describe('AuthGatewayController', () => {
   });
 
   describe('refresh', () => {
-    it('should forward refresh payload via safeSend', async () => {
-      const dto = { refreshToken: 'token' };
-      (gatewayUtils.safeSend as jest.Mock).mockResolvedValue({
-        accessToken: 'new',
-      });
+    it('should forward refresh token via safeSend', async () => {
+      const dto = { refreshToken: 'old-token' };
+      const expectedResult = {
+        accessToken: 'new-acc',
+        refreshToken: 'new-ref',
+      };
+      (gatewayUtils.safeSend as jest.Mock).mockResolvedValue(expectedResult);
 
-      const result = (await controller.refresh(dto)) as any;
+      const result = await controller.refresh(dto);
 
       expect(gatewayUtils.safeSend).toHaveBeenCalledWith(
         tcpClientMock,
@@ -97,7 +101,7 @@ describe('AuthGatewayController', () => {
         'user.refresh',
         dto,
       );
-      expect(result.accessToken).toBe('new');
+      expect(result).toEqual(expectedResult);
     });
   });
 

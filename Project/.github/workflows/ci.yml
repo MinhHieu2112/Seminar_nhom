@@ -1,0 +1,116 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [ "main", "master", "develop" ]
+    paths:
+      - 'Backend/**'
+      - '.github/workflows/ci.yml'
+  pull_request:
+    branches: [ "main", "master", "develop" ]
+    paths:
+      - 'Backend/**'
+
+defaults:
+  run:
+    working-directory: ./Backend
+
+jobs:
+  build-and-test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    
+    # 1. Setup Required Services (PostgreSQL & Redis)
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: studyplan
+          POSTGRES_PASSWORD: secret
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+          
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    # Inject required environment variables
+    env:
+      NODE_ENV: test
+      # Main DB for testing migration deploy
+      DATABASE_URL: postgresql://studyplan:secret@localhost:5432/postgres
+      # Local test setup env vars
+      DB_USERNAME: studyplan
+      DB_PASSWORD: secret
+      DB_HOST: localhost
+      DB_PORT: 5432
+      REDIS_HOST: localhost
+      REDIS_PORT: 6379
+      JWT_SECRET: testing_secret_key_needs_32_chars_long
+      JWT_REFRESH_SECRET: testing_refresh_secret_key_needs_32_chars
+      INTERNAL_SERVICE_SECRET: internal_service_secret_key_32_chars
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # 2. Setup pnpm 9
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      # 3. Setup Node.js 22 with Cache
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+          cache-dependency-path: Backend/pnpm-lock.yaml
+
+      # 4. Install Dependencies (Prisma will automatically generate via postinstall)
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      # 5. Verify Prisma Client Generation explicitly (just in case)
+      - name: Verify Prisma Client Generation
+        run: pnpm run prisma:generate
+
+      # 6. Test Migrations (Fail fast if migration is broken)
+      - name: Test Database Migrations
+        run: |
+          npx prisma migrate deploy --schema=src/users-service/prisma/schema.prisma
+          npx prisma migrate deploy --schema=src/scheduler-service/scheduler/prisma/schema.prisma
+          npx prisma migrate deploy --schema=src/teamwork-service/prisma/schema.prisma
+
+      # 7. Typecheck
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      # 8. Unit Tests
+      - name: Run Unit Tests
+        run: pnpm run test:unit
+        
+      # 9. Integration Tests
+      - name: Run Integration Tests
+        run: pnpm run test:integration
+
+      # 10. E2E Tests (These automatically sync test databases using test-db-setup)
+      - name: Run E2E Tests
+        run: pnpm run test:e2e
+        
+      # 11. Final Build
+      - name: Build Application
+        run: pnpm run build

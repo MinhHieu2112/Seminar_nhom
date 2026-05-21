@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { X, Sparkle, Image as ImageIcon, Warning, CircleNotch, Check, FileText, Plus, Trash } from '@phosphor-icons/react';
 import { useGenerateAiScheduleFromPrompt, useGenerateAiScheduleFromImage, useCreateAiScheduleBatch, AiSchedulePreview } from '@/hooks/useAiGenerator';
 import { useSchedulerCategories, useCreateCategory } from '@/hooks/useScheduler';
@@ -24,6 +25,7 @@ export function AiScheduleModal({ onClose, onSuccess }: AiScheduleModalProps) {
     const [preview, setPreview] = useState<AiSchedulePreview | null>(null);
     const [editedTasks, setEditedTasks] = useState<EditableTask[]>([]);
     const [errorInfo, setErrorInfo] = useState<string | null>(null);
+    const [dragActive, setDragActive] = useState(false);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -38,11 +40,29 @@ export function AiScheduleModal({ onClose, onSuccess }: AiScheduleModalProps) {
     const isGenerating = generateFromPromptMutation.isPending || generateFromImageMutation.isPending;
     const isSaving = createBatchMutation.isPending;
 
-    // Set first category as default once loaded
-
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
             setFile(e.target.files[0]);
+            setErrorInfo(null);
+        }
+    };
+
+    const handleDrag = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.type === "dragenter" || e.type === "dragover") {
+            setDragActive(true);
+        } else if (e.type === "dragleave") {
+            setDragActive(false);
+        }
+    };
+
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setDragActive(false);
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+            setFile(e.dataTransfer.files[0]);
             setErrorInfo(null);
         }
     };
@@ -182,347 +202,437 @@ export function AiScheduleModal({ onClose, onSuccess }: AiScheduleModalProps) {
     };
 
     return (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[300] flex items-center justify-center p-4 animate-in fade-in duration-300"
-            onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-            <div className="bg-white/95 backdrop-blur-xl rounded-[32px] shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col h-[80vh] md:h-auto md:max-h-[85vh] border border-slate-200/50">
-
-                <div className="px-10 py-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-500 shadow-sm border border-indigo-100/30">
-                            <Sparkle size={24} weight="fill" className="animate-pulse" />
+        <AnimatePresence>
+            <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="fixed inset-0 bg-slate-950/60 backdrop-blur-md z-[300] flex items-center justify-center p-4"
+                onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+            >
+                <motion.div 
+                    initial={{ opacity: 0, scale: 0.96, y: 12 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.96, y: 12 }}
+                    transition={{ type: 'spring', damping: 26, stiffness: 230 }}
+                    className="bg-white/85 dark:bg-slate-900/90 backdrop-blur-xl rounded-[28px] shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col h-[85vh] md:h-auto md:max-h-[85vh] border border-slate-250/60 dark:border-slate-800/80"
+                >
+                    {/* Modal Header */}
+                    <div className="px-8 py-4.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-white/40 dark:bg-slate-900/40">
+                        <div className="flex items-center gap-3.5">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#6C63FF] via-[#A855F7] to-[#EC4899] flex items-center justify-center text-white shadow-md shadow-indigo-500/10 shrink-0">
+                                <Sparkle size={20} weight="fill" className="animate-pulse" />
+                            </div>
+                            <div>
+                                <h2 className="text-[15px] font-bold text-slate-850 dark:text-white tracking-tight leading-none">Trợ lý AI Scheduler</h2>
+                                <span className="text-[10px] text-slate-450 dark:text-slate-500 font-semibold mt-1.5 block">
+                                    {mode === 'text' ? 'Tạo lịch trình qua văn bản' : 'Trích xuất lịch trình từ hình ảnh'}
+                                </span>
+                            </div>
                         </div>
-                        <div>
-                            <h2 className="text-[20px] font-black text-slate-900 tracking-tight">Trợ lý AI Scheduler</h2>
-                            <p className="text-[13px] text-slate-400 font-bold mt-0.5">Tạo lịch trình qua văn bản</p>
-                        </div>
+                        <button 
+                            onClick={onClose} 
+                            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-350 transition-colors"
+                        >
+                            <X size={16} weight="bold" />
+                        </button>
                     </div>
-                    <button onClick={onClose} className="p-2.5 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-600 transition-colors">
-                        <X size={20} weight="bold" />
-                    </button>
-                </div>
 
-                <div className="p-10 flex-1 overflow-y-auto bg-slate-50/50">
-
-                    {!preview ? (
-                        <div className="animate-in fade-in duration-300">
-                            <div className="flex bg-slate-100/80 p-1.5 rounded-[22px] mb-8 border border-slate-200/20 shadow-inner">
-                                <button
-                                    onClick={() => { setMode('text'); setErrorInfo(null); }}
-                                    className={`flex-1 py-3.5 rounded-[18px] text-[13px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${mode === 'text' ? 'bg-white text-indigo-600 shadow-md shadow-indigo-100/50 scale-[1.01]' : 'text-slate-500 hover:text-slate-800'}`}
-                                >
-                                    <FileText weight="bold" size={16} />
-                                    Nhập văn bản
-                                </button>
-                                <button
-                                    onClick={() => { setMode('image'); setErrorInfo(null); }}
-                                    className={`flex-1 py-3.5 rounded-[18px] text-[13px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${mode === 'image' ? 'bg-white text-indigo-600 shadow-md shadow-indigo-100/50 scale-[1.01]' : 'text-slate-500 hover:text-slate-800'}`}
-                                >
-                                    <ImageIcon weight="bold" size={16} />
-                                    Quét từ ảnh
-                                </button>
-                            </div>
-
-                            <div className="bg-white p-6 rounded-[24px] shadow-sm border border-slate-100 mb-6 space-y-4">
-                                <div className="flex items-center gap-2">
-                                    <div className="w-1.5 h-4 bg-indigo-500/80 rounded-full" />
-                                    <label className="block text-[13px] font-black text-slate-800 tracking-wide uppercase opacity-75">Lưu vào Danh mục</label>
-                                </div>
-                                {categories.length > 0 ? (
-                                    <div className="relative">
-                                        <select
-                                            value={selectedCategoryId || categories[0]?.id || ''}
-                                            onChange={(e) => setSelectedCategoryId(e.target.value)}
-                                            className="w-full px-5 py-3.5 bg-slate-50/50 border border-slate-200/50 focus:border-indigo-400 focus:bg-white rounded-2xl outline-none text-[14px] font-bold text-slate-800 transition-all cursor-pointer appearance-none"
-                                        >
-                                            {categories.map((cat) => (
-                                                <option key={cat.id} value={cat.id}>{cat.name}</option>
-                                            ))}
-                                        </select>
-                                        <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-xs">
-                                            ▼
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <p className="text-[13px] text-slate-500 font-bold italic bg-slate-50 p-4 rounded-2xl border border-slate-200/50">Hệ thống sẽ tự động tạo danh mục &quot;Học tập&quot; cho bạn.</p>
-                                )}
-                            </div>
-
-                            {mode === 'text' ? (
-                                <div className="space-y-6 animate-in fade-in duration-300">
-                                    <div className="bg-white p-6 rounded-[24px] shadow-sm border border-slate-100">
-                                        <div className="flex items-center gap-2 mb-4">
-                                            <div className="w-1.5 h-4 bg-indigo-500/80 rounded-full" />
-                                            <label className="block text-[13px] font-black text-slate-800 tracking-wide uppercase opacity-75">Lời nhắc (Prompt)</label>
-                                        </div>
-                                        <textarea
-                                            value={prompt}
-                                            onChange={e => setPrompt(e.target.value)}
-                                            placeholder="VD: Tuần sau tôi thi Toán và Lý, lên lịch học 2 tiếng mỗi ngày vào buổi tối..."
-                                            rows={5}
-                                            className="w-full p-5 bg-slate-50/50 border border-slate-200/50 focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-50/40 rounded-[20px] outline-none text-[15px] font-medium text-slate-800 transition-all resize-none shadow-sm"
-                                        />
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="space-y-6 animate-in fade-in duration-300">
-                                    <div className="bg-white p-6 rounded-[24px] shadow-sm border border-slate-100">
-                                        <div className="flex items-center gap-2 mb-4">
-                                            <div className="w-1.5 h-4 bg-purple-500/80 rounded-full" />
-                                            <label className="block text-[13px] font-black text-slate-800 tracking-wide uppercase opacity-75">Tải ảnh lên</label>
-                                        </div>
-                                        
-                                        <div
-                                            className={`border-3 border-dashed rounded-[24px] p-10 text-center transition-all group ${file ? 'border-indigo-400 bg-indigo-50/30' : 'border-slate-200 bg-slate-50/50 hover:border-indigo-300 hover:bg-slate-50'}`}
-                                        >
-                                            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
-                                            <div className="flex flex-col items-center cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-                                                <div className="w-16 h-16 bg-slate-100 text-slate-500 group-hover:text-indigo-500 group-hover:bg-indigo-50 rounded-2xl flex items-center justify-center mb-4 transition-all border border-slate-200/10">
-                                                    <ImageIcon size={32} />
-                                                </div>
-                                                {file ? (
-                                                    <div className="space-y-1">
-                                                        <p className="text-[14px] font-bold text-indigo-600 flex items-center gap-1.5 justify-center">
-                                                            <Check size={16} weight="bold" /> Đã chọn file thành công
-                                                        </p>
-                                                        <p className="text-[12px] text-slate-400 font-semibold">{file.name} ({(file.size / 1024).toFixed(1)} KB)</p>
-                                                    </div>
-                                                ) : (
-                                                    <div className="space-y-1">
-                                                        <p className="text-[14px] font-black text-slate-700">Kéo thả ảnh hoặc click để tải lên</p>
-                                                        <p className="text-[12px] text-slate-400 font-semibold">Hỗ trợ PNG, JPG, JPEG thời khóa biểu hoặc ghi chú</p>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {file && (
-                                        <div className="bg-white p-6 rounded-[24px] shadow-sm border border-slate-100 animate-in slide-in-from-bottom-2">
-                                            <div className="flex items-center gap-2 mb-4">
-                                                <div className="w-1.5 h-4 bg-indigo-500/80 rounded-full" />
-                                                <label className="block text-[13px] font-black text-slate-800 tracking-wide uppercase opacity-75">Bổ sung chỉ dẫn (Tùy chọn)</label>
-                                            </div>
-                                            <input
-                                                type="text"
-                                                value={prompt}
-                                                onChange={e => setPrompt(e.target.value)}
-                                                placeholder="VD: Chỉ lấy lịch học của tuần tới..."
-                                                className="w-full px-5 py-4 bg-slate-50/50 border border-slate-100 focus:border-indigo-400 focus:bg-white rounded-2xl outline-none text-[15px] font-medium"
-                                            />
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
-                            {errorInfo && (
-                                <div className="mt-6 p-4.5 bg-red-50 border border-red-100 rounded-[20px] flex items-center gap-3 text-red-600 animate-in slide-in-from-top-2">
-                                    <Warning size={20} weight="fill" className="shrink-0" />
-                                    <div className="text-[13px] font-bold leading-relaxed">{errorInfo}</div>
-                                </div>
-                            )}
-
-                            <button
-                                onClick={handleGenerate}
-                                disabled={isGenerating}
-                                className="w-full py-4.5 mt-8 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:from-indigo-600 hover:via-purple-600 hover:to-pink-600 text-white rounded-[20px] font-black text-[15px] shadow-lg shadow-indigo-200/50 hover:shadow-xl hover:shadow-indigo-300/60 transition-all active:scale-[0.98] flex items-center justify-center gap-3 relative overflow-hidden"
+                    {/* Modal Body */}
+                    <div className="p-8 flex-1 overflow-y-auto bg-slate-50/30 dark:bg-slate-950/20">
+                        {!preview ? (
+                            <motion.div 
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                className="space-y-6"
                             >
-                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-                                {isGenerating ? (
-                                    <><CircleNotch size={18} weight="bold" className="animate-spin text-indigo-200" /> <span className="tracking-wide uppercase text-[13px] font-black">Đang phân tích dữ liệu...</span></>
-                                ) : (
-                                    <><Sparkle size={18} weight="fill" className="text-indigo-200 animate-pulse" /> <span className="tracking-wide uppercase text-[13px] font-black">Tạo lịch trình ngay</span></>
-                                )}
-                            </button>
-                        </div>
-                    ) : (
-                        <div className="animate-in slide-in-from-right-8 duration-500">
-                            <div className="mb-8 flex items-center justify-between">
-                                <div>
-                                    <h3 className="text-[22px] font-black text-slate-900 tracking-tight">Thiết lập lịch trình AI</h3>
-                                    <p className="text-[14px] text-slate-500 font-medium">Biên tập các công việc & phiên học trước khi lưu</p>
-                                </div>
-                                <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center">
-                                    <Check size={24} weight="bold" />
-                                </div>
-                            </div>
-
-                            <div className="bg-white border border-slate-200/60 rounded-[28px] p-8 mb-8 shadow-sm">
-                                <input
-                                    type="text"
-                                    value={preview.goalTitle}
-                                    onChange={(e) => setPreview(prev => prev ? { ...prev, goalTitle: e.target.value } : null)}
-                                    placeholder="Tên môn học / chủ đề..."
-                                    className="w-full text-[20px] font-black text-indigo-600 text-center bg-indigo-50/50 hover:bg-indigo-50/80 focus:bg-white py-4 px-6 rounded-[20px] border border-indigo-100/50 focus:border-indigo-400 outline-none shadow-sm transition-all mb-6 focus:ring-4 focus:ring-indigo-100/50"
-                                />
-
-                                {/* Category selector */}
-                                <div className="bg-slate-50/60 p-6 rounded-[24px] border border-slate-200/50 mb-8 space-y-4">
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-1.5 h-4 bg-indigo-500/80 rounded-full" />
-                                        <label className="block text-[13px] font-black text-slate-800 tracking-wide uppercase opacity-75">Lưu vào Danh mục</label>
-                                    </div>
-                                    {categories.length > 0 ? (
-                                        <div className="relative">
-                                            <select
-                                                value={selectedCategoryId || categories[0]?.id || ''}
-                                                onChange={(e) => setSelectedCategoryId(e.target.value)}
-                                                className="w-full px-5 py-4 bg-white border border-slate-200 focus:border-indigo-400 focus:bg-white rounded-2xl outline-none text-[14px] font-bold text-slate-800 transition-all shadow-sm cursor-pointer appearance-none animate-in fade-in"
-                                            >
-                                                {categories.map((cat) => (
-                                                    <option key={cat.id} value={cat.id}>{cat.name}</option>
-                                                ))}
-                                            </select>
-                                            <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-xs">
-                                                ▼
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <p className="text-[13px] text-slate-500 font-bold italic bg-white p-4 rounded-2xl border border-slate-200/50">Hệ thống sẽ tự động tạo danh mục &quot;Học tập&quot; cho bạn.</p>
-                                    )}
-                                </div>
-
-                                <div className="flex items-center justify-between mb-5 border-b border-slate-100 pb-4">
-                                    <div className="text-[13px] font-black text-slate-800 uppercase tracking-wider opacity-75">Danh sách công việc dự kiến</div>
-                                    <span className="bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full text-[11px] font-black border border-indigo-100">{editedTasks.length} công việc</span>
-                                </div>
-
-                                <div className="space-y-6 max-h-[380px] overflow-y-auto pr-2 custom-scrollbar pb-4">
-                                    {editedTasks.map((t, i) => (
-                                        <div key={i} className="bg-slate-50/50 p-6 rounded-[24px] border border-slate-200/60 shadow-sm space-y-4 hover:border-indigo-300 hover:shadow-md transition-all relative group">
-                                            <div className="flex items-center justify-between border-b border-slate-200/40 pb-3">
-                                                <div className="flex items-center gap-2.5">
-                                                    <span className="w-6 h-6 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center text-[12px] font-black border border-indigo-100">
-                                                        #{i + 1}
-                                                    </span>
-                                                    <div className="flex bg-slate-200/50 p-0.5 rounded-lg border border-slate-300/30">
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => updateTaskField(i, 'type', 'TASK')}
-                                                            className={`px-3 py-1 rounded-md text-[11px] font-black transition-all uppercase tracking-wider ${t.type === 'TASK' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                                                        >
-                                                            Công việc
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => updateTaskField(i, 'type', 'SESSION')}
-                                                            className={`px-3 py-1 rounded-md text-[11px] font-black transition-all uppercase tracking-wider ${t.type === 'SESSION' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                                                        >
-                                                            Phiên học
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => deleteTaskRow(i)}
-                                                    className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-lg transition-colors"
-                                                    title="Xóa công việc này"
-                                                >
-                                                    <Trash size={16} weight="bold" />
-                                                </button>
-                                            </div>
-
-                                            <div className="space-y-1.5 text-left">
-                                                <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest">
-                                                    {t.type === 'SESSION' ? 'Tên phiên học' : 'Tên công việc'}
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    value={t.title}
-                                                    onChange={e => updateTaskField(i, 'title', e.target.value)}
-                                                    placeholder="VD: Ôn tập chương 1..."
-                                                    className="w-full px-4 py-3 bg-white border border-slate-200 focus:border-indigo-400 rounded-xl outline-none text-[14px] font-bold text-slate-800 transition-all shadow-sm"
-                                                />
-                                            </div>
-
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
-                                                <div className="space-y-1.5">
-                                                    <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest">Độ ưu tiên</label>
-                                                    <select
-                                                        value={t.priority}
-                                                        onChange={e => updateTaskField(i, 'priority', parseInt(e.target.value))}
-                                                        className="w-full px-4 py-3 bg-white border border-slate-200 focus:border-indigo-400 rounded-xl outline-none text-[14px] font-bold text-slate-700 transition-all cursor-pointer shadow-sm"
-                                                    >
-                                                        <option value={1}>Thấp</option>
-                                                        <option value={2}>Bình thường</option>
-                                                        <option value={3}>Cao</option>
-                                                        <option value={4}>Rất cao</option>
-                                                    </select>
-                                                </div>
-
-                                                {t.type === 'TASK' ? (
-                                                    <div className="space-y-1.5">
-                                                        <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest">Hạn chót (Due Date)</label>
-                                                        <input
-                                                            type="datetime-local"
-                                                            value={t.deadline}
-                                                            onChange={e => updateTaskField(i, 'deadline', e.target.value)}
-                                                            className="w-full px-4 py-3 bg-white border border-slate-200 focus:border-indigo-400 rounded-xl outline-none text-[13px] font-semibold text-slate-700 transition-all shadow-sm"
-                                                        />
-                                                    </div>
-                                                ) : (
-                                                    <div className="grid grid-cols-2 gap-2">
-                                                        <div className="space-y-1.5">
-                                                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-wider">Bắt đầu</label>
-                                                            <input
-                                                                type="datetime-local"
-                                                                value={t.startTime}
-                                                                onChange={e => updateTaskField(i, 'startTime', e.target.value)}
-                                                                className="w-full px-3 py-3 bg-white border border-slate-200 focus:border-indigo-400 rounded-xl outline-none text-[12px] font-semibold text-slate-700 transition-all shadow-sm"
-                                                            />
-                                                        </div>
-                                                        <div className="space-y-1.5">
-                                                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-wider">Kết thúc</label>
-                                                            <input
-                                                                type="datetime-local"
-                                                                value={t.endTime}
-                                                                onChange={e => updateTaskField(i, 'endTime', e.target.value)}
-                                                                className="w-full px-3 py-3 bg-white border border-slate-200 focus:border-indigo-400 rounded-xl outline-none text-[12px] font-semibold text-slate-700 transition-all shadow-sm"
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    ))}
-
-                                    {editedTasks.length === 0 && (
-                                        <div className="text-center py-12 bg-white rounded-[24px] border border-slate-100 shadow-sm p-8 space-y-3">
-                                            <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400 mx-auto">
-                                                <Warning size={22} />
-                                            </div>
-                                            <div>
-                                                <h4 className="text-[15px] font-black text-slate-800">Không có công việc nào</h4>
-                                                <p className="text-[12px] text-slate-400 font-bold mt-1">Danh sách công việc đang trống. Hãy nhấn nút bên dưới để thêm mới.</p>
-                                            </div>
-                                        </div>
-                                    )}
-
+                                {/* Mode Selector with Sliding Indicator */}
+                                <div className="relative flex bg-slate-100/60 dark:bg-slate-800/65 p-1 rounded-2xl border border-slate-200/10 shadow-inner">
                                     <button
                                         type="button"
-                                        onClick={addTaskRow}
-                                        className="w-full py-4 border-2 border-dashed border-slate-200 hover:border-indigo-400 bg-slate-50/20 hover:bg-indigo-50/30 text-indigo-600 rounded-[20px] text-[13px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 group"
+                                        onClick={() => { setMode('text'); setErrorInfo(null); }}
+                                        className={`relative flex-1 py-3.5 rounded-xl text-xs uppercase font-bold tracking-wider transition-colors flex items-center justify-center gap-2 ${mode === 'text' ? 'text-[#6C63FF] dark:text-white' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-350'}`}
                                     >
-                                        <Plus size={16} weight="bold" className="group-hover:scale-110 transition-transform" />
-                                        Thêm công việc học tập mới
+                                        {mode === 'text' && (
+                                            <motion.div
+                                                layoutId="activeTab"
+                                                className="absolute inset-0 bg-white dark:bg-slate-700 rounded-xl shadow-sm border border-slate-200/10"
+                                                transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                                            />
+                                        )}
+                                        <span className="relative z-10 flex items-center gap-2">
+                                            <FileText weight="bold" size={16} />
+                                            Nhập văn bản
+                                        </span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => { setMode('image'); setErrorInfo(null); }}
+                                        className={`relative flex-1 py-3.5 rounded-xl text-xs uppercase font-bold tracking-wider transition-colors flex items-center justify-center gap-2 ${mode === 'image' ? 'text-[#6C63FF] dark:text-white' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-350'}`}
+                                    >
+                                        {mode === 'image' && (
+                                            <motion.div
+                                                layoutId="activeTab"
+                                                className="absolute inset-0 bg-white dark:bg-slate-700 rounded-xl shadow-sm border border-slate-200/10"
+                                                transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                                            />
+                                        )}
+                                        <span className="relative z-10 flex items-center gap-2">
+                                            <ImageIcon weight="bold" size={16} />
+                                            Quét từ ảnh
+                                        </span>
                                     </button>
                                 </div>
-                            </div>
 
-                            <div className="flex gap-4 mt-8">
-                                <button onClick={() => setPreview(null)} className="flex-1 py-4 font-black text-[13px] uppercase tracking-wider text-slate-500 bg-slate-100 hover:bg-slate-200 rounded-[20px] transition-all active:scale-[0.98] border border-slate-200/50">
-                                    Hủy & Sửa đổi
-                                </button>
-                                <button onClick={handleSave} disabled={isSaving} className="flex-[2] py-4 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white rounded-[20px] font-black text-[13px] uppercase tracking-wider shadow-lg shadow-emerald-100 hover:shadow-xl hover:shadow-emerald-200/60 disabled:opacity-50 transition-all active:scale-[0.98] flex items-center justify-center gap-2 group relative overflow-hidden">
+                                {/* Form Sections Grouped in Subtle Cards */}
+                                <div className="space-y-4">
+                                    {/* Text Prompt Mode */}
+                                    {mode === 'text' ? (
+                                        <motion.div 
+                                            initial={{ opacity: 0, y: 8 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            className="bg-slate-50/50 dark:bg-slate-800/20 p-5 rounded-2xl border border-slate-100 dark:border-slate-850 space-y-3"
+                                        >
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-1 h-3 bg-[#6C63FF] rounded-full" />
+                                                <label className="block text-[11px] font-bold text-slate-450 dark:text-slate-400 tracking-wider uppercase">Lời nhắc (Prompt)</label>
+                                            </div>
+                                            <textarea
+                                                value={prompt}
+                                                onChange={e => setPrompt(e.target.value)}
+                                                placeholder="VD: Tuần sau tôi thi Toán và Lý, lên lịch học 2 tiếng mỗi ngày vào buổi tối..."
+                                                rows={4}
+                                                className="w-full p-4 bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 focus:border-[#6C63FF] focus:ring-2 focus:ring-[#6C63FF]/15 rounded-xl outline-none text-xs font-semibold text-slate-750 dark:text-slate-300 transition-all resize-none shadow-sm placeholder:text-slate-450"
+                                            />
+                                        </motion.div>
+                                    ) : (
+                                        /* Image Scanning Mode */
+                                        <motion.div 
+                                            initial={{ opacity: 0, y: 8 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            className="space-y-4"
+                                        >
+                                            {/* Drag & Drop File Area */}
+                                            <div className="bg-slate-50/50 dark:bg-slate-800/20 p-5 rounded-2xl border border-slate-100 dark:border-slate-850 space-y-3">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-1 h-3 bg-[#A855F7] rounded-full" />
+                                                    <label className="block text-[11px] font-bold text-slate-450 dark:text-slate-400 tracking-wider uppercase">Tải ảnh lên</label>
+                                                </div>
+
+                                                <div
+                                                    onDragEnter={handleDrag}
+                                                    onDragOver={handleDrag}
+                                                    onDragLeave={handleDrag}
+                                                    onDrop={handleDrop}
+                                                    onClick={() => fileInputRef.current?.click()}
+                                                    className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all duration-300 group flex flex-col items-center justify-center ${
+                                                        dragActive 
+                                                            ? 'border-[#6C63FF] bg-[#6C63FF]/5 dark:bg-[#6C63FF]/5 shadow-[0_0_15px_rgba(108,99,255,0.1)] scale-[1.005]' 
+                                                            : file 
+                                                                ? 'border-emerald-400 bg-emerald-50/5 dark:bg-emerald-950/5' 
+                                                                : 'border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-800/30 hover:border-[#6C63FF]/60 hover:bg-slate-50/60 dark:hover:bg-slate-800/50'
+                                                    }`}
+                                                >
+                                                    <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
+                                                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-4 transition-all duration-300 ${
+                                                        file 
+                                                            ? 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-500' 
+                                                            : 'bg-slate-100 dark:bg-slate-800 text-slate-500 group-hover:text-[#6C63FF] group-hover:bg-[#6C63FF]/5 dark:text-slate-400'
+                                                    }`}>
+                                                        {file ? <Check size={24} weight="bold" /> : <ImageIcon size={24} />}
+                                                    </div>
+                                                    {file ? (
+                                                        <div className="space-y-1">
+                                                            <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">Đã nhận hình ảnh thành công</p>
+                                                            <p className="text-xs text-slate-400 dark:text-slate-500 font-semibold">{file.name} ({(file.size / 1024).toFixed(1)} KB)</p>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="space-y-1">
+                                                            <p className="text-xs font-bold text-slate-700 dark:text-slate-355">Kéo thả ảnh hoặc click để tải lên</p>
+                                                            <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">Hỗ trợ PNG, JPG, JPEG thời khóa biểu hoặc ghi chú</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* Optional Guidelines */}
+                                            {file && (
+                                                <motion.div 
+                                                    initial={{ opacity: 0, y: 5 }}
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    className="bg-slate-50/50 dark:bg-slate-800/20 p-5 rounded-2xl border border-slate-100 dark:border-slate-850 space-y-3"
+                                                >
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-1 h-3 bg-[#6C63FF] rounded-full" />
+                                                        <label className="block text-[11px] font-bold text-slate-450 dark:text-slate-400 tracking-wider uppercase">Chỉ dẫn bổ sung (Tùy chọn)</label>
+                                                    </div>
+                                                    <input
+                                                        type="text"
+                                                        value={prompt}
+                                                        onChange={e => setPrompt(e.target.value)}
+                                                        placeholder="VD: Chỉ lấy lịch học của tuần tới..."
+                                                        className="w-full px-4 py-3 bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 focus:border-[#6C63FF] rounded-xl outline-none text-xs font-semibold text-slate-750 dark:text-slate-300 transition-all shadow-sm placeholder:text-slate-400"
+                                                    />
+                                                </motion.div>
+                                            )}
+                                        </motion.div>
+                                    )}
+                                </div>
+
+                                {/* Error Notification */}
+                                {errorInfo && (
+                                    <div className="p-4 bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 rounded-xl flex items-center gap-3 text-red-600 dark:text-red-400 animate-in slide-in-from-top-2">
+                                        <Warning size={18} weight="fill" className="shrink-0" />
+                                        <div className="text-[11px] font-semibold leading-relaxed">{errorInfo}</div>
+                                    </div>
+                                )}
+
+                                {/* Generate Button */}
+                                <button
+                                    onClick={handleGenerate}
+                                    disabled={isGenerating}
+                                    className="w-full py-3.5 mt-4 bg-gradient-to-r from-[#6C63FF] via-[#A855F7] to-[#EC4899] hover:opacity-95 text-white rounded-xl font-bold text-xs uppercase tracking-wider shadow-lg shadow-indigo-500/10 hover:shadow-indigo-500/15 transition-all active:scale-[0.985] flex items-center justify-center gap-2 relative overflow-hidden group cursor-pointer"
+                                >
                                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-                                    {isSaving ? <CircleNotch size={18} className="animate-spin" /> : <Check size={18} weight="bold" />}
-                                    {isSaving ? "Đang lưu hệ thống..." : "Xác nhận & Lưu lịch"}
+                                    {isGenerating ? (
+                                        <>
+                                            <CircleNotch size={16} weight="bold" className="animate-spin text-white" />
+                                            <span>Đang phân tích dữ liệu...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Sparkle size={16} weight="fill" className="text-white animate-pulse" />
+                                            <span>Tạo lịch trình ngay</span>
+                                        </>
+                                    )}
                                 </button>
-                            </div>
-                        </div>
-                    )}
+                            </motion.div>
+                        ) : (
+                            /* Preview & Edit Mode */
+                            <motion.div 
+                                initial={{ opacity: 0, x: 12 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: -12 }}
+                                className="space-y-6"
+                            >
+                                <div className="flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/20 p-4.5 rounded-2xl border border-slate-100 dark:border-slate-850">
+                                    <div>
+                                        <h3 className="text-sm font-bold text-slate-850 dark:text-white tracking-tight">Thiết lập lịch trình AI</h3>
+                                        <p className="text-[11px] text-slate-450 dark:text-slate-550 font-medium">Biên tập các công việc & phiên học trước khi lưu</p>
+                                    </div>
+                                    <div className="w-9 h-9 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 rounded-xl flex items-center justify-center shadow-sm shrink-0">
+                                        <Check size={18} weight="bold" />
+                                    </div>
+                                </div>
 
-                </div>
-            </div>
-        </div>
+                                <div className="bg-white dark:bg-slate-900 border border-slate-200/50 dark:border-slate-800 p-6 rounded-2xl space-y-5 shadow-sm">
+                                    {/* Topic Title */}
+                                    <div className="space-y-2">
+                                        <label className="block text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest text-center">Tên chủ đề / kế hoạch</label>
+                                        <input
+                                            type="text"
+                                            value={preview.goalTitle}
+                                            onChange={(e) => setPreview(prev => prev ? { ...prev, goalTitle: e.target.value } : null)}
+                                            placeholder="Tên môn học / chủ đề..."
+                                            className="w-full text-base font-bold text-[#6C63FF] text-center bg-indigo-50/30 dark:bg-indigo-950/10 focus:bg-white dark:focus:bg-slate-800/40 py-2.5 px-4 rounded-xl border border-indigo-100/50 dark:border-indigo-900/30 focus:border-[#6C63FF] outline-none transition-all focus:ring-2 focus:ring-[#6C63FF]/15"
+                                        />
+                                    </div>
+
+                                    {/* Category Select Inside Preview */}
+                                    <div className="bg-slate-50/50 dark:bg-slate-800/20 p-4.5 rounded-xl border border-slate-100 dark:border-slate-850 space-y-3">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-1 h-3 bg-[#6C63FF] rounded-full" />
+                                            <label className="block text-[11px] font-bold text-slate-450 dark:text-slate-400 tracking-wider uppercase">Lưu vào Danh mục</label>
+                                        </div>
+                                        {categories.length > 0 ? (
+                                            <div className="relative">
+                                                <select
+                                                    value={selectedCategoryId || categories[0]?.id || ''}
+                                                    onChange={(e) => setSelectedCategoryId(e.target.value)}
+                                                    className="w-full pl-4 pr-10 py-3 bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 focus:border-[#6C63FF] rounded-xl outline-none text-xs font-semibold text-slate-700 dark:text-slate-350 transition-all cursor-pointer appearance-none shadow-sm"
+                                                >
+                                                    {categories.map((cat) => (
+                                                        <option key={cat.id} value={cat.id} className="bg-white dark:bg-slate-900">{cat.name}</option>
+                                                    ))}
+                                                </select>
+                                                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-[10px]">
+                                                    ▼
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium italic bg-white p-3.5 rounded-xl border border-slate-150">Hệ thống sẽ tự động tạo danh mục &quot;Học tập&quot; cho bạn.</p>
+                                        )}
+                                    </div>
+
+                                    <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                                        <span className="text-[11px] font-bold text-slate-450 dark:text-slate-400 uppercase tracking-wider">Danh sách công việc dự kiến</span>
+                                        <span className="bg-indigo-50 dark:bg-indigo-950/40 text-[#6C63FF] dark:text-indigo-350 px-2.5 py-0.5 rounded-full text-[10px] font-bold border border-indigo-100/30">{editedTasks.length} công việc</span>
+                                    </div>
+
+                                    {/* Task Entries list */}
+                                    <div className="space-y-4 max-h-[350px] overflow-y-auto pr-1.5 custom-scrollbar pb-2">
+                                        <AnimatePresence initial={false}>
+                                            {editedTasks.map((t, i) => (
+                                                <motion.div 
+                                                    key={i} 
+                                                    initial={{ opacity: 0, y: 8 }}
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    exit={{ opacity: 0, scale: 0.95 }}
+                                                    className="bg-slate-50/30 dark:bg-slate-800/20 p-4.5 rounded-xl border border-slate-200/50 dark:border-slate-800 shadow-sm space-y-3.5 hover:border-[#6C63FF]/30 transition-all text-left"
+                                                >
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex items-center gap-2.5">
+                                                            <span className="w-5.5 h-5.5 rounded-full bg-indigo-50 dark:bg-indigo-950/40 text-[#6C63FF] flex items-center justify-center text-[10px] font-bold border border-indigo-100/30 shrink-0">
+                                                                #{i + 1}
+                                                            </span>
+                                                            <div className="flex bg-slate-200/40 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-350/20">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => updateTaskField(i, 'type', 'TASK')}
+                                                                    className={`px-2.5 py-0.5 rounded-md text-[9px] font-bold transition-all uppercase tracking-wider ${t.type === 'TASK' ? 'bg-white dark:bg-slate-700 text-[#6C63FF] dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                                                >
+                                                                    Nhiệm vụ
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => updateTaskField(i, 'type', 'SESSION')}
+                                                                    className={`px-2.5 py-0.5 rounded-md text-[9px] font-bold transition-all uppercase tracking-wider ${t.type === 'SESSION' ? 'bg-white dark:bg-slate-700 text-[#6C63FF] dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                                                >
+                                                                    Phiên học
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => deleteTaskRow(i)}
+                                                            className="p-1 hover:bg-red-50 dark:hover:bg-red-950/25 text-slate-400 hover:text-red-500 rounded-md transition-colors"
+                                                            title="Xóa công việc này"
+                                                        >
+                                                            <Trash size={14} weight="bold" />
+                                                        </button>
+                                                    </div>
+
+                                                    <div className="space-y-1">
+                                                        <label className="block text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                                                            {t.type === 'SESSION' ? 'Tên phiên học' : 'Tên nhiệm vụ'}
+                                                        </label>
+                                                        <input
+                                                            type="text"
+                                                            value={t.title}
+                                                            onChange={e => updateTaskField(i, 'title', e.target.value)}
+                                                            placeholder="VD: Ôn tập chương 1..."
+                                                            className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 focus:border-[#6C63FF] rounded-lg outline-none text-xs font-semibold text-slate-750 dark:text-slate-300 transition-all shadow-sm"
+                                                        />
+                                                    </div>
+
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                        <div className="space-y-1">
+                                                            <label className="block text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Độ ưu tiên</label>
+                                                            <select
+                                                                value={t.priority}
+                                                                onChange={e => updateTaskField(i, 'priority', parseInt(e.target.value))}
+                                                                className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 focus:border-[#6C63FF] rounded-lg outline-none text-xs font-semibold text-slate-700 dark:text-slate-350 transition-all cursor-pointer shadow-sm"
+                                                            >
+                                                                <option value={1}>Thấp</option>
+                                                                <option value={2}>Bình thường</option>
+                                                                <option value={3}>Cao</option>
+                                                                <option value={4}>Rất cao</option>
+                                                            </select>
+                                                        </div>
+
+                                                        {t.type === 'TASK' ? (
+                                                            <div className="space-y-1">
+                                                                <label className="block text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Hạn chót (Due Date)</label>
+                                                                <input
+                                                                    type="datetime-local"
+                                                                    value={t.deadline}
+                                                                    onChange={e => updateTaskField(i, 'deadline', e.target.value)}
+                                                                    className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 focus:border-[#6C63FF] rounded-lg outline-none text-xs font-medium text-slate-700 dark:text-slate-350 transition-all shadow-sm"
+                                                                />
+                                                            </div>
+                                                        ) : (
+                                                            <div className="grid grid-cols-2 gap-2">
+                                                                <div className="space-y-1">
+                                                                    <label className="block text-[9px] font-bold text-slate-400 dark:text-slate-550 uppercase tracking-wider">Bắt đầu</label>
+                                                                    <input
+                                                                        type="datetime-local"
+                                                                        value={t.startTime}
+                                                                        onChange={e => updateTaskField(i, 'startTime', e.target.value)}
+                                                                        className="w-full px-2.5 py-2 bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 focus:border-[#6C63FF] rounded-lg outline-none text-[10px] font-medium text-slate-700 dark:text-slate-350 transition-all shadow-sm"
+                                                                    />
+                                                                </div>
+                                                                <div className="space-y-1">
+                                                                    <label className="block text-[9px] font-bold text-slate-400 dark:text-slate-550 uppercase tracking-wider">Kết thúc</label>
+                                                                    <input
+                                                                        type="datetime-local"
+                                                                        value={t.endTime}
+                                                                        onChange={e => updateTaskField(i, 'endTime', e.target.value)}
+                                                                        className="w-full px-2.5 py-2 bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 focus:border-[#6C63FF] rounded-lg outline-none text-[10px] font-medium text-slate-700 dark:text-slate-350 transition-all shadow-sm"
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </motion.div>
+                                            ))}
+                                        </AnimatePresence>
+
+                                        {editedTasks.length === 0 && (
+                                            <div className="text-center py-10 bg-slate-50/50 dark:bg-slate-800/10 rounded-xl border border-slate-100 dark:border-slate-850 p-6 space-y-2">
+                                                <div className="w-10 h-10 bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center text-slate-400 mx-auto">
+                                                    <Warning size={18} />
+                                                </div>
+                                                <div>
+                                                    <h4 className="text-xs font-bold text-slate-800 dark:text-white">Không có công việc nào</h4>
+                                                    <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium mt-1">Danh sách công việc đang trống. Hãy nhấn nút bên dưới để thêm mới.</p>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        <button
+                                            type="button"
+                                            onClick={addTaskRow}
+                                            className="w-full py-3 border-2 border-dashed border-slate-200/80 dark:border-slate-800 hover:border-[#6C63FF] bg-slate-50/10 hover:bg-[#6C63FF]/5 text-[#6C63FF] rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 group cursor-pointer"
+                                        >
+                                            <Plus size={14} weight="bold" className="group-hover:scale-110 transition-transform" />
+                                            Thêm công việc mới
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Preview Error Notification */}
+                                {errorInfo && (
+                                    <div className="p-4 bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 rounded-xl flex items-center gap-3 text-red-600 dark:text-red-400 animate-in slide-in-from-top-2">
+                                        <Warning size={18} weight="fill" className="shrink-0" />
+                                        <div className="text-[11px] font-semibold leading-relaxed">{errorInfo}</div>
+                                    </div>
+                                )}
+
+                                {/* Bottom Navigation Action Buttons */}
+                                <div className="flex gap-4 mt-6">
+                                    <button 
+                                        onClick={() => setPreview(null)} 
+                                        className="flex-1 py-3 font-bold text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-750 rounded-xl transition-all active:scale-[0.98] border border-slate-200/20 dark:border-slate-700/50 cursor-pointer"
+                                    >
+                                        Hủy & Sửa đổi
+                                    </button>
+                                    <button 
+                                        onClick={handleSave} 
+                                        disabled={isSaving} 
+                                        className="flex-[2] py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:opacity-95 text-white rounded-xl font-bold text-xs uppercase tracking-wider shadow-lg shadow-emerald-500/10 hover:shadow-emerald-500/15 disabled:opacity-50 transition-all active:scale-[0.98] flex items-center justify-center gap-2 group relative overflow-hidden cursor-pointer"
+                                    >
+                                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+                                        {isSaving ? <CircleNotch size={16} className="animate-spin" /> : <Check size={16} weight="bold" />}
+                                        {isSaving ? "Đang lưu hệ thống..." : "Xác nhận & Lưu lịch"}
+                                    </button>
+                                </div>
+                            </motion.div>
+                        )}
+                    </div>
+                </motion.div>
+            </motion.div>
+        </AnimatePresence>
     );
 }

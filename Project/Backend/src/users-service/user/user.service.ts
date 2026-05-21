@@ -28,6 +28,7 @@ export class UserService {
     @Inject('REDIS_CLIENT') private readonly redisClient: ClientProxy,
   ) {}
 
+  // Lấy thông tin cá nhân của người dùng hiện tại
   async getProfile(userId: string): Promise<Omit<User, 'password'>> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
@@ -36,6 +37,7 @@ export class UserService {
     return stripPassword(user);
   }
 
+  // Cập nhật thông tin hồ sơ người dùng và đồng bộ thay đổi
   async updateProfile(
     userId: string,
     dto: UpdateProfileDto,
@@ -75,6 +77,7 @@ export class UserService {
     return stripPassword(updatedUser);
   }
 
+  // Thay đổi mật khẩu người dùng (kiểm tra mật khẩu cũ trước khi đổi)
   async changePassword(
     userId: string,
     dto: ChangePasswordDto,
@@ -108,6 +111,7 @@ export class UserService {
     return { success: true };
   }
 
+  // Lấy danh sách toàn bộ người dùng cho trang quản trị viên (có phân trang)
   async adminListUsers(
     page = 1,
     limit = 20,
@@ -125,6 +129,7 @@ export class UserService {
     return { data, total };
   }
 
+  // Kích hoạt hoặc vô hiệu hóa tài khoản người dùng từ phía admin
   async adminToggleUser(userId: string): Promise<Omit<User, 'password'>> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
 
@@ -143,12 +148,14 @@ export class UserService {
     return stripPassword(updatedUser);
   }
 
+  // Tìm kiếm thông tin người dùng dựa trên địa chỉ email
   async findByEmail(email: string): Promise<Omit<User, 'password'> | null> {
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user) return null;
     return stripPassword(user);
   }
 
+  // Tìm kiếm danh sách người dùng theo tên hoặc email
   async search(query: string): Promise<Omit<User, 'password'>[]> {
     const users = await this.prisma.user.findMany({
       where: {
@@ -163,6 +170,7 @@ export class UserService {
     return users.map(stripPassword);
   }
 
+  // Lấy danh sách người dùng dựa vào mảng ID cung cấp
   async findManyByIds(ids: string[]): Promise<Omit<User, 'password'>[]> {
     const users = await this.prisma.user.findMany({
       where: { id: { in: ids } },
@@ -170,10 +178,12 @@ export class UserService {
     return users.map(stripPassword);
   }
 
+  // Tìm kiếm thông tin nội bộ của người dùng bằng ID
   async findById(userId: string): Promise<User | null> {
     return this.prisma.user.findUnique({ where: { id: userId } });
   }
 
+  // Đặt lại mật khẩu cho người dùng (dành cho tính năng quên mật khẩu)
   async resetPassword(email: string, newPassword: string): Promise<void> {
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user) {

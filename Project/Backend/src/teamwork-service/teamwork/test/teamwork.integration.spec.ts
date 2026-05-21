@@ -1,3 +1,4 @@
+// Kiểm thử Tích hợp cho Teamwork (luồng tương tác giữa các service và cơ sở dữ liệu)
 import { Test, TestingModule } from '@nestjs/testing';
 import { TeamworkService } from '../teamwork.service';
 import { PrismaService } from '../../prisma/prisma.service';

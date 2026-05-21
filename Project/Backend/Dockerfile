@@ -9,6 +9,7 @@ WORKDIR /app
 # Stage 2: Dependencies
 FROM base AS dependencies
 COPY package.json pnpm-lock.yaml ./
+RUN npm pkg delete scripts.postinstall
 RUN pnpm install --frozen-lockfile
 
 # Stage 3: Builder (generates Prisma clients and builds NestJS)
@@ -25,6 +26,7 @@ RUN pnpm run build
 FROM base AS prod-dependencies
 RUN apk add --no-cache openssl
 COPY package.json pnpm-lock.yaml ./
+RUN npm pkg delete scripts.postinstall
 RUN pnpm install --prod --frozen-lockfile && pnpm store prune
 
 # CRITICAL: Copy the generated Prisma clients from the builder stage

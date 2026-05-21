@@ -1,3 +1,4 @@
+// Kiểm thử Unit cho AdminController tại API Gateway (quản trị hệ thống)
 import { Test, TestingModule } from '@nestjs/testing';
 import { AdminGatewayController } from '../admin.controller';
 import { TcpClientService } from '../../tcp-client.service';
