@@ -17,6 +17,7 @@ export interface AiProvider {
   generateFromText(
     prompt: string,
     context: PromptContext,
+    userCategories?: string[],
   ): Promise<AiScheduleOutput>;
 
   /**
@@ -27,5 +28,6 @@ export interface AiProvider {
     mimeType: string,
     context: PromptContext,
     prompt?: string,
+    userCategories?: string[],
   ): Promise<any>;
 }

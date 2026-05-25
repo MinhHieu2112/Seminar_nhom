@@ -11,6 +11,8 @@ interface EditableTask {
     deadline: string;
     startTime: string;
     endTime: string;
+    categoryId: string;
+    confidence?: number;
 }
 
 interface AiScheduleModalProps {
@@ -35,7 +37,6 @@ export function AiScheduleModal({ onClose, onSuccess }: AiScheduleModalProps) {
 
     const { data: categories = [] } = useSchedulerCategories();
     const createCategoryMutation = useCreateCategory();
-    const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
 
     const isGenerating = generateFromPromptMutation.isPending || generateFromImageMutation.isPending;
     const isSaving = createBatchMutation.isPending;
@@ -98,14 +99,21 @@ export function AiScheduleModal({ onClose, onSuccess }: AiScheduleModalProps) {
                 }
             };
 
-            const initialTasks: EditableTask[] = res.tasks.map(t => ({
-                title: t.title || '',
-                priority: t.priority || 2,
-                type: t.type || 'TASK',
-                deadline: t.type === 'TASK' && t.deadline ? formatToLocalDatetime(t.deadline) : '',
-                startTime: t.type === 'SESSION' && t.sessionData?.startTime ? formatToLocalDatetime(t.sessionData.startTime) : '',
-                endTime: t.type === 'SESSION' && t.sessionData?.endTime ? formatToLocalDatetime(t.sessionData.endTime) : '',
-            }));
+            const initialTasks: EditableTask[] = res.tasks.map(t => {
+                const matchedCat = categories.find(
+                    c => c.name.toLowerCase().trim() === (t.category || '').toLowerCase().trim()
+                );
+                return {
+                    title: t.title || '',
+                    priority: t.priority || 2,
+                    type: t.type || 'TASK',
+                    deadline: t.type === 'TASK' && t.deadline ? formatToLocalDatetime(t.deadline) : '',
+                    startTime: t.type === 'SESSION' && t.sessionData?.startTime ? formatToLocalDatetime(t.sessionData.startTime) : '',
+                    endTime: t.type === 'SESSION' && t.sessionData?.endTime ? formatToLocalDatetime(t.sessionData.endTime) : '',
+                    categoryId: matchedCat ? matchedCat.id : (categories[0]?.id || ''),
+                    confidence: t.confidence,
+                };
+            });
 
             setPreview(res);
             setEditedTasks(initialTasks);
@@ -131,6 +139,8 @@ export function AiScheduleModal({ onClose, onSuccess }: AiScheduleModalProps) {
             deadline: '',
             startTime: '',
             endTime: '',
+            categoryId: categories[0]?.id || '',
+            confidence: 1.0,
         }]);
     };
 
@@ -161,14 +171,12 @@ export function AiScheduleModal({ onClose, onSuccess }: AiScheduleModalProps) {
         }
 
         try {
-            let catId = selectedCategoryId;
-            if (!catId) {
-                if (categories.length > 0) {
-                    catId = categories[0].id;
-                } else {
-                    const newCatResponse = await createCategoryMutation.mutateAsync({ name: 'Học tập' });
-                    catId = newCatResponse.data.id;
-                }
+            let fallbackCatId = '';
+            if (categories.length > 0) {
+                fallbackCatId = categories[0].id;
+            } else {
+                const newCatResponse = await createCategoryMutation.mutateAsync({ name: 'Học tập' });
+                fallbackCatId = newCatResponse.data.id;
             }
 
             const tasksToSave = editedTasks.map(t => {
@@ -184,6 +192,7 @@ export function AiScheduleModal({ onClose, onSuccess }: AiScheduleModalProps) {
                     type: t.type,
                     deadline: t.type === 'TASK' && t.deadline ? new Date(t.deadline).toISOString() : undefined,
                     sessionData,
+                    categoryId: t.categoryId || fallbackCatId,
                 };
             });
 
@@ -192,7 +201,7 @@ export function AiScheduleModal({ onClose, onSuccess }: AiScheduleModalProps) {
                     ...preview,
                     tasks: tasksToSave,
                 },
-                categoryId: catId,
+                categoryId: fallbackCatId,
             });
             onSuccess();
             onClose();
@@ -440,31 +449,7 @@ export function AiScheduleModal({ onClose, onSuccess }: AiScheduleModalProps) {
                                         />
                                     </div>
 
-                                    {/* Category Select Inside Preview */}
-                                    <div className="bg-slate-50/50 dark:bg-slate-800/20 p-4.5 rounded-xl border border-slate-100 dark:border-slate-850 space-y-3">
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-1 h-3 bg-[#6C63FF] rounded-full" />
-                                            <label className="block text-[11px] font-bold text-slate-450 dark:text-slate-400 tracking-wider uppercase">Lưu vào Danh mục</label>
-                                        </div>
-                                        {categories.length > 0 ? (
-                                            <div className="relative">
-                                                <select
-                                                    value={selectedCategoryId || categories[0]?.id || ''}
-                                                    onChange={(e) => setSelectedCategoryId(e.target.value)}
-                                                    className="w-full pl-4 pr-10 py-3 bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 focus:border-[#6C63FF] rounded-xl outline-none text-xs font-semibold text-slate-700 dark:text-slate-350 transition-all cursor-pointer appearance-none shadow-sm"
-                                                >
-                                                    {categories.map((cat) => (
-                                                        <option key={cat.id} value={cat.id} className="bg-white dark:bg-slate-900">{cat.name}</option>
-                                                    ))}
-                                                </select>
-                                                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-[10px]">
-                                                    ▼
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium italic bg-white p-3.5 rounded-xl border border-slate-150">Hệ thống sẽ tự động tạo danh mục &quot;Học tập&quot; cho bạn.</p>
-                                        )}
-                                    </div>
+
 
                                     <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
                                         <span className="text-[11px] font-bold text-slate-450 dark:text-slate-400 uppercase tracking-wider">Danh sách công việc dự kiến</span>
@@ -514,6 +499,13 @@ export function AiScheduleModal({ onClose, onSuccess }: AiScheduleModalProps) {
                                                         </button>
                                                     </div>
 
+                                                    {t.confidence !== undefined && t.confidence < 0.75 && (
+                                                        <div className="bg-amber-50 dark:bg-amber-955/20 border border-amber-200/40 dark:border-amber-900/30 text-amber-600 dark:text-amber-400 p-2.5 rounded-lg flex items-center gap-2 text-[10px] font-semibold leading-snug animate-pulse">
+                                                            <Warning size={14} weight="fill" className="shrink-0 text-[#D97706]" />
+                                                            <span>AI phân loại không chắc chắn ({Math.round(t.confidence * 100)}%). Hãy kiểm tra lại danh mục!</span>
+                                                        </div>
+                                                    )}
+
                                                     <div className="space-y-1">
                                                         <label className="block text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
                                                             {t.type === 'SESSION' ? 'Tên phiên học' : 'Tên nhiệm vụ'}
@@ -527,7 +519,7 @@ export function AiScheduleModal({ onClose, onSuccess }: AiScheduleModalProps) {
                                                         />
                                                     </div>
 
-                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                                                         <div className="space-y-1">
                                                             <label className="block text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Độ ưu tiên</label>
                                                             <select
@@ -539,6 +531,19 @@ export function AiScheduleModal({ onClose, onSuccess }: AiScheduleModalProps) {
                                                                 <option value={2}>Bình thường</option>
                                                                 <option value={3}>Cao</option>
                                                                 <option value={4}>Rất cao</option>
+                                                            </select>
+                                                        </div>
+
+                                                        <div className="space-y-1">
+                                                            <label className="block text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Danh mục</label>
+                                                            <select
+                                                                value={t.categoryId}
+                                                                onChange={e => updateTaskField(i, 'categoryId', e.target.value)}
+                                                                className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 focus:border-[#6C63FF] rounded-lg outline-none text-xs font-semibold text-slate-700 dark:text-slate-350 transition-all cursor-pointer shadow-sm"
+                                                            >
+                                                                {categories.map((cat) => (
+                                                                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                                                ))}
                                                             </select>
                                                         </div>
 
@@ -555,7 +560,7 @@ export function AiScheduleModal({ onClose, onSuccess }: AiScheduleModalProps) {
                                                         ) : (
                                                             <div className="grid grid-cols-2 gap-2">
                                                                 <div className="space-y-1">
-                                                                    <label className="block text-[9px] font-bold text-slate-400 dark:text-slate-550 uppercase tracking-wider">Bắt đầu</label>
+                                                                    <label className="block text-[9px] font-bold text-slate-400 dark:text-slate-555 uppercase tracking-wider">Bắt đầu</label>
                                                                     <input
                                                                         type="datetime-local"
                                                                         value={t.startTime}
@@ -564,7 +569,7 @@ export function AiScheduleModal({ onClose, onSuccess }: AiScheduleModalProps) {
                                                                     />
                                                                 </div>
                                                                 <div className="space-y-1">
-                                                                    <label className="block text-[9px] font-bold text-slate-400 dark:text-slate-550 uppercase tracking-wider">Kết thúc</label>
+                                                                    <label className="block text-[9px] font-bold text-slate-400 dark:text-slate-555 uppercase tracking-wider">Kết thúc</label>
                                                                     <input
                                                                         type="datetime-local"
                                                                         value={t.endTime}

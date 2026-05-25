@@ -50,6 +50,7 @@ export class GeminiProvider implements AiProvider {
   async generateFromText(
     prompt: string,
     context: PromptContext,
+    userCategories?: string[],
   ): Promise<AiScheduleOutput> {
     this.checkConfigured();
     this.logger.log(`Generating from text prompt...`);
@@ -59,7 +60,10 @@ export class GeminiProvider implements AiProvider {
       contents: prompt,
       config: {
         tools: [{ functionDeclarations: [createScheduleFunctionDeclaration] }],
-        systemInstruction: getSystemInstruction(getDateContext(context.today)),
+        systemInstruction: getSystemInstruction(
+          getDateContext(context.today),
+          userCategories,
+        ),
       },
     });
 
@@ -70,7 +74,8 @@ export class GeminiProvider implements AiProvider {
     imageBuffer: Buffer,
     mimeType: string,
     context: PromptContext,
-    _prompt?: string,
+    prompt?: string,
+    userCategories?: string[],
   ): Promise<any> {
     this.checkConfigured();
     this.logger.log(`[Gemini] Preprocessing image...`);
@@ -108,6 +113,11 @@ Rules:
 
     // Step 2: Structured Parsing
     this.logger.log(`[Gemini] Step 2: Running Structured Scheduling Parser...`);
+    const categoriesList =
+      userCategories && userCategories.length > 0
+        ? `Available database categories: ${userCategories.map((c) => `"${c}"`).join(', ')}.`
+        : 'Available database categories: "Học tập", "Làm việc", "Giải trí", "Cá nhân".';
+
     const parserSystemInstruction = `You are a strict JSON schedule parsing agent. 
 Analyze the input text and extract all schedule events.
 Extract the following fields for each event:
@@ -115,11 +125,24 @@ Extract the following fields for each event:
 - date_reference: The exact raw relative date phrase mentioned (e.g. "Thứ 7 này", "Thứ 2 tuần tới", "ngày mai", "Hôm nay").
 - start_time: The start time in "HH:mm" format (24-hour, e.g. "09:00", "18:00"). If only start hour is mentioned without minutes, format as "HH:00". If not specified, default to "".
 - end_time: The end time in "HH:mm" format (24-hour, e.g. "12:00", "21:00"). If not specified, default to "".
-- category: The category classification (e.g. "Học tập", "Làm việc", "Giải trí", "Cá nhân").
+- category: The category classification.
 - note: Additional notes or description verbatim from the text.
-- confidence: A number between 0.0 and 1.0 indicating your certainty. If you hallucinate or guess, set to a low value.
+- confidence: A number between 0.0 and 1.0 indicating your certainty.
 
 Today's context: ${getDateContext(context.today)}
+${categoriesList}
+
+Rules for category classification (CRITICAL - DO NOT CLASSIFY LEISURE/SOCIAL EVENTS AS STUDY):
+- Academic study, classes, homework, exams, studying subjects -> Classify category as "Học tập" (or similar matched category).
+- Work, job, project, business -> Classify category as "Làm việc".
+- Hanging out, dining, meetings with friends, movies, games, dating (e.g., "có hẹn với bạn", "đi nhậu", "đi xem phim") -> Classify category as "Giải trí" (or similar matched category).
+- Personal errands, health, fitness, chores -> Classify category as "Cá nhân".
+- Try to match one of the available database categories. If none match, output the most suitable category.
+
+Rules for confidence score:
+- Output confidence score (0.0 to 1.0) under the 'confidence' field.
+- If the task description is ambiguous, or there is uncertainty about the time, or the category is a guess, set a lower confidence score (e.g. 0.5 to 0.7).
+- If the task is clear, set a high confidence score (e.g. 0.85 to 1.0).
 
 Rules:
 - DO NOT hallucinate or assume dates/times not present in the text.
@@ -179,13 +202,15 @@ Rules:
         type,
         deadline,
         sessionData,
+        category: event.category,
+        confidence:
+          typeof event.confidence === 'number' ? event.confidence : 0.85,
       };
     });
 
     return {
       events: rawEvents,
       tasks,
-      goalTitle: 'Lịch học chung',
       toDate: context.today,
     };
   }
@@ -246,6 +271,8 @@ Rules:
         duration: typeof t.duration === 'number' ? t.duration : 60,
         priority: typeof t.priority === 'number' ? t.priority : 3,
         type: typeof t.type === 'string' ? t.type : 'TASK',
+        category: typeof t.category === 'string' ? t.category : undefined,
+        confidence: typeof t.confidence === 'number' ? t.confidence : undefined,
       }));
     }
 
@@ -263,8 +290,6 @@ Rules:
     } else if (typeof fixed.toDate === 'string' && fixed.toDate.includes('/')) {
       fixed.toDate = this.convertDateFormat(fixed.toDate);
     }
-
-    if (!fixed.goalTitle) fixed.goalTitle = 'Lịch học chung';
     if (!fixed.preferredTimes)
       fixed.preferredTimes = ['morning', 'afternoon', 'evening'];
     if (!Array.isArray(fixed.busySlots)) fixed.busySlots = [];

@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { AiProvider, PromptContext } from '../interfaces/ai-provider.interface';
 import { GeminiProvider } from './gemini.provider';
 import { OpenAIProvider } from './openai.provider';
+import { ClaudeProvider } from './claude.provider';
 import { AiScheduleOutput } from '../dto/ai-schema.dto';
 import { randomUUID } from 'crypto';
 
@@ -12,12 +13,18 @@ export class AiProviderManager {
   private providerCooldowns: Map<string, number> = new Map();
   private readonly COOLDOWN_DURATION_MS = 5 * 60 * 1000; // 5 minutes
 
+  // Khởi tạo danh sách các nhà cung cấp AI theo thứ tự ưu tiên
   constructor(
     private geminiProvider: GeminiProvider,
     private openAIProvider: OpenAIProvider,
+    private claudeProvider: ClaudeProvider,
   ) {
-    // Priority order: Gemini first, then OpenAI as fallback
-    this.providers = [this.geminiProvider, this.openAIProvider];
+    // Priority order: Gemini first, then OpenAI, then Claude as fallback
+    this.providers = [
+      this.geminiProvider,
+      this.openAIProvider,
+      this.claudeProvider,
+    ];
   }
 
   // Kiểm tra xem lỗi trả về từ API AI có phải là lỗi hết hạn ngạch/giới hạn lượt gọi (Rate Limit) hay không
@@ -45,6 +52,7 @@ export class AiProviderManager {
   async generateFromTextWithFallback(
     prompt: string,
     context: PromptContext,
+    userCategories?: string[],
   ): Promise<AiScheduleOutput> {
     const errors: string[] = [];
     const now = Date.now();
@@ -70,7 +78,7 @@ export class AiProviderManager {
         this.logger.log(
           `Attempting generateFromText with provider [${provider.name}]`,
         );
-        return await provider.generateFromText(prompt, context);
+        return await provider.generateFromText(prompt, context, userCategories);
       } catch (error) {
         if (this.isQuotaError(error)) {
           const cooldownUntil = Date.now() + this.COOLDOWN_DURATION_MS;
@@ -107,6 +115,7 @@ export class AiProviderManager {
     mimeType: string,
     context: PromptContext,
     prompt?: string,
+    userCategories?: string[],
   ): Promise<any> {
     const errors: string[] = [];
     const now = Date.now();
@@ -137,6 +146,7 @@ export class AiProviderManager {
           mimeType,
           context,
           prompt,
+          userCategories,
         );
       } catch (error) {
         if (this.isQuotaError(error)) {
@@ -287,11 +297,15 @@ export class AiProviderManager {
 
     return {
       goalTitle,
-      tasks,
+      tasks: tasks,
       busySlots: [],
       fromDate: dateStr,
       toDate: dateStr,
-      preferredTimes: ['morning', 'afternoon', 'evening'],
+      preferredTimes: ['morning', 'afternoon', 'evening'] as (
+        | 'morning'
+        | 'afternoon'
+        | 'evening'
+      )[],
     };
   }
 }

@@ -13,8 +13,42 @@ import type { Allocation, Task } from '@/types/api';
 const TIME_PHASES = [
     { id: 'morning', label: 'Buổi sáng', start: 6, end: 11, bg: 'bg-white' },
     { id: 'afternoon', label: 'Buổi trưa', start: 12, end: 17, bg: 'bg-[#fcfdfe]' },
-    { id: 'evening', label: 'Buổi tối', start: 18, end: 22, bg: 'bg-white' }
+    { id: 'evening', label: 'Buổi tối', start: 18, end: 22, bg: 'bg-white' },
+    { id: 'night', label: 'Buổi khuya', start: 23, end: 5, bg: 'bg-[#fcfdfe]' }
 ];
+
+const getPhaseHours = (start: number, end: number) => {
+    const hours: number[] = [];
+    let h = start;
+    while (h !== (end + 1) % 24) {
+        hours.push(h);
+        h = (h + 1) % 24;
+    }
+    return hours;
+};
+
+const isTimeOverlapping = (
+    startHour: number,
+    startMin: number,
+    durationMinutes: number,
+    phaseStart: number,
+    phaseEnd: number
+) => {
+    const taskStart = startHour * 60 + startMin;
+    const phaseHours = new Set<number>();
+    let h = phaseStart;
+    while (h !== (phaseEnd + 1) % 24) {
+        phaseHours.add(h);
+        h = (h + 1) % 24;
+    }
+    for (let m = 0; m < durationMinutes; m++) {
+        const currentHour = Math.floor((taskStart + m) / 60) % 24;
+        if (phaseHours.has(currentHour)) {
+            return true;
+        }
+    }
+    return false;
+};
 
 const COLOR_STYLES = [
     { bg: 'bg-emerald-50', border: 'border-emerald-500', text: 'text-emerald-700' },
@@ -27,7 +61,7 @@ const COLOR_STYLES = [
 const DAY_NAMES = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ nhật'];
 
 // --- Component con được Memoize để tăng tốc độ render ---
-const TimeBlock = memo(({ event, phaseStart }: { event: Allocation; phaseStart: number }) => {
+const TimeBlock = memo(({ event, phaseHours }: { event: Allocation; phaseHours: number[] }) => {
     const startDate = parseISO(event.startTime);
     const startHour = startDate.getHours();
     const startMin = startDate.getMinutes();
@@ -40,8 +74,25 @@ const TimeBlock = memo(({ event, phaseStart }: { event: Allocation; phaseStart: 
         duration = Math.max(Math.round(diffMs / 60000), 30); // Tối thiểu 30 phút
     }
 
-    const top = (startHour - phaseStart) * 64 + (startMin / 60) * 64;
-    const height = (duration / 60) * 64;
+    const taskStartMins = startHour * 60 + startMin;
+    let minPos = Infinity;
+    let maxPos = -Infinity;
+
+    for (let m = 0; m < duration; m++) {
+        const currentHour = Math.floor((taskStartMins + m) / 60) % 24;
+        const currentMin = (taskStartMins + m) % 60;
+        const hIdx = phaseHours.indexOf(currentHour);
+        if (hIdx !== -1) {
+            const pos = hIdx * 60 + currentMin;
+            if (pos < minPos) minPos = pos;
+            if (pos > maxPos) maxPos = pos;
+        }
+    }
+
+    if (minPos === Infinity) return null;
+
+    const top = (minPos / 60) * 64;
+    const height = ((maxPos + 1 - minPos) / 60) * 64;
 
     const styleIdx = (parseInt(event.id.slice(-1), 16) || 0) % COLOR_STYLES.length;
     const style = COLOR_STYLES[styleIdx];
@@ -137,74 +188,78 @@ export default function SchedulerPage() {
             </header>
 
             <main className="max-w-350 mx-auto px-6 mt-4 flex flex-col gap-8">
-                {TIME_PHASES.map((phase) => (
-                    <section key={phase.id} className={`${phase.bg} rounded-4xl border border-slate-200/60 shadow-xl shadow-slate-200/20 overflow-hidden`}>
-                        <div className="px-8 py-4 border-b border-slate-100 flex items-center justify-between bg-white/50">
-                            <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.3em]">{phase.label}</h3>
-                            <div className="h-px flex-1 mx-6 bg-slate-100"></div>
-                            <span className="text-[10px] font-bold text-slate-400 tabular-nums">{phase.start}:00 – {phase.end + 1}:00</span>
-                        </div>
-
-                        <div className="flex">
-                            {/* Trục giờ */}
-                            <div className="w-20 shrink-0 border-r border-slate-100 flex flex-col pt-12 bg-slate-50/30">
-                                {Array.from({ length: phase.end - phase.start + 1 }, (_, i) => phase.start + i).map(h => (
-                                    <div key={h} className="h-16 flex items-start justify-center">
-                                        <span className="text-[10px] font-semibold text-slate-300 tabular-nums -translate-y-2">{h}:00</span>
-                                    </div>
-                                ))}
+                {TIME_PHASES.map((phase) => {
+                    const phaseHours = getPhaseHours(phase.start, phase.end);
+                    const phaseHeight = phaseHours.length * 64;
+                    
+                    return (
+                        <section key={phase.id} className={`${phase.bg} rounded-4xl border border-slate-200/60 shadow-xl shadow-slate-200/20 overflow-hidden`}>
+                            <div className="px-8 py-4 border-b border-slate-100 flex items-center justify-between bg-white/50">
+                                <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.3em]">{phase.label}</h3>
+                                <div className="h-px flex-1 mx-6 bg-slate-100"></div>
+                                <span className="text-[10px] font-bold text-slate-400 tabular-nums">
+                                    {phase.start}:00 – {String((phase.end + 1) % 24).padStart(2, '0')}:00
+                                </span>
                             </div>
 
-                            {/* Lưới lịch */}
-                            <div className="flex-1 flex overflow-x-auto">
-                                {DAYS.map((day, dIdx) => {
-                                    const dateKey = format(day, 'yyyy-MM-dd');
-                                    const dayEvents = groupedAllocations[dateKey] || [];
-                                    const isToday = isSameDay(day, new Date());
-
-                                    return (
-                                        <div key={dIdx} className={`flex-1 min-w-30 border-r border-slate-100 last:border-0 relative ${isToday ? 'bg-indigo-50/30' : ''}`}>
-                                            {/* Header ngày */}
-                                            <div className={`h-12 flex flex-col items-center justify-center border-b border-slate-100/50 sticky top-0 z-10 transition-colors ${isToday ? 'bg-indigo-50/60' : 'bg-white/40'}`}>
-                                                <span className={`text-[9px] font-black uppercase tracking-tighter ${isToday ? 'text-indigo-500' : 'text-slate-300'}`}>{DAY_NAMES[dIdx]}</span>
-                                                <span className={`text-sm font-black ${isToday ? 'text-indigo-600' : 'text-slate-500'}`}>{format(day, 'dd')}</span>
-                                            </div>
-
-                                            {/* Khu vực chứa Event */}
-                                            <div className="relative overflow-hidden" style={{ height: `${(phase.end - phase.start + 1) * 64}px` }}>
-                                                {Array.from({ length: phase.end - phase.start + 1 }).map((_, i) => (
-                                                    <div key={i} className="h-16 border-b border-slate-100/60 relative">
-                                                        {/* Vạch kẻ phụ 30 phút mờ */}
-                                                        <div className="absolute top-1/2 left-0 right-0 border-t border-dashed border-slate-100/30"></div>
-                                                    </div>
-                                                ))}
-                                                {dayEvents.filter((event: Allocation) => {
-                                                    const startDate = parseISO(event.startTime);
-                                                    const startMins = startDate.getHours() * 60 + startDate.getMinutes();
-                                                    
-                                                    let duration = event.durationMinutes || 60;
-                                                    if (event.endTime) {
-                                                        const endDate = parseISO(event.endTime);
-                                                        const diffMs = endDate.getTime() - startDate.getTime();
-                                                        duration = Math.max(Math.round(diffMs / 60000), 30);
-                                                    }
-                                                    const endMins = startMins + duration;
-                                                    
-                                                    const phaseStartMins = phase.start * 60;
-                                                    const phaseEndMins = (phase.end + 1) * 60;
-                                                    
-                                                    return startMins < phaseEndMins && endMins > phaseStartMins;
-                                                }).map((event: Allocation) => (
-                                                    <TimeBlock key={event.id} event={event} phaseStart={phase.start} />
-                                                ))}
-                                            </div>
+                            <div className="flex">
+                                {/* Trục giờ */}
+                                <div className="w-20 shrink-0 border-r border-slate-100 flex flex-col pt-12 bg-slate-50/30">
+                                    {phaseHours.map(h => (
+                                        <div key={h} className="h-16 flex items-start justify-center">
+                                            <span className="text-[10px] font-semibold text-slate-300 tabular-nums -translate-y-2">{h}:00</span>
                                         </div>
-                                    );
-                                })}
+                                    ))}
+                                </div>
+
+                                {/* Lưới lịch */}
+                                <div className="flex-1 flex overflow-x-auto">
+                                    {DAYS.map((day, dIdx) => {
+                                        const dateKey = format(day, 'yyyy-MM-dd');
+                                        const dayEvents = groupedAllocations[dateKey] || [];
+                                        const isToday = isSameDay(day, new Date());
+
+                                        return (
+                                            <div key={dIdx} className={`flex-1 min-w-30 border-r border-slate-100 last:border-0 relative ${isToday ? 'bg-indigo-50/30' : ''}`}>
+                                                {/* Header ngày */}
+                                                <div className={`h-12 flex flex-col items-center justify-center border-b border-slate-100/50 sticky top-0 z-10 transition-colors ${isToday ? 'bg-indigo-50/60' : 'bg-white/40'}`}>
+                                                    <span className={`text-[9px] font-black uppercase tracking-tighter ${isToday ? 'text-indigo-500' : 'text-slate-300'}`}>{DAY_NAMES[dIdx]}</span>
+                                                    <span className={`text-sm font-black ${isToday ? 'text-indigo-600' : 'text-slate-500'}`}>{format(day, 'dd')}</span>
+                                                </div>
+
+                                                {/* Khu vực chứa Event */}
+                                                <div className="relative overflow-hidden" style={{ height: `${phaseHeight}px` }}>
+                                                    {Array.from({ length: phaseHours.length }).map((_, i) => (
+                                                        <div key={i} className="h-16 border-b border-slate-100/60 relative">
+                                                            {/* Vạch kẻ phụ 30 phút mờ */}
+                                                            <div className="absolute top-1/2 left-0 right-0 border-t border-dashed border-slate-100/30"></div>
+                                                        </div>
+                                                    ))}
+                                                    {dayEvents.filter((event: Allocation) => {
+                                                        const startDate = parseISO(event.startTime);
+                                                        const startHour = startDate.getHours();
+                                                        const startMin = startDate.getMinutes();
+                                                        
+                                                        let duration = event.durationMinutes || 60;
+                                                        if (event.endTime) {
+                                                            const endDate = parseISO(event.endTime);
+                                                            const diffMs = endDate.getTime() - startDate.getTime();
+                                                            duration = Math.max(Math.round(diffMs / 60000), 30);
+                                                        }
+                                                        
+                                                        return isTimeOverlapping(startHour, startMin, duration, phase.start, phase.end);
+                                                    }).map((event: Allocation) => (
+                                                        <TimeBlock key={event.id} event={event} phaseHours={phaseHours} />
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
                             </div>
-                        </div>
-                    </section>
-                ))}
+                        </section>
+                    );
+                })}
             </main>
         </div>
     );

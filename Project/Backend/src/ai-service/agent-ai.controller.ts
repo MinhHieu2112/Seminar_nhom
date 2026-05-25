@@ -41,6 +41,7 @@ export class AgentAiController {
     try {
       const result = await this.aiScheduleGenerator.generateFromPrompt(
         payload.prompt,
+        payload.userCategories,
       );
       return { success: true, data: result };
     } catch (error) {
@@ -63,6 +64,7 @@ export class AgentAiController {
       prompt?: string;
       base64Image: string;
       mimeType: string;
+      userCategories?: string[];
     },
   ) {
     try {
@@ -71,6 +73,7 @@ export class AgentAiController {
         imageBuffer,
         payload.mimeType,
         payload.prompt,
+        payload.userCategories,
       );
       return { success: true, data: result };
     } catch (error) {

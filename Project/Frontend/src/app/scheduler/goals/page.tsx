@@ -6,7 +6,7 @@ import {
     MagnifyingGlass, Sparkle,
     PencilSimple, Trash, CalendarBlank,
     SquaresFour, MathOperations, Atom, Flask,
-    BookOpen, Code} from '@phosphor-icons/react';
+    BookOpen, Code, FunnelSimple, Clock, CaretDown, Calendar} from '@phosphor-icons/react';
 import {
     useSchedulerCategories, useSchedulerTasks,
     useCreateCategory, useCreateTask,
@@ -43,6 +43,16 @@ const STATUS_META: Record<string, { label: string; color: string; bg: string; bo
     skipped: { label: 'Bỏ qua', color: 'text-slate-550', bg: 'bg-slate-50', border: 'border-slate-200/60', dotColor: 'bg-slate-400' },
 };
 
+// ─── Utility helpers ─────────────────────────────────────────────────────────
+
+/** Returns local date string YYYY-MM-DD without timezone shift. */
+const getLocalDateStr = (date: Date): string => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+};
+
 const CATEGORY_ICONS = [
     { icon: MathOperations, color: '#10B981', bg: '#E6F4EA' }, // green
     { icon: Atom, color: '#3B82F6', bg: '#E8F0FE' },           // blue
@@ -65,6 +75,7 @@ function CreateTaskModal({ categoryId, onClose, onSave }: {
         categoryId: string;
         dueTime?: string;
         priority?: number;
+        status?: string;
         type?: 'TASK' | 'SESSION';
         sessionData?: { startTime: string; endTime: string };
     }) => Promise<void>;
@@ -72,11 +83,14 @@ function CreateTaskModal({ categoryId, onClose, onSave }: {
     const [title, setTitle] = useState('');
     const [dueTime, setDueTime] = useState('');
     const [priority, setPriority] = useState(2);
+    const [status, setStatus] = useState('pending');
     const [type, setType] = useState<'TASK' | 'SESSION'>('TASK');
     const [startTime, setStartTime] = useState('');
     const [endTime, setEndTime] = useState('');
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
+    const [showPriorityDropdown, setShowPriorityDropdown] = useState(false);
+    const [showStatusDropdown, setShowStatusDropdown] = useState(false);
 
     const save = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -103,10 +117,21 @@ function CreateTaskModal({ categoryId, onClose, onSave }: {
         setSaving(true);
         try {
             if (type === 'SESSION') {
+                if (status === 'done') {
+                    const todayStr = getLocalDateStr(new Date());
+                    const sDate = new Date(startTime);
+                    const refStr = getLocalDateStr(sDate);
+                    if (refStr > todayStr) {
+                        setError('Không thể đánh dấu hoàn thành phiên học trong tương lai.');
+                        setSaving(false);
+                        return;
+                    }
+                }
                 await onSave({
                     title: title.trim(),
                     categoryId,
                     priority,
+                    status,
                     type,
                     sessionData: {
                         startTime: new Date(startTime).toISOString(),
@@ -119,6 +144,7 @@ function CreateTaskModal({ categoryId, onClose, onSave }: {
                     categoryId,
                     dueTime: dueTime ? new Date(dueTime).toISOString() : undefined,
                     priority,
+                    status,
                     type,
                 });
             }
@@ -201,27 +227,128 @@ function CreateTaskModal({ categoryId, onClose, onSave }: {
                         </div>
                     )}
 
-                    <div>
-                        <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Độ ưu tiên</label>
-                        <div className="grid grid-cols-4 gap-2">
-                            {[1, 2, 3, 4].map(p => {
-                                const pm = PRIORITY_META[p];
-                                const isSelected = priority === p;
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="relative">
+                            <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Độ ưu tiên</label>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setShowPriorityDropdown(!showPriorityDropdown);
+                                    setShowStatusDropdown(false);
+                                }}
+                                className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100/50 border border-slate-100 focus:border-[#6D5EF5] rounded-xl outline-none text-xs font-semibold text-slate-700 transition-all text-left shadow-sm"
+                            >
+                                <div className="flex items-center gap-2">
+                                    <span className={`w-2 h-2 rounded-full ${PRIORITY_META[priority]?.dotColor}`} />
+                                    <span>{PRIORITY_META[priority]?.label || 'Chọn'}</span>
+                                </div>
+                                <CaretDown size={14} weight="bold" className={`text-slate-400 transition-transform duration-200 ${showPriorityDropdown ? 'rotate-180' : ''}`} />
+                            </button>
+
+                            {showPriorityDropdown && (
+                                <>
+                                    <div 
+                                        className="fixed inset-0 z-[210]" 
+                                        onClick={() => setShowPriorityDropdown(false)}
+                                    />
+                                    <div className="absolute left-0 right-0 mt-1.5 bg-white/95 backdrop-blur-md border border-slate-100 shadow-[0_12px_30px_rgba(0,0,0,0.06)] rounded-xl p-1.5 z-[220] flex flex-col gap-1 animate-in fade-in slide-in-from-top-1.5 duration-100">
+                                        {[1, 2, 3, 4].map((p) => {
+                                            const meta = PRIORITY_META[p];
+                                            const isSelected = priority === p;
+                                            return (
+                                                <button
+                                                    key={p}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setPriority(p);
+                                                        setShowPriorityDropdown(false);
+                                                    }}
+                                                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-all hover:bg-slate-50 text-left ${
+                                                        isSelected ? 'bg-violet-50/50 text-[#6D5EF5]' : 'text-slate-600'
+                                                    }`}
+                                                >
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={`w-2 h-2 rounded-full ${meta.dotColor}`} />
+                                                        <span>{meta.label}</span>
+                                                    </div>
+                                                    {isSelected && <Check size={12} weight="bold" className="text-[#6D5EF5]" />}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </>
+                            )}
+                        </div>
+
+                        <div className="relative">
+                            <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Trạng thái</label>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setShowStatusDropdown(!showStatusDropdown);
+                                    setShowPriorityDropdown(false);
+                                }}
+                                className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100/50 border border-slate-100 focus:border-[#6D5EF5] rounded-xl outline-none text-xs font-semibold text-slate-700 transition-all text-left shadow-sm"
+                            >
+                                <div className="flex items-center gap-2">
+                                    <span className={`w-2 h-2 rounded-full ${STATUS_META[status]?.dotColor}`} />
+                                    <span>{STATUS_META[status]?.label || 'Chọn'}</span>
+                                </div>
+                                <CaretDown size={14} weight="bold" className={`text-slate-400 transition-transform duration-200 ${showStatusDropdown ? 'rotate-180' : ''}`} />
+                            </button>
+
+                            {showStatusDropdown && (() => {
+                                const isFutureSession = (() => {
+                                    if (type !== 'SESSION' || !startTime) return false;
+                                    const refDate = new Date(startTime);
+                                    const todayStr = getLocalDateStr(new Date());
+                                    const refStr = getLocalDateStr(refDate);
+                                    return refStr > todayStr;
+                                })();
                                 return (
-                                    <button
-                                        key={p}
-                                        type="button"
-                                        onClick={() => setPriority(p)}
-                                        className={`py-2 rounded-lg text-xs font-semibold border transition-all duration-200 ${
-                                            isSelected 
-                                                ? 'border-[#6D5EF5] bg-violet-50/50 text-[#6D5EF5] shadow-[0_2px_12px_rgba(109,94,245,0.08)]' 
-                                                : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
-                                        }`}
-                                    >
-                                        {pm.label}
-                                    </button>
+                                    <>
+                                        <div 
+                                            className="fixed inset-0 z-[210]" 
+                                            onClick={() => setShowStatusDropdown(false)}
+                                        />
+                                        <div className="absolute left-0 right-0 mt-1.5 bg-white/95 backdrop-blur-md border border-slate-100 shadow-[0_12px_30px_rgba(0,0,0,0.06)] rounded-xl p-1.5 z-[220] flex flex-col gap-1 animate-in fade-in slide-in-from-top-1.5 duration-100">
+                                            {Object.entries(STATUS_META)
+                                                .filter(([key]) => key !== 'skipped')
+                                                .map(([key, meta]) => {
+                                                    const isSelected = status === key;
+                                                    const isDisabled = key === 'done' && isFutureSession;
+                                                    return (
+                                                        <button
+                                                            key={key}
+                                                            type="button"
+                                                            disabled={isDisabled}
+                                                            onClick={() => {
+                                                                setStatus(key);
+                                                                setShowStatusDropdown(false);
+                                                            }}
+                                                            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-all text-left ${
+                                                                isDisabled 
+                                                                    ? 'opacity-40 cursor-not-allowed bg-slate-50/50 text-slate-400'
+                                                                    : isSelected 
+                                                                        ? 'bg-violet-50/50 text-[#6D5EF5] hover:bg-violet-50' 
+                                                                        : 'text-slate-600 hover:bg-slate-50'
+                                                            }`}
+                                                        >
+                                                            <div className="flex items-center gap-2">
+                                                                <span className={`w-2 h-2 rounded-full ${meta.dotColor}`} />
+                                                                <span>{meta.label}</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-2">
+                                                                {isDisabled && <span className="text-[9px] text-slate-400 font-bold bg-slate-100 px-1.5 py-0.5 rounded">Tương lai</span>}
+                                                                {isSelected && <Check size={12} weight="bold" className="text-[#6D5EF5]" />}
+                                                            </div>
+                                                        </button>
+                                                    );
+                                                })}
+                                        </div>
+                                    </>
                                 );
-                            })}
+                            })()}
                         </div>
                     </div>
 
@@ -262,6 +389,13 @@ export default function GoalsPage() {
     const [search, setSearch] = useState('');
     const [filterCat, setFilterCat] = useState<string | null>(null);
     const [filterStatus, setFilterStatus] = useState<string>('all');
+    const [filterTime, setFilterTime] = useState<'all' | 'today' | 'tomorrow' | 'dayafter' | 'custom'>('all');
+    const [customStart, setCustomStart] = useState('');
+    const [customEnd, setCustomEnd] = useState('');
+    const [activeCustomStart, setActiveCustomStart] = useState('');
+    const [activeCustomEnd, setActiveCustomEnd] = useState('');
+    const [isTimeDropdownOpen, setIsTimeDropdownOpen] = useState(false);
+    const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
     const [inlineCategory, setInlineCategory] = useState<string | null>(null);
 
 
@@ -286,6 +420,8 @@ export default function GoalsPage() {
     const [taskErr, setTaskErr] = useState('');
 
     const [deleteTaskId, setDeleteTaskId] = useState<string | null>(null);
+    const [showPriorityDropdown, setShowPriorityDropdown] = useState(false);
+    const [showStatusDropdown, setShowStatusDropdown] = useState(false);
 
     // AI Modal
     const [aiModalOpen, setAiModalOpen] = useState(false);
@@ -330,6 +466,15 @@ export default function GoalsPage() {
             if (sDate.toDateString() !== eDate.toDateString()) {
                 setTaskErr('Thời gian bắt đầu và phiên kết thúc phải trong cùng một ngày.');
                 return;
+            }
+            // Check if marking a future session as completed (done)
+            if (editTaskStatus === 'done') {
+                const todayStr = getLocalDateStr(new Date());
+                const refStr = getLocalDateStr(sDate);
+                if (refStr > todayStr) {
+                    setTaskErr('Không thể đánh dấu hoàn thành phiên học trong tương lai.');
+                    return;
+                }
             }
         }
 
@@ -387,6 +532,7 @@ export default function GoalsPage() {
         categoryId: string;
         dueTime?: string;
         priority?: number;
+        status?: string;
         type?: 'TASK' | 'SESSION';
         sessionData?: { startTime: string; endTime: string };
     }) => {
@@ -396,18 +542,47 @@ export default function GoalsPage() {
 
     const organized = useMemo(() => {
         const q = search.toLowerCase();
+        const now = new Date();
+        const todayStr = getLocalDateStr(now);
+        const tomorrowDate = new Date(now); tomorrowDate.setDate(now.getDate() + 1);
+        const tomorrowStr = getLocalDateStr(tomorrowDate);
+        const dayAfterDate = new Date(now); dayAfterDate.setDate(now.getDate() + 2);
+        const dayAfterStr = getLocalDateStr(dayAfterDate);
+
+        const matchesTime = (t: Task): boolean => {
+            if (filterTime === 'all') return true;
+            // For SESSIONs, use startTime from first allocation; for TASKs, use dueTime
+            const refDate = t.allocations && t.allocations.length > 0
+                ? new Date(t.allocations[0].startTime)
+                : t.dueTime ? new Date(t.dueTime) : null;
+            if (!refDate) return false; // no date → only shown under 'all' (already returned above)
+            const refStr = getLocalDateStr(refDate);
+            if (filterTime === 'today') return refStr === todayStr;
+            if (filterTime === 'tomorrow') return refStr === tomorrowStr;
+            if (filterTime === 'dayafter') return refStr === dayAfterStr;
+            if (filterTime === 'custom') {
+                if (!activeCustomStart && !activeCustomEnd) return true;
+                if (activeCustomStart && !activeCustomEnd) return refStr >= activeCustomStart;
+                if (!activeCustomStart && activeCustomEnd) return refStr <= activeCustomEnd;
+                return refStr >= activeCustomStart && refStr <= activeCustomEnd;
+            }
+            return true;
+        };
+
         return (categories as Category[]).map((cat, idx) => ({
             ...cat, palette: PALETTE[idx % PALETTE.length],
             tasks: (tasks as Task[]).filter(t => {
                 if (t.categoryId !== cat.id) return false;
                 if (filterStatus !== 'all' && t.status !== filterStatus) return false;
+                if (!matchesTime(t)) return false;
                 if (q && !t.title.toLowerCase().includes(q)) return false;
                 return true;
             }),
         })).filter(cat => !filterCat || cat.id === filterCat);
-    }, [categories, tasks, filterCat, filterStatus, search]);
+    }, [categories, tasks, filterCat, filterStatus, filterTime, activeCustomStart, activeCustomEnd, search]);
 
     const totalTasks = (tasks as Task[]).length;
+    const totalFilteredTasks = useMemo(() => organized.reduce((sum, cat) => sum + cat.tasks.length, 0), [organized]);
 
     if (lCat || lTask) return (
         <div className="flex items-center justify-center min-h-[70vh]">
@@ -520,86 +695,247 @@ export default function GoalsPage() {
                 <main className="flex-1 min-w-0 flex flex-col gap-6 w-full animate-in fade-in duration-200">
 
                     {/* Topbar row */}
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-200/50">
-                        <div>
-                            <h1 className="text-xl font-bold text-slate-800 tracking-tight">Danh sách công việc</h1>
-                            <p className="text-xs text-slate-450 font-medium mt-0.5">
-                                {filterCat ? (categories as Category[]).find(c => c.id === filterCat)?.name : 'Tất cả lĩnh vực học tập'}
-                            </p>
+                    <div className="flex flex-col gap-3 pb-4 border-b border-slate-200/50">
+                        {/* Row 1: Title + Search + AI Button */}
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                            <div>
+                                <h1 className="text-xl font-bold text-slate-800 tracking-tight">Danh sách công việc</h1>
+                                <p className="text-xs text-slate-450 font-medium mt-0.5">
+                                    {filterCat ? (categories as Category[]).find(c => c.id === filterCat)?.name : 'Tất cả lĩnh vực học tập'}
+                                    {(filterTime !== 'all' || filterStatus !== 'all') && (
+                                        <span className="ml-2 inline-flex items-center gap-1 text-[10px] font-bold text-[#6D5EF5] bg-violet-50 px-2 py-0.5 rounded-full border border-violet-100">
+                                            <FunnelSimple size={10} weight="bold" /> Đang lọc
+                                        </span>
+                                    )}
+                                </p>
+                            </div>
+
+                            <div className="flex items-center gap-2 flex-wrap">
+                                {/* Search */}
+                                <div className="relative">
+                                    <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} weight="bold" />
+                                    <input 
+                                        type="text" 
+                                        placeholder="Tìm công việc..." 
+                                        value={search} 
+                                        onChange={e => setSearch(e.target.value)}
+                                        className="pl-9 pr-4 py-2 bg-white border border-slate-200/80 rounded-xl text-xs font-medium text-slate-700 outline-none focus:border-[#6D5EF5] transition-all duration-200 w-44 focus:w-52 shadow-sm"
+                                    />
+                                </div>
+
+                                {/* Integrated AI Scheduler Button */}
+                                <button
+                                    onClick={() => setAiModalOpen(true)}
+                                    className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-tr from-[#6D5EF5] to-[#8B5CF6] hover:opacity-95 text-white font-bold rounded-xl text-xs shadow-sm shadow-violet-500/10 active:scale-95 transition-all duration-150 shrink-0"
+                                >
+                                    <Sparkle size={13} weight="fill" />
+                                    Lên lịch AI
+                                </button>
+                            </div>
                         </div>
 
-                        <div className="flex items-center gap-3 flex-wrap md:flex-nowrap">
-                            {/* Search */}
+                        {/* Row 2: Filter bar (dropdown time + dropdown status) */}
+                        <div className="flex flex-wrap items-center gap-2">
+                            {/* Time dropdown */}
                             <div className="relative">
-                                <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} weight="bold" />
-                                <input 
-                                    type="text" 
-                                    placeholder="Tìm công việc..." 
-                                    value={search} 
-                                    onChange={e => setSearch(e.target.value)}
-                                    className="pl-9 pr-4 py-2 bg-white border border-slate-200/80 rounded-xl text-xs font-medium text-slate-700 outline-none focus:border-[#6D5EF5] transition-all duration-200 w-44 focus:w-52 shadow-sm"
-                                />
+                                {isTimeDropdownOpen && (
+                                    <div className="fixed inset-0 z-30" onClick={() => setIsTimeDropdownOpen(false)} />
+                                )}
+                                <button
+                                    onClick={() => {
+                                        setIsTimeDropdownOpen(!isTimeDropdownOpen);
+                                        setIsStatusDropdownOpen(false);
+                                    }}
+                                    className={`relative z-35 flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 border rounded-xl text-xs font-semibold text-slate-700 shadow-sm cursor-pointer transition-all duration-150 ${
+                                        isTimeDropdownOpen || filterTime !== 'all' ? 'border-[#6D5EF5] text-[#6D5EF5] bg-violet-50/10' : 'border-slate-200/80'
+                                    }`}
+                                >
+                                    <Clock size={13} className={filterTime !== 'all' ? 'text-[#6D5EF5]' : 'text-slate-400'} weight="bold" />
+                                    <span>
+                                        Thời gian:{' '}
+                                        {filterTime === 'all' && 'Tất cả'}
+                                        {filterTime === 'today' && 'Hôm nay'}
+                                        {filterTime === 'tomorrow' && 'Ngày mai'}
+                                        {filterTime === 'dayafter' && 'Ngày kia'}
+                                        {filterTime === 'custom' && (
+                                            activeCustomStart || activeCustomEnd
+                                                ? `Tùy chỉnh (${activeCustomStart ? format(new Date(activeCustomStart), 'dd/MM') : ''} - ${activeCustomEnd ? format(new Date(activeCustomEnd), 'dd/MM') : ''})`
+                                                : 'Tùy chỉnh'
+                                        )}
+                                    </span>
+                                    <CaretDown size={11} className={`transition-transform duration-200 ${isTimeDropdownOpen ? 'rotate-180' : ''}`} weight="bold" />
+                                </button>
+
+                                {isTimeDropdownOpen && (
+                                    <div className="absolute top-full left-0 mt-1.5 w-48 bg-white border border-slate-100 shadow-[0_10px_30px_rgba(0,0,0,0.08)] rounded-xl py-1 z-35 flex flex-col gap-0.5 animate-in fade-in slide-in-from-top-1 duration-150">
+                                        {([
+                                            { val: 'all', label: 'Tất cả' },
+                                            { val: 'today', label: 'Hôm nay' },
+                                            { val: 'tomorrow', label: 'Ngày mai' },
+                                            { val: 'dayafter', label: 'Ngày kia' },
+                                            { val: 'custom', label: 'Tùy chỉnh' },
+                                        ] as const).map(option => {
+                                            const isSelected = filterTime === option.val;
+                                            return (
+                                                <button
+                                                    key={option.val}
+                                                    onClick={() => {
+                                                        setFilterTime(option.val);
+                                                        setIsTimeDropdownOpen(false);
+                                                    }}
+                                                    className={`px-3 py-2 text-left text-xs font-semibold hover:bg-slate-50 transition-all ${
+                                                        isSelected ? 'text-[#6D5EF5] bg-violet-50/30' : 'text-slate-650'
+                                                    }`}
+                                                >
+                                                    {option.label}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                )}
                             </div>
 
-                            {/* Status filter */}
-                            <div className="flex items-center gap-0.5 bg-slate-100 border border-slate-200/40 rounded-xl p-0.5 shadow-inner">
-                                {[
-                                    { val: 'all', label: 'Tất cả' },
-                                    { val: 'pending', label: 'Chờ' },
-                                    { val: 'scheduled', label: 'Lên lịch' },
-                                    { val: 'done', label: 'Xong' },
-                                ].map(f => (
-                                    <button 
-                                        key={f.val} 
-                                        onClick={() => setFilterStatus(f.val)}
-                                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-155 ${
-                                            filterStatus === f.val 
-                                                ? 'bg-white text-[#6D5EF5] shadow-sm' 
-                                                : 'text-slate-500 hover:text-slate-800'
-                                        }`}
-                                    >
-                                        {f.label}
-                                    </button>
-                                ))}
+                            {/* Status dropdown */}
+                            <div className="relative">
+                                {isStatusDropdownOpen && (
+                                    <div className="fixed inset-0 z-30" onClick={() => setIsStatusDropdownOpen(false)} />
+                                )}
+                                <button
+                                    onClick={() => {
+                                        setIsStatusDropdownOpen(!isStatusDropdownOpen);
+                                        setIsTimeDropdownOpen(false);
+                                    }}
+                                    className={`relative z-35 flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 border rounded-xl text-xs font-semibold text-slate-700 shadow-sm cursor-pointer transition-all duration-150 ${
+                                        isStatusDropdownOpen || filterStatus !== 'all' ? 'border-[#6D5EF5] text-[#6D5EF5] bg-violet-50/10' : 'border-slate-200/80'
+                                    }`}
+                                >
+                                    <FunnelSimple size={13} className={filterStatus !== 'all' ? 'text-[#6D5EF5]' : 'text-slate-400'} weight="bold" />
+                                    <span>
+                                        Trạng thái:{' '}
+                                        {filterStatus === 'all' && 'Tất cả'}
+                                        {filterStatus === 'pending' && 'Chờ'}
+                                        {filterStatus === 'scheduled' && 'Lên lịch'}
+                                        {filterStatus === 'done' && 'Xong'}
+                                    </span>
+                                    <CaretDown size={11} className={`transition-transform duration-200 ${isStatusDropdownOpen ? 'rotate-180' : ''}`} weight="bold" />
+                                </button>
+
+                                {isStatusDropdownOpen && (
+                                    <div className="absolute top-full left-0 mt-1.5 w-40 bg-white border border-slate-100 shadow-[0_10px_30px_rgba(0,0,0,0.08)] rounded-xl py-1 z-35 flex flex-col gap-0.5 animate-in fade-in slide-in-from-top-1 duration-150">
+                                        {([
+                                            { val: 'all', label: 'Tất cả' },
+                                            { val: 'pending', label: 'Chờ' },
+                                            { val: 'scheduled', label: 'Lên lịch' },
+                                            { val: 'done', label: 'Xong' },
+                                        ] as const).map(option => {
+                                            const isSelected = filterStatus === option.val;
+                                            return (
+                                                <button
+                                                    key={option.val}
+                                                    onClick={() => {
+                                                        setFilterStatus(option.val);
+                                                        setIsStatusDropdownOpen(false);
+                                                    }}
+                                                    className={`px-3 py-2 text-left text-xs font-semibold hover:bg-slate-50 transition-all ${
+                                                        isSelected ? 'text-[#6D5EF5] bg-violet-50/30' : 'text-slate-650'
+                                                    }`}
+                                                >
+                                                    {option.label}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                )}
                             </div>
 
-                            {/* Integrated AI Scheduler Button */}
-                            <button
-                                onClick={() => setAiModalOpen(true)}
-                                className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-tr from-[#6D5EF5] to-[#8B5CF6] hover:opacity-95 text-white font-bold rounded-xl text-xs shadow-sm shadow-violet-500/10 active:scale-95 transition-all duration-150 shrink-0"
-                            >
-                                <Sparkle size={13} weight="fill" />
-                                Lên lịch AI
-                            </button>
+                            {/* Reset button — only shown when any filter is active */}
+                            {(filterTime !== 'all' || filterStatus !== 'all' || activeCustomStart || activeCustomEnd) && (
+                                <button
+                                    onClick={() => {
+                                        setFilterTime('all');
+                                        setFilterStatus('all');
+                                        setCustomStart('');
+                                        setCustomEnd('');
+                                        setActiveCustomStart('');
+                                        setActiveCustomEnd('');
+                                    }}
+                                    className="ml-auto flex items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-[#6D5EF5] transition-colors px-2 py-1.5 rounded-lg hover:bg-violet-50"
+                                >
+                                    <X size={11} weight="bold" /> Xóa bộ lọc
+                                </button>
+                            )}
                         </div>
+
+                        {/* Custom Date Range Panel */}
+                        {filterTime === 'custom' && (
+                            <div className="flex flex-wrap items-center gap-3 bg-violet-50/20 border border-violet-100/50 p-3 rounded-2xl animate-in slide-in-from-top-2 duration-200 mt-2">
+                                <div className="flex items-center gap-1.5">
+                                    <Calendar size={14} className="text-[#6D5EF5]" weight="bold" />
+                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Từ ngày</span>
+                                    <input 
+                                        type="date" 
+                                        value={customStart}
+                                        onChange={e => setCustomStart(e.target.value)}
+                                        className="px-3 py-1.5 bg-white border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-700 outline-none focus:border-[#6D5EF5] transition-all"
+                                    />
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                    <Calendar size={14} className="text-[#6D5EF5]" weight="bold" />
+                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Đến ngày</span>
+                                    <input 
+                                        type="date" 
+                                        value={customEnd}
+                                        onChange={e => setCustomEnd(e.target.value)}
+                                        className="px-3 py-1.5 bg-white border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-700 outline-none focus:border-[#6D5EF5] transition-all"
+                                    />
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        setActiveCustomStart(customStart);
+                                        setActiveCustomEnd(customEnd);
+                                    }}
+                                    className="px-4 py-1.5 bg-gradient-to-r from-[#6D5EF5] to-[#8B5CF6] hover:opacity-95 text-white font-bold rounded-xl text-xs shadow-sm transition-all"
+                                >
+                                    Áp dụng
+                                </button>
+                                {(activeCustomStart || activeCustomEnd) && (
+                                    <button
+                                        onClick={() => {
+                                            setCustomStart('');
+                                            setCustomEnd('');
+                                            setActiveCustomStart('');
+                                            setActiveCustomEnd('');
+                                        }}
+                                        className="text-xs text-[#6D5EF5] hover:text-slate-700 font-bold transition-all px-2"
+                                    >
+                                        Đặt lại
+                                    </button>
+                                )}
+                            </div>
+                        )}
                     </div>
 
                     {/* Content Section */}
-                    {organized.length === 0 ? (
+                    {categories.length === 0 ? (
+                        /* ── Absolutely no categories yet ── */
                         <div className="bg-white rounded-[24px] border border-slate-100 shadow-[0_8px_30px_rgba(0,0,0,0.015)] py-12 px-6 flex flex-col items-center justify-center text-center max-w-lg mx-auto mt-6 w-full">
-                            {/* Inline checklist SVG - smaller size */}
                             <svg width="150" height="120" viewBox="0 0 220 180" fill="none" xmlns="http://www.w3.org/2000/svg" className="mx-auto mb-2">
                                 <path d="M40 30L43 37L50 40L43 43L40 50L37 43L30 40L37 37L40 30Z" fill="#8B5CF6" opacity="0.6"/>
                                 <path d="M180 40L182 45L187 47L182 49L180 54L178 49L173 47L178 45L180 40Z" fill="#6D5EF5" opacity="0.8"/>
                                 <path d="M195 110L196 113L199 114L196 115L195 118L194 115L191 114L194 113L195 110Z" fill="#C084FC" opacity="0.5"/>
-                                
                                 <rect x="54" y="34" width="92" height="122" rx="16" fill="#F1F0FF" />
                                 <rect x="50" y="30" width="92" height="122" rx="16" fill="white" stroke="#E2E8F0" strokeWidth="2"/>
                                 <rect x="78" y="20" width="36" height="14" rx="6" fill="#E2DFFF" />
                                 <rect x="84" y="24" width="24" height="6" rx="3" fill="#6D5EF5" />
-                                
                                 <rect x="66" y="54" width="14" height="14" rx="4" fill="#EEF2FF" stroke="#C7D2FE" strokeWidth="1.5"/>
                                 <path d="M70 61L72.5 63.5L77 58.5" stroke="#6D5EF5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                                 <rect x="88" y="58" width="40" height="6" rx="3" fill="#94A3B8" opacity="0.5" />
-                                
                                 <rect x="66" y="80" width="14" height="14" rx="4" fill="#EEF2FF" stroke="#C7D2FE" strokeWidth="1.5"/>
                                 <path d="M70 87L72.5 89.5L77 84.5" stroke="#6D5EF5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                                 <rect x="88" y="84" width="46" height="6" rx="3" fill="#94A3B8" opacity="0.5" />
-                                
                                 <rect x="66" y="106" width="14" height="14" rx="4" fill="#EEF2FF" stroke="#C7D2FE" strokeWidth="1.5"/>
                                 <path d="M70 113L72.5 115.5L77 110.5" stroke="#6D5EF5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                                 <rect x="88" y="110" width="34" height="6" rx="3" fill="#94A3B8" opacity="0.5" />
-
                                 <path d="M142 120 L158 120 L154 144 L146 144 Z" fill="#DDB7FF" />
                                 <rect x="140" y="116" width="20" height="4" rx="2" fill="#8B5CF6" />
                                 <path d="M150 116 Q150 90 142 84" stroke="#10B981" strokeWidth="2.5" strokeLinecap="round"/>
@@ -608,19 +944,33 @@ export default function GoalsPage() {
                                 <path d="M162 92 Q170 90 168 82 Q160 84 162 92 Z" fill="#34D399" />
                                 <path d="M146 95 Q144 87 150 82 Q154 88 146 95 Z" fill="#059669"/>
                             </svg>
-
-                            <h3 className="text-base font-bold text-slate-800 mt-3">Chưa có dữ liệu</h3>
+                            <h3 className="text-base font-bold text-slate-800 mt-3">Chưa có danh mục</h3>
                             <p className="text-xs text-slate-450 mt-1 mb-5 max-w-xs leading-normal">
-                                {categories.length === 0 
-                                    ? "Tạo danh mục đầu tiên của bạn để phân loại các công việc học tập." 
-                                    : "Bắt đầu tạo nhiệm vụ đầu tiên của bạn trong danh mục này."
-                                }
+                                Tạo danh mục đầu tiên của bạn để phân loại các công việc học tập.
                             </p>
                             <button 
-                                onClick={() => categories.length === 0 ? setCatModal(true) : setInlineCategory(categories[0].id)}
+                                onClick={() => setCatModal(true)}
                                 className="px-5 py-2.5 bg-gradient-to-tr from-[#6D5EF5] to-[#8B5CF6] hover:opacity-95 text-white font-bold rounded-xl shadow-sm text-xs transition-all duration-150 active:scale-95"
                             >
-                                {categories.length === 0 ? "+ Thêm danh mục" : "+ Thêm công việc"}
+                                + Thêm danh mục
+                            </button>
+                        </div>
+                    ) : totalFilteredTasks === 0 && (filterTime !== 'all' || filterStatus !== 'all' || search) ? (
+                        /* ── Has categories but active filter yields no results ── */
+                        <div className="bg-white rounded-[24px] border border-slate-100 shadow-[0_8px_30px_rgba(0,0,0,0.015)] py-12 px-6 flex flex-col items-center justify-center text-center max-w-lg mx-auto mt-6 w-full">
+                            <div className="w-16 h-16 rounded-2xl bg-violet-50 border border-violet-100 flex items-center justify-center mx-auto mb-4">
+                                <FunnelSimple size={28} weight="duotone" className="text-[#6D5EF5]" />
+                            </div>
+                            <h3 className="text-base font-bold text-slate-800">Không có kết quả</h3>
+                            <p className="text-xs text-slate-450 mt-1.5 mb-5 max-w-xs leading-relaxed">
+                                Không tìm thấy công việc nào phù hợp với bộ lọc hiện tại.
+                                Hãy thử điều chỉnh hoặc xóa bộ lọc.
+                            </p>
+                            <button 
+                                onClick={() => { setFilterTime('all'); setFilterStatus('all'); setSearch(''); }}
+                                className="px-5 py-2.5 bg-gradient-to-tr from-[#6D5EF5] to-[#8B5CF6] hover:opacity-95 text-white font-bold rounded-xl shadow-sm text-xs transition-all duration-150 active:scale-95"
+                            >
+                                Xóa toàn bộ bộ lọc
                             </button>
                         </div>
                     ) : (
@@ -663,6 +1013,18 @@ export default function GoalsPage() {
                                                 {cat.tasks.map(task => {
                                                     const pm = PRIORITY_META[task.priority ?? 2] ?? PRIORITY_META[2];
                                                     const sm = STATUS_META[task.status] ?? STATUS_META.pending;
+                                                    const isFutureSession = (() => {
+                                                        const isSession = task.allocations && task.allocations.length > 0;
+                                                        if (!isSession) return false;
+                                                        const refDate = task.allocations && task.allocations.length > 0
+                                                            ? new Date(task.allocations[0].startTime)
+                                                            : task.dueTime ? new Date(task.dueTime) : null;
+                                                        if (!refDate) return false;
+                                                        const todayStr = getLocalDateStr(new Date());
+                                                        const refStr = getLocalDateStr(refDate);
+                                                        return refStr > todayStr;
+                                                    })();
+
                                                     return (
                                                         <div 
                                                             key={task.id} 
@@ -671,18 +1033,23 @@ export default function GoalsPage() {
                                                             <div className="flex items-center gap-3.5 min-w-0 flex-1">
                                                                 {/* Checkbox circle/square */}
                                                                 <button 
+                                                                    disabled={isFutureSession}
                                                                     onClick={async (e) => {
                                                                         e.stopPropagation();
+                                                                        if (isFutureSession) return;
                                                                         const nextStatus = task.status === 'done' ? 'pending' : 'done';
                                                                         await updateTask.mutateAsync({
                                                                             id: task.id,
                                                                             data: { status: nextStatus }
                                                                         });
                                                                     }}
-                                                                    className={`w-5 h-5 border-2 rounded-lg cursor-pointer transition-all duration-150 flex items-center justify-center shrink-0 ${
+                                                                    title={isFutureSession ? 'Không thể đánh dấu hoàn thành phiên học trong tương lai' : undefined}
+                                                                    className={`w-5 h-5 border-2 rounded-lg transition-all duration-150 flex items-center justify-center shrink-0 ${
                                                                         task.status === 'done' 
                                                                             ? 'border-emerald-500 bg-emerald-500 shadow-sm shadow-emerald-500/10' 
-                                                                            : 'border-slate-300 hover:border-violet-500 bg-white'
+                                                                            : isFutureSession
+                                                                                ? 'border-slate-200 bg-slate-50 opacity-60 cursor-not-allowed'
+                                                                                : 'border-slate-300 hover:border-violet-500 bg-white cursor-pointer'
                                                                     }`}
                                                                 >
                                                                     {task.status === 'done' && <Check size={12} weight="bold" className="text-white" />}
@@ -759,23 +1126,23 @@ export default function GoalsPage() {
                                                                         setEditTaskPriority(task.priority ?? 2);
                                                                         setEditTaskStatus(task.status);
                                                                         setTaskErr('');
+                                                                        setShowPriorityDropdown(false);
+                                                                        setShowStatusDropdown(false);
                                                                     }}
                                                                     className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
                                                                 >
                                                                     <PencilSimple size={14} weight="bold" />
                                                                 </button>
-                                                                {task.status !== 'done' && !(task.dueTime && new Date(task.dueTime) < new Date()) && (
-                                                                    <button 
-                                                                        onClick={(e) => { 
-                                                                            e.preventDefault(); 
-                                                                            setDeleteTaskId(task.id); 
-                                                                            setTaskErr(''); 
-                                                                        }}
-                                                                        className="p-1.5 rounded-lg hover:bg-red-500/10 text-slate-400 hover:text-red-600 transition-colors"
-                                                                    >
-                                                                        <Trash size={14} weight="bold" />
-                                                                    </button>
-                                                                )}
+                                                                <button 
+                                                                    onClick={(e) => { 
+                                                                        e.preventDefault(); 
+                                                                        setDeleteTaskId(task.id); 
+                                                                        setTaskErr(''); 
+                                                                    }}
+                                                                    className="p-1.5 rounded-lg hover:bg-red-500/10 text-slate-400 hover:text-red-600 transition-colors"
+                                                                >
+                                                                    <Trash size={14} weight="bold" />
+                                                                </button>
                                                             </div>
                                                         </div>
                                                     );
@@ -890,123 +1257,213 @@ export default function GoalsPage() {
             )}
 
             {/* ══ Modal: Edit Task ════════════════════════════════════════════ */}
-            {editTaskId !== null && (
-                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4"
-                    onClick={e => { if (e.target === e.currentTarget) { setEditTaskId(null); setTaskErr(''); } }}>
-                    <div className="bg-white rounded-2xl border border-slate-100 shadow-xl w-full max-w-md p-7 animate-in zoom-in-95 duration-150">
-                        <div className="flex items-center justify-between mb-5">
-                            <div>
-                                <h2 className="text-lg font-bold text-slate-800">Cập nhật thông tin</h2>
-                            </div>
-                            <button onClick={() => { setEditTaskId(null); setTaskErr(''); }}
-                                className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 transition-colors">
-                                <X size={18} weight="bold" />
-                            </button>
-                        </div>
-                        <form onSubmit={handleEditTask} className="space-y-4">
-                            <div>
-                                <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Tên công việc</label>
-                                <input autoFocus type="text" value={editTaskTitle}
-                                    onChange={e => { setEditTaskTitle(e.target.value); setTaskErr(''); }}
-                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-100 focus:border-[#6D5EF5] focus:bg-white rounded-xl outline-none text-sm font-medium text-slate-800 transition-all"
-                                />
-                            </div>
-
-                            {/* Segmented Control for Type Selector */}
-                            <div className="flex bg-slate-50 border border-slate-100 p-1 rounded-xl my-4">
-                                <button
-                                    type="button"
-                                    onClick={() => { setEditTaskType('TASK'); setTaskErr(''); }}
-                                    className={`flex-1 py-2.5 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${editTaskType === 'TASK' ? 'bg-white text-[#6D5EF5] shadow-sm border border-slate-100' : 'text-slate-505 hover:text-slate-700'}`}
-                                >
-                                    <GraduationCap weight="bold" size={15} />
-                                    Công việc thường
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => { setEditTaskType('SESSION'); setTaskErr(''); }}
-                                    className={`flex-1 py-2.5 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${editTaskType === 'SESSION' ? 'bg-white text-[#6D5EF5] shadow-sm border border-slate-100' : 'text-slate-505 hover:text-slate-700'}`}
-                                >
-                                    <Sparkle weight="bold" size={15} />
-                                    Phiên học (Khóa lịch)
-                                </button>
-                            </div>
-
-                            {editTaskType === 'TASK' ? (
+            {editTaskId !== null && (() => {
+                const isFutureSessionEdit = (() => {
+                    if (editTaskType !== 'SESSION' || !editTaskStartTime) return false;
+                    const refDate = new Date(editTaskStartTime);
+                    const todayStr = getLocalDateStr(new Date());
+                    const refStr = getLocalDateStr(refDate);
+                    return refStr > todayStr;
+                })();
+                return (
+                    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4"
+                        onClick={e => { if (e.target === e.currentTarget) { setEditTaskId(null); setTaskErr(''); } }}>
+                        <div className="bg-white rounded-2xl border border-slate-100 shadow-xl w-full max-w-md p-7 animate-in zoom-in-95 duration-150">
+                            <div className="flex items-center justify-between mb-5">
                                 <div>
-                                    <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Hạn chót</label>
-                                    <input type="datetime-local" value={editTaskDueTime}
-                                        onChange={e => setEditTaskDueTime(e.target.value)}
-                                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 focus:border-[#6D5EF5] focus:bg-white rounded-xl outline-none text-sm font-medium text-slate-750 transition-all"
+                                    <h2 className="text-lg font-bold text-slate-800">Cập nhật thông tin</h2>
+                                </div>
+                                <button onClick={() => { setEditTaskId(null); setTaskErr(''); }}
+                                    className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 transition-colors">
+                                    <X size={18} weight="bold" />
+                                </button>
+                            </div>
+                            <form onSubmit={handleEditTask} className="space-y-4">
+                                <div>
+                                    <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Tên công việc</label>
+                                    <input autoFocus type="text" value={editTaskTitle}
+                                        onChange={e => { setEditTaskTitle(e.target.value); setTaskErr(''); }}
+                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-100 focus:border-[#6D5EF5] focus:bg-white rounded-xl outline-none text-sm font-medium text-slate-800 transition-all"
                                     />
                                 </div>
-                            ) : (
+
+                                {/* Segmented Control for Type Selector */}
+                                <div className="flex bg-slate-50 border border-slate-100 p-1 rounded-xl my-4">
+                                    <button
+                                        type="button"
+                                        onClick={() => { setEditTaskType('TASK'); setTaskErr(''); }}
+                                        className={`flex-1 py-2.5 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${editTaskType === 'TASK' ? 'bg-white text-[#6D5EF5] shadow-sm border border-slate-100' : 'text-slate-505 hover:text-slate-700'}`}
+                                    >
+                                        <GraduationCap weight="bold" size={15} />
+                                        Công việc thường
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => { setEditTaskType('SESSION'); setTaskErr(''); }}
+                                        className={`flex-1 py-2.5 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${editTaskType === 'SESSION' ? 'bg-white text-[#6D5EF5] shadow-sm border border-slate-100' : 'text-slate-505 hover:text-slate-700'}`}
+                                    >
+                                        <Sparkle weight="bold" size={15} />
+                                        Phiên học (Khóa lịch)
+                                    </button>
+                                </div>
+
+                                {editTaskType === 'TASK' ? (
+                                    <div>
+                                        <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Hạn chót</label>
+                                        <input type="datetime-local" value={editTaskDueTime}
+                                            onChange={e => setEditTaskDueTime(e.target.value)}
+                                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 focus:border-[#6D5EF5] focus:bg-white rounded-xl outline-none text-sm font-medium text-slate-750 transition-all"
+                                        />
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Bắt đầu</label>
+                                            <input type="datetime-local" value={editTaskStartTime}
+                                                onChange={e => { setEditTaskStartTime(e.target.value); setTaskErr(''); }}
+                                                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 focus:border-[#6D5EF5] focus:bg-white rounded-xl outline-none text-sm font-medium text-slate-755 transition-all"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Kết thúc</label>
+                                            <input type="datetime-local" value={editTaskEndTime}
+                                                onChange={e => { setEditTaskEndTime(e.target.value); setTaskErr(''); }}
+                                                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 focus:border-[#6D5EF5] focus:bg-white rounded-xl outline-none text-sm font-medium text-slate-755 transition-all"
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+
                                 <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Bắt đầu</label>
-                                        <input type="datetime-local" value={editTaskStartTime}
-                                            onChange={e => { setEditTaskStartTime(e.target.value); setTaskErr(''); }}
-                                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 focus:border-[#6D5EF5] focus:bg-white rounded-xl outline-none text-sm font-medium text-slate-755 transition-all"
-                                        />
+                                    <div className="relative">
+                                        <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Độ ưu tiên</label>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setShowPriorityDropdown(!showPriorityDropdown);
+                                                setShowStatusDropdown(false);
+                                            }}
+                                            className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100/50 border border-slate-100 focus:border-[#6D5EF5] rounded-xl outline-none text-xs font-semibold text-slate-700 transition-all text-left shadow-sm"
+                                        >
+                                            <div className="flex items-center gap-2">
+                                                <span className={`w-2 h-2 rounded-full ${PRIORITY_META[editTaskPriority]?.dotColor}`} />
+                                                <span>{PRIORITY_META[editTaskPriority]?.label || 'Chọn'}</span>
+                                            </div>
+                                            <CaretDown size={14} weight="bold" className={`text-slate-400 transition-transform duration-200 ${showPriorityDropdown ? 'rotate-180' : ''}`} />
+                                        </button>
+
+                                        {showPriorityDropdown && (
+                                            <>
+                                                <div 
+                                                    className="fixed inset-0 z-[210]" 
+                                                    onClick={() => setShowPriorityDropdown(false)}
+                                                />
+                                                <div className="absolute left-0 right-0 mt-1.5 bg-white/95 backdrop-blur-md border border-slate-100 shadow-[0_12px_30px_rgba(0,0,0,0.06)] rounded-xl p-1.5 z-[220] flex flex-col gap-1 animate-in fade-in slide-in-from-top-1.5 duration-100">
+                                                    {[1, 2, 3, 4].map((p) => {
+                                                        const meta = PRIORITY_META[p];
+                                                        const isSelected = editTaskPriority === p;
+                                                        return (
+                                                            <button
+                                                                key={p}
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setEditTaskPriority(p);
+                                                                    setShowPriorityDropdown(false);
+                                                                }}
+                                                                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-all hover:bg-slate-50 text-left ${
+                                                                    isSelected ? 'bg-violet-50/50 text-[#6D5EF5]' : 'text-slate-600'
+                                                                }`}
+                                                            >
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className={`w-2 h-2 rounded-full ${meta.dotColor}`} />
+                                                                    <span>{meta.label}</span>
+                                                                </div>
+                                                                {isSelected && <Check size={12} weight="bold" className="text-[#6D5EF5]" />}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </>
+                                        )}
                                     </div>
-                                    <div>
-                                        <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Kết thúc</label>
-                                        <input type="datetime-local" value={editTaskEndTime}
-                                            onChange={e => { setEditTaskEndTime(e.target.value); setTaskErr(''); }}
-                                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 focus:border-[#6D5EF5] focus:bg-white rounded-xl outline-none text-sm font-medium text-slate-755 transition-all"
-                                        />
+
+                                    <div className="relative">
+                                        <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Trạng thái</label>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setShowStatusDropdown(!showStatusDropdown);
+                                                setShowPriorityDropdown(false);
+                                            }}
+                                            className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100/50 border border-slate-100 focus:border-[#6D5EF5] rounded-xl outline-none text-xs font-semibold text-slate-700 transition-all text-left shadow-sm"
+                                        >
+                                            <div className="flex items-center gap-2">
+                                                <span className={`w-2 h-2 rounded-full ${STATUS_META[editTaskStatus]?.dotColor}`} />
+                                                <span>{STATUS_META[editTaskStatus]?.label || 'Chọn'}</span>
+                                            </div>
+                                            <CaretDown size={14} weight="bold" className={`text-slate-400 transition-transform duration-200 ${showStatusDropdown ? 'rotate-180' : ''}`} />
+                                        </button>
+
+                                        {showStatusDropdown && (
+                                            <>
+                                                <div 
+                                                    className="fixed inset-0 z-[210]" 
+                                                    onClick={() => setShowStatusDropdown(false)}
+                                                />
+                                                <div className="absolute left-0 right-0 mt-1.5 bg-white/95 backdrop-blur-md border border-slate-100 shadow-[0_12px_30px_rgba(0,0,0,0.06)] rounded-xl p-1.5 z-[220] flex flex-col gap-1 animate-in fade-in slide-in-from-top-1.5 duration-100">
+                                                    {Object.entries(STATUS_META)
+                                                        .filter(([key]) => key !== 'skipped')
+                                                        .map(([key, meta]) => {
+                                                            const isSelected = editTaskStatus === key;
+                                                        const isDisabled = key === 'done' && isFutureSessionEdit;
+                                                        return (
+                                                            <button
+                                                                key={key}
+                                                                type="button"
+                                                                disabled={isDisabled}
+                                                                onClick={() => {
+                                                                    setEditTaskStatus(key);
+                                                                    setShowStatusDropdown(false);
+                                                                }}
+                                                                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-all text-left ${
+                                                                    isDisabled 
+                                                                        ? 'opacity-40 cursor-not-allowed bg-slate-50/50 text-slate-400'
+                                                                        : isSelected 
+                                                                            ? 'bg-violet-50/50 text-[#6D5EF5] hover:bg-violet-50' 
+                                                                            : 'text-slate-600 hover:bg-slate-50'
+                                                                }`}
+                                                            >
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className={`w-2 h-2 rounded-full ${meta.dotColor}`} />
+                                                                    <span>{meta.label}</span>
+                                                                </div>
+                                                                <div className="flex items-center gap-2">
+                                                                    {isDisabled && <span className="text-[9px] text-slate-400 font-bold bg-slate-100 px-1.5 py-0.5 rounded">Tương lai</span>}
+                                                                    {isSelected && <Check size={12} weight="bold" className="text-[#6D5EF5]" />}
+                                                                </div>
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </>
+                                        )}
                                     </div>
                                 </div>
-                            )}
 
-                            <div>
-                                <label className="block text-[10px] font-semibold text-slate-405 uppercase tracking-wider mb-2">Độ ưu tiên</label>
-                                <div className="grid grid-cols-4 gap-2">
-                                    {[1, 2, 3, 4].map((p) => {
-                                        const meta = PRIORITY_META[p];
-                                        const isSelected = editTaskPriority === p;
-                                        return (
-                                            <button
-                                                key={p}
-                                                type="button"
-                                                onClick={() => setEditTaskPriority(p)}
-                                                className={`py-2 rounded-lg text-xs font-semibold border transition-all duration-200 ${
-                                                    isSelected 
-                                                        ? 'border-[#6D5EF5] bg-violet-50/50 text-[#6D5EF5] shadow-sm' 
-                                                        : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
-                                                }`}
-                                            >
-                                                {meta.label}
-                                            </button>
-                                        );
-                                    })}
+                                {taskErr && <p className="text-xs text-red-500 font-semibold mt-2">{taskErr}</p>}
+                                <div className="flex gap-3 pt-2">
+                                    <button type="button" onClick={() => { setEditTaskId(null); }}
+                                        className="flex-1 py-3 rounded-xl font-medium text-sm text-slate-500 bg-slate-50 hover:bg-slate-100 transition-all">Hủy</button>
+                                    <button type="submit" disabled={!editTaskTitle.trim() || updateTask.isPending}
+                                        className="flex-[2] py-3 bg-gradient-to-r from-[#6D5EF5] to-[#8B5CF6] hover:opacity-95 text-white rounded-xl font-semibold text-sm shadow-md shadow-violet-500/15 disabled:opacity-50 transition-all active:scale-[0.98]">
+                                        {updateTask.isPending ? 'Đang lưu...' : 'Lưu thay đổi'}
+                                    </button>
                                 </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Trạng thái</label>
-                                <select value={editTaskStatus} onChange={e => setEditTaskStatus(e.target.value)}
-                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 focus:border-[#6D5EF5] focus:bg-white rounded-xl outline-none text-sm font-medium text-slate-750 transition-all">
-                                    <option value="pending">Chờ</option>
-                                    <option value="scheduled">Đã lên lịch</option>
-                                    <option value="done">Hoàn thành</option>
-                                    <option value="skipped">Bỏ qua</option>
-                                </select>
-                            </div>
-
-                            {taskErr && <p className="text-xs text-red-500 font-semibold mt-2">{taskErr}</p>}
-                            <div className="flex gap-3 pt-2">
-                                <button type="button" onClick={() => { setEditTaskId(null); }}
-                                    className="flex-1 py-3 rounded-xl font-medium text-sm text-slate-500 bg-slate-50 hover:bg-slate-100 transition-all">Hủy</button>
-                                <button type="submit" disabled={!editTaskTitle.trim() || updateTask.isPending}
-                                    className="flex-[2] py-3 bg-gradient-to-r from-[#6D5EF5] to-[#8B5CF6] hover:opacity-95 text-white rounded-xl font-semibold text-sm shadow-md shadow-violet-500/15 disabled:opacity-50 transition-all active:scale-[0.98]">
-                                    {updateTask.isPending ? 'Đang lưu...' : 'Lưu thay đổi'}
-                                </button>
-                            </div>
-                        </form>
+                            </form>
+                        </div>
                     </div>
-                </div>
-            )}
+                );
+            })()}
 
             {/* ══ Modal: Delete Task ════════════════════════════════════════════ */}
             {deleteTaskId !== null && (

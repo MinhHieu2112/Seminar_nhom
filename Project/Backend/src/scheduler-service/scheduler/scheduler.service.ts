@@ -396,18 +396,6 @@ export class SchedulerService {
         throw new NotFoundException('Task not found');
       }
 
-      if (exists.status === 'done') {
-        throw new BadRequestException('Không thể xóa task đã hoàn thành!');
-      }
-
-      if (
-        exists.dueTime &&
-        exists.dueTime < new Date() &&
-        exists.status !== 'done'
-      ) {
-        throw new BadRequestException('Không thể xóa task đã trễ hạn!');
-      }
-
       return await this.prisma.task.delete({
         where: { id },
       });

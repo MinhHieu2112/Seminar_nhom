@@ -68,17 +68,6 @@ export default function AnalyticsPage() {
             </p>
           </div>
 
-          {/* Insights badge */}
-          {insightsData && (
-            <div className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl border text-sm font-semibold ${
-              insightsData.isOverloaded
-                ? 'bg-rose-50 border-rose-200 text-rose-700'
-                : 'bg-emerald-50 border-emerald-200 text-emerald-700'
-            }`}>
-              <Lightbulb className="w-4 h-4" />
-              {insightsData.message}
-            </div>
-          )}
         </header>
 
         {/* ── KPIs ─────────────────────────────────────────────────── */}
@@ -107,23 +96,6 @@ export default function AnalyticsPage() {
           </div>
         </div>
 
-        {/* Row 2: Suggestions */}
-        {(dashboardData.suggestions.length > 0 || insightsData?.recommendations?.length) && (
-          <div className="bg-linear-to-br from-indigo-50 to-violet-50 border border-indigo-100 rounded-2xl p-6">
-            <h3 className="text-base font-bold text-indigo-900 mb-3 flex items-center gap-2">
-              <Lightbulb className="w-4 h-4 text-indigo-500" />
-              Gợi ý cải thiện
-            </h3>
-            <ul className="space-y-2">
-              {[...(dashboardData?.suggestions || []), ...(insightsData?.recommendations ?? [])].map((s, i) => (
-                <li key={i} className="flex items-start gap-2 text-sm text-indigo-800">
-                  <span className="mt-1 w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0" />
-                  {s}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
       </div>
     </div>
   );

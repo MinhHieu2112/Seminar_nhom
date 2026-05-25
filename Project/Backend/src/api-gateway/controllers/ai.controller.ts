@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { TcpClientService } from '../tcp-client.service';
+import { HttpClientService } from '../http-client.service';
 import { JwtService } from '@nestjs/jwt';
 import {
   safeSend,
@@ -25,6 +26,7 @@ export class AiGatewayController {
   constructor(
     private readonly tcpClient: TcpClientService,
     private readonly jwtService: JwtService,
+    private readonly httpClient: HttpClientService,
   ) {}
 
   // Chuẩn hóa dữ liệu văn bản thô do AI xử lý (với cơ chế dự phòng khi lỗi mạng)
@@ -197,11 +199,32 @@ export class AiGatewayController {
       throw new BadRequestException('Prompt không được để trống.');
     }
 
+    let userCategories: string[] = [];
+    try {
+      const categoriesRes = await this.httpClient.request(
+        'scheduler-service',
+        'get',
+        '/api/v1/scheduler/categories',
+        null,
+        userId,
+      );
+      const categoryArray = Array.isArray(categoriesRes)
+        ? categoriesRes
+        : categoriesRes && Array.isArray(categoriesRes.data)
+          ? categoriesRes.data
+          : [];
+      userCategories = categoryArray.map((c: any) => c.name).filter(Boolean);
+    } catch (err: any) {
+      console.warn(
+        `Failed to fetch user categories for AI context: ${err.message}`,
+      );
+    }
+
     const result = await safeSend<any>(
       this.tcpClient,
       'ai-service',
       'ai.generate-from-prompt',
-      { prompt: body.prompt, userId },
+      { prompt: body.prompt, userId, userCategories },
     );
 
     return result;
@@ -222,13 +245,40 @@ export class AiGatewayController {
       throw new BadRequestException('Image file is required.');
     }
 
+    let userCategories: string[] = [];
+    try {
+      const categoriesRes = await this.httpClient.request(
+        'scheduler-service',
+        'get',
+        '/api/v1/scheduler/categories',
+        null,
+        userId,
+      );
+      const categoryArray = Array.isArray(categoriesRes)
+        ? categoriesRes
+        : categoriesRes && Array.isArray(categoriesRes.data)
+          ? categoriesRes.data
+          : [];
+      userCategories = categoryArray.map((c: any) => c.name).filter(Boolean);
+    } catch (err: any) {
+      console.warn(
+        `Failed to fetch user categories for AI context: ${err.message}`,
+      );
+    }
+
     const base64Image = file.buffer.toString('base64');
 
     const result = await safeSend<any>(
       this.tcpClient,
       'ai-service',
       'ai.generate-from-image',
-      { prompt: body.prompt, userId, base64Image, mimeType: file.mimetype },
+      {
+        prompt: body.prompt,
+        userId,
+        base64Image,
+        mimeType: file.mimetype,
+        userCategories,
+      },
     );
 
     return result;

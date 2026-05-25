@@ -1,4 +1,4 @@
-import { IsString, IsOptional } from 'class-validator';
+import { IsString, IsOptional, IsArray } from 'class-validator';
 
 /**
  * DTO for the AI-powered natural language schedule generation endpoint.
@@ -12,4 +12,9 @@ export class AiGenerateScheduleDto {
   @IsOptional()
   @IsString()
   userId?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  userCategories?: string[];
 }

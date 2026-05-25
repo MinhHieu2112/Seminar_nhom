@@ -1,4 +1,4 @@
-# 🎓 StudyPlan - Hệ thống Lập kế hoạch Học tập & Cộng tác Thông minh
+# 🎓 StudyPlan - Hệ thống lập kế hoạch học tập & cộng tác thông minh
 
 Chào mừng bạn đến với **StudyPlan**! Đây là tài liệu hướng dẫn onboard chi tiết dành cho các thành viên mới bắt đầu phát triển dự án. Tài liệu này sẽ giúp bạn hiểu rõ kiến trúc, cài đặt môi trường và vận hành dự án từ con số 0.
 
@@ -6,15 +6,15 @@ Chào mừng bạn đến với **StudyPlan**! Đây là tài liệu hướng d�
 
 ## 📌 1. Giới thiệu dự án & Tính năng chính
 
-**StudyPlan** là một nền tảng quản lý học tập cá nhân và học nhóm (teamwork) trực quan, kết hợp công nghệ Trí tuệ Nhân tạo (AI) giúp tối ưu hóa tiến trình và lộ trình học tập của học sinh, sinh viên. Dự án được triển khai trên kiến trúc **Microservices** hiện đại nhằm đảm bảo tính độc lập, dễ mở rộng và hiệu năng cao.
+**StudyPlan** là một nền tảng quản lý học tập cá nhân và học nhóm (teamwork) trực quan, kết hợp công nghệ trí tuệ Nhân tạo (AI) giúp tối ưu hóa trải nghiệm người dùng. Dự án được triển khai trên kiến trúc **Microservices** hiện đại nhằm đảm bảo tính độc lập, dễ mở rộng và hiệu năng cao.
 
 ### 🌟 Các tính năng chính:
-*   **Quản lý Kế hoạch & Mục tiêu (Scheduler)**: Thiết lập mục tiêu học tập (Goals), phân loại danh mục học tập (Categories) và quản lý danh sách công việc hàng ngày trực quan.
-*   **Cộng tác Học nhóm (Teamwork & Chat)**: Tạo nhóm học tập, mời thành viên, phân công công việc nhóm (Group Tasks), trò chuyện trực tuyến thời gian thực (Real-time Chat via WebSockets) tích hợp gửi Sticker/GIF thông qua **Giphy API**.
-*   **Trợ lý Học tập AI (AI Planner)**: Đề xuất lộ trình học và tự động tạo kế hoạch công việc thông minh dựa trên mục tiêu đầu ra mong muốn của người dùng (tích hợp **Google Gemini & OpenAI**).
+*   **Quản lý kế hoạch & mục tiêu (Scheduler)**: Thiết lập mục tiêu học tập (Goals), phân loại danh mục học tập (Categories) và quản lý danh sách công việc hàng ngày trực quan.
+*   **Cộng tác học nhóm (Teamwork & Chat)**: Tạo nhóm học tập, mời thành viên, phân công công việc nhóm (Group Tasks), trò chuyện trực tuyến thời gian thực (Real-time Chat via WebSockets) tích hợp gửi Sticker/GIF thông qua **Giphy API**.
+*   **Trợ lý học tập AI (AI Planner)**: Hỗ trợ đề xuất lộ trình học và tự động tạo kế hoạch công việc thông minh dựa trên mục tiêu đầu ra mong muốn của người dùng (tích hợp **Google Gemini & OpenAI**).
 *   **Phân tích hiệu suất học tập (Analytics)**: Biểu đồ trực quan hóa thời gian và tiến độ học tập (KPIs, Time Breakdown) hỗ trợ bộ lọc khoảng thời gian tùy chọn.
-*   **Hệ thống Quản lý Người dùng & Bảo mật**: Đăng ký, đăng nhập bảo mật (mật khẩu mã hóa `bcrypt`), hỗ trợ đăng nhập xã hội (Google, GitHub, Discord, LinkedIn OAuth), quản lý trang cá nhân với ảnh đại diện upload trực tiếp lên **Cloudinary**.
-*   **Trang Quản trị & Giám sát hệ thống (Admin & Health Check)**: Quản lý tập trung tài khoản người dùng và theo dõi trạng thái sống sót (Health status) của từng microservice.
+*   **Hệ thống quản lý người dùng & bảo mật**: Đăng ký, đăng nhập bảo mật (mật khẩu mã hóa `bcrypt`), hỗ trợ đăng nhập xã hội (Google, GitHub, Discord, LinkedIn OAuth), quản lý trang cá nhân với ảnh đại diện upload trực tiếp lên **Cloudinary**.
+*   **Trang quản trị & giám sát hệ thống (Admin & Health Check)**: Quản lý tập trung tài khoản người dùng và theo dõi trạng thái hoạt động của từng microservice.
 
 ---
 
@@ -180,11 +180,7 @@ NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
 # URL của Client Frontend
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 
-# Cloudinary CDN Upload
-NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=your_cloud_name
-NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET=your_upload_preset
 ```
-
 ---
 
 ## 🏃‍♂️ 7. Cách khởi chạy dự án

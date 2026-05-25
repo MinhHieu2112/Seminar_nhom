@@ -206,7 +206,14 @@ export default function GroupDetailsPage() {
       if (editingTaskId) {
         await updateTask.mutateAsync({ id: editingTaskId, data: payload });
       } else {
-        await createTask.mutateAsync(payload as any);
+        await createTask.mutateAsync({
+          title: payload.title,
+          description: payload.description,
+          dueTime: payload.dueTime || undefined,
+          priority: payload.priority,
+          groupId: payload.groupId,
+          assigneeId: payload.assigneeId || undefined,
+        });
       }
       
       setTaskForm({ title: '', description: '', dueTime: '', priority: '3', assigneeId: '' });
@@ -574,10 +581,7 @@ export default function GroupDetailsPage() {
                                 </>
                               )}
 
-                              {isAdmin &&
-                                !task.submittedForReview &&
-                                task.status !== 'done' &&
-                                !(task.dueTime && new Date(task.dueTime) < new Date()) && (
+                              {isAdmin && (
                                 <button
                                   onClick={() => handleDeleteTask(task.id)}
                                   className="p-2 rounded-xl text-gray-300 hover:text-red-500 hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100"

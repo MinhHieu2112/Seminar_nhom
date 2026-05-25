@@ -11,7 +11,10 @@ export class AiScheduleGeneratorService {
   constructor(private readonly providerManager: AiProviderManager) {}
 
   // Tạo lịch trình học từ văn bản tự nhiên (Natural Language Prompt)
-  async generateFromPrompt(prompt: string): Promise<AiScheduleOutput> {
+  async generateFromPrompt(
+    prompt: string,
+    userCategories?: string[],
+  ): Promise<AiScheduleOutput> {
     const cleanPrompt = normalizeTextPrompt(prompt);
     this.logger.log(
       `AI schedule generation from prompt: "${cleanPrompt.slice(0, 100)}..."`,
@@ -22,6 +25,7 @@ export class AiScheduleGeneratorService {
       return await this.providerManager.generateFromTextWithFallback(
         cleanPrompt,
         context,
+        userCategories,
       );
     } catch (error) {
       this.logger.error(`AI schedule generating failed: ${error}`);
@@ -34,6 +38,7 @@ export class AiScheduleGeneratorService {
     imageBuffer: Buffer,
     mimeType: string,
     prompt?: string,
+    userCategories?: string[],
   ): Promise<any> {
     const cleanPrompt = prompt ? normalizeTextPrompt(prompt) : undefined;
     this.logger.log(`AI schedule generation from image (${mimeType})`);
@@ -45,6 +50,7 @@ export class AiScheduleGeneratorService {
         mimeType,
         context,
         cleanPrompt,
+        userCategories,
       );
     } catch (error) {
       this.logger.error(`AI schedule generating from image failed: ${error}`);

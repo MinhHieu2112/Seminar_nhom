@@ -4,6 +4,7 @@ import { AgentAiController } from './agent-ai.controller';
 import { AiScheduleGeneratorService } from './ai-schedule-generator.service';
 import { GeminiProvider } from './providers/gemini.provider';
 import { OpenAIProvider } from './providers/openai.provider';
+import { ClaudeProvider } from './providers/claude.provider';
 import { AiProviderManager } from './providers/ai-provider-manager.service';
 
 @Module({
@@ -13,6 +14,7 @@ import { AiProviderManager } from './providers/ai-provider-manager.service';
     AiScheduleGeneratorService,
     GeminiProvider,
     OpenAIProvider,
+    ClaudeProvider,
     AiProviderManager,
   ],
 })

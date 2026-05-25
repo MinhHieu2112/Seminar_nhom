@@ -92,6 +92,10 @@ export class CreateTaskDto {
   priority?: number;
 
   @IsOptional()
+  @IsString()
+  status?: string;
+
+  @IsOptional()
   @IsIn(['TASK', 'SESSION'])
   type?: 'TASK' | 'SESSION';
 

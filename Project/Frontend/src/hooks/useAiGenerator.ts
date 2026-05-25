@@ -9,12 +9,20 @@ export interface AiScheduleTask {
   deadline?: string;
   type?: 'TASK' | 'SESSION';
   sessionData?: { startTime: string; endTime: string };
+  category?: string;
+  categoryId?: string;
+  confidence?: number;
 }
 
 export interface AiSchedulePreview {
   goalTitle: string;
   toDate: string;
   tasks: AiScheduleTask[];
+  events?: Array<{
+    title: string;
+    category?: string;
+    confidence?: number;
+  }>;
 }
 
 export function useGenerateAiScheduleFromPrompt() {
@@ -47,7 +55,7 @@ export function useCreateAiScheduleBatch() {
                     dueTime: t.type === 'SESSION' && t.sessionData ? t.sessionData.endTime : t.deadline,
                     type: t.type || 'TASK',
                     sessionData: t.sessionData,
-                    categoryId: payload.categoryId,
+                    categoryId: t.categoryId || payload.categoryId,
                 });
                 createdTasks.push(tr.data);
             }

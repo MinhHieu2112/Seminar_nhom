@@ -34,6 +34,7 @@ export const schedulerService = {
     dueTime?: string;
     categoryId?: string;
     priority?: number;
+    status?: string;
     groupId?: string;
     type?: 'TASK' | 'SESSION';
     sessionData?: { startTime: string; endTime: string };

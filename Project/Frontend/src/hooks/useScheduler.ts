@@ -1,13 +1,9 @@
 'use client';
-
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { schedulerService } from '@/services/scheduler.service';
 import type { ScheduleItem } from '@/types/api';
 
-
-
 export const SCHEDULER_QUERY_KEY = ['scheduler'];
-
 
 export function useCreateCategory() {
     const queryClient = useQueryClient();
@@ -18,8 +14,6 @@ export function useCreateCategory() {
         },
     });
 }
-
-
 
 export function useUpdateCategory() {
     const queryClient = useQueryClient();
@@ -41,8 +35,6 @@ export function useDeleteCategory() {
     });
 }
 
-
-
 export function useCreateTask() {
     const queryClient = useQueryClient();
     return useMutation({
@@ -52,6 +44,7 @@ export function useCreateTask() {
             dueTime?: string;
             categoryId?: string;
             priority?: number;
+            status?: string;
             groupId?: string;
             assigneeId?: string;
             type?: 'TASK' | 'SESSION';
@@ -122,7 +115,6 @@ export function useDeleteTask() {
     });
 }
 
-
 export function useSchedulerTasks(groupId?: string) {
     return useQuery({
         queryKey: [...SCHEDULER_QUERY_KEY, 'tasks', groupId ?? 'personal'],
@@ -162,8 +154,6 @@ export function useSchedulerCategories() {
         },
     });
 }
-
-
 
 export function useUploadAttachments() {
     const queryClient = useQueryClient();

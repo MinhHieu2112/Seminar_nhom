@@ -251,11 +251,14 @@ export function useAnalyticsDashboard(
 
 // ─── Auxiliary Fetching Hooks ─────────────────────────────────────────────────
 
-export function useAnalyticsHistory(_period: 'weekly' | 'monthly' | 'yearly') {
+export function useAnalyticsHistory(period: 'weekly' | 'monthly' | 'yearly') {
+  void period;
   // Kept for API compatibility — returns empty array since we no longer call backend
   return { data: [], isLoading: false, error: null };
 }
 
-export function useAnalyticsInsights(_from: string, _to: string) {
+export function useAnalyticsInsights(from: string, to: string) {
+  void from;
+  void to;
   return { data: null, isLoading: false, error: null };
 }

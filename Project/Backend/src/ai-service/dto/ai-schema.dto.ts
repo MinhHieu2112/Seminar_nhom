@@ -15,6 +15,8 @@ export const AiTaskSchema = z.object({
       endTime: z.string(),
     })
     .optional(),
+  category: z.string().optional(),
+  confidence: z.number().optional(),
 });
 
 export const AiBusySlotSchema = z.object({
