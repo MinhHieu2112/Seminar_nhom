@@ -104,33 +104,35 @@ graph TD
 Dự án được tổ chức rõ ràng theo cấu trúc **Monorepo** chia tách riêng biệt giữa Frontend và Backend ở thư mục gốc:
 
 ```text
-StudyPlan/
-├── Backend/                 # Mã nguồn backend (NestJS Microservices)
-│   ├── src/
-│   │   ├── api-gateway/     # HTTP gateway tiếp nhận request, xử lý auth & uploads
-│   │   ├── users-service/   # Service quản lý tài khoản, profile & bảo mật
-│   │   ├── scheduler-service/ # Service quản lý calendar, task, goal & lập lịch
-│   │   ├── teamwork-service/  # Service quản lý chat room, group workspace & invitations
-│   │   ├── ai-service/      # Service tích hợp và chuẩn hóa prompt cho Gemini/OpenAI
-│   │   ├── common/          # Các class helper, exception filter & decorator dùng chung
-│   │   └── app.module.ts
-│   ├── test/                # Unit tests & integration tests kèm mocks cho Socket.io
-│   ├── Dockerfile           # Multi-stage build Dockerfile tối ưu kích thước image
-│   ├── docker-compose.yml   # Docker compose chạy dịch vụ PostgreSQL, Redis & App
-│   └── package.json
-│
-├── Frontend/                # Mã nguồn frontend (Next.js App Router)
-│   ├── src/
-│   │   ├── app/             # Các trang (pages), layouts & routing hệ thống
-│   │   ├── components/      # Các component React tái sử dụng (Auth, Teamwork, Scheduler...)
-│   │   ├── hooks/           # Custom hooks tích hợp React Query kết nối API
-│   │   ├── services/        # Lớp giao tiếp API trực tiếp (Axios services)
-│   │   ├── store/           # Global state quản lý bằng Zustand (auth-store, ui-store)
-│   │   ├── lib/             # Cấu hình API client, providers & utilities dùng chung
-│   │   └── types/           # Định nghĩa TypeScript interfaces đồng bộ với backend
-│   └── package.json
-│
-└── UX:UI/                   # Thư mục lưu trữ hình ảnh minh họa giao diện hệ thống
+Seminar_nhom/ (StudyPlan)
+├── README.md                # Tài liệu hướng dẫn chính (Master Onboarding)
+├── Project/                 # Thư mục chứa mã nguồn chính dự án
+│   ├── Backend/             # Mã nguồn backend (NestJS Microservices)
+│   │   ├── src/
+│   │   │   ├── api-gateway/     # HTTP gateway tiếp nhận request, xử lý auth & uploads
+│   │   │   ├── users-service/   # Service quản lý tài khoản, profile & bảo mật
+│   │   │   ├── scheduler-service/ # Service quản lý calendar, task, goal & lập lịch
+│   │   │   ├── teamwork-service/  # Service quản lý chat room, group workspace & invitations
+│   │   │   ├── ai-service/      # Service tích hợp và chuẩn hóa prompt cho Gemini/OpenAI
+│   │   │   └── common/          # Các class helper, exception filter & decorator dùng chung
+│   │   ├── test/                # Unit tests & integration tests kèm mocks cho Socket.io
+│   │   ├── Dockerfile           # Multi-stage build Dockerfile tối ưu kích thước image
+│   │   ├── docker-compose.yml   # Docker compose chạy dịch vụ PostgreSQL, Redis & App
+│   │   └── package.json
+│   │
+│   ├── Frontend/            # Mã nguồn frontend (Next.js App Router)
+│   │   ├── src/
+│   │   │   ├── app/             # Các trang (pages), layouts & routing hệ thống
+│   │   │   ├── components/      # Các component React tái sử dụng (Auth, Teamwork, Scheduler...)
+│   │   │   ├── hooks/           # Custom hooks tích hợp React Query kết nối API
+│   │   │   ├── services/        # Lớp giao tiếp API trực tiếp (Axios services)
+│   │   │   ├── store/           # Global state quản lý bằng Zustand (auth-store, ui-store)
+│   │   │   ├── lib/             # Cấu hình API client, providers & utilities dùng chung
+│   │   │   └── types/           # Định nghĩa TypeScript interfaces đồng bộ với backend
+│   │   └── package.json
+│   │
+│   └── UX:UI/               # Thư mục lưu trữ hình ảnh minh họa giao diện hệ thống
+└── Bai_hoc/                 # Thư mục bài học khác
 ```
 
 ---
@@ -144,7 +146,7 @@ StudyPlan/
 Mở Terminal ở thư mục gốc của dự án:
 ```bash
 # Cài đặt dependencies cho Backend
-cd Backend
+cd Project/Backend
 pnpm install
 
 # Quay lại và cài đặt dependencies cho Frontend
@@ -155,7 +157,7 @@ pnpm install
 ### 🔑 Bước 2: Thiết lập biến môi trường (Environment Variables)
 
 #### 1. Tạo file `.env` cho Backend:
-Chép file cấu hình mẫu tại `Backend/.env.example` thành `Backend/.env` và điền đầy đủ các khóa API:
+Chép file cấu hình mẫu tại `Project/Backend/.env.example` thành `Project/Backend/.env` và điền đầy đủ các khóa API:
 ```env
 NODE_ENV=development
 GATEWAY_PORT=8000
@@ -185,7 +187,7 @@ GOOGLE_CALLBACK_URL=http://localhost:8000/api/v1/auth/google/callback
 ```
 
 #### 2. Tạo file `.env.local` cho Frontend:
-Tạo file `Frontend/.env.local` từ `Frontend/env.example`:
+Tạo file `Project/Frontend/.env.local` từ `Project/Frontend/env.example`:
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
 NEXT_PUBLIC_APP_URL=http://localhost:3000
@@ -194,7 +196,7 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 ### 🐳 Bước 3: Khởi động cơ sở dữ liệu và Redis bằng Docker
 Chúng tôi cung cấp sẵn cấu hình Docker Compose để khởi động nhanh PostgreSQL và Redis:
 ```bash
-cd Backend
+cd Project/Backend
 
 # Khởi động PostgreSQL container và Redis container ở chế độ background
 docker-compose up -d postgres-db redis
@@ -203,7 +205,7 @@ docker-compose up -d postgres-db redis
 ### 🔄 Bước 4: Tạo cấu trúc bảng cơ sở dữ liệu (Database Migrations)
 Sử dụng Prisma để tự động sinh cấu trúc bảng trên PostgreSQL:
 ```bash
-cd Backend
+cd Project/Backend
 
 # Sinh mã Prisma Client và chạy các tệp migrations
 pnpm run prisma:generate
@@ -214,14 +216,14 @@ pnpm run prisma:generate
 ### 🚀 Bước 5: Chạy ứng dụng
 
 #### 1. Khởi chạy Backend dưới local (Development Mode):
-Mở một cửa sổ Terminal mới tại thư mục `Backend`:
+Mở một cửa sổ Terminal mới tại thư mục `Project/Backend`:
 ```bash
 pnpm run start:dev
 ```
 *Hệ thống API Gateway sẽ lắng nghe tại cổng `http://localhost:8000`.*
 
 #### 2. Khởi chạy Frontend:
-Mở một cửa sổ Terminal khác tại thư mục `Frontend`:
+Mở một cửa sổ Terminal khác tại thư mục `Project/Frontend`:
 ```bash
 pnpm dev
 ```
@@ -231,20 +233,20 @@ pnpm dev
 
 ## 🖼️ 6. Giao Diện Hệ Thống
 
-Dưới đây là một số hình ảnh thực tế về giao diện của hệ thống được trích xuất từ thư mục `UX:UI`:
+Dưới đây là một số hình ảnh thực tế về giao diện của hệ thống được trích xuất từ thư mục `Project/UX:UI`:
 
 ### 🔐 6.1. Đăng Nhập & Bảo Mật Hệ Thống
 Hệ thống hỗ trợ đăng ký nhanh gọn, đăng nhập đa dạng thông qua các mạng xã hội phổ biến và quản lý bảo mật nâng cao.
 
 | Đăng nhập / Đăng ký đa nền tảng | Quản lý phiên hoạt động & Đổi mật khẩu |
 | :---: | :---: |
-| ![Login & Signup](./UX:UI/Login:Signup.png) | ![Profile Security](./UX:UI/Profile_security.png) |
+| ![Login & Signup](./Project/UX:UI/Login:Signup.png) | ![Profile Security](./Project/UX:UI/Profile_security.png) |
 
 ---
 
 ### 🏠 6.2. Bảng Điều Khiển Của Người Dùng (Dashboard)
 Nơi hiển thị tổng hợp thông tin quan trọng như lịch học hôm nay, tiến độ mục tiêu cá nhân, và danh sách các task nhóm cần phê duyệt.
-![Dashboard](./UX:UI/Dashboard.png)
+![Dashboard](./Project/UX:UI/Dashboard.png)
 
 ---
 
@@ -253,7 +255,7 @@ Giao diện lịch trình trực quan cùng với tính năng gợi ý thông mi
 
 | Giao diện lịch học kéo thả trực quan | Sinh lịch tự động thông minh bằng mô hình AI |
 | :---: | :---: |
-| ![Scheduler](./UX:UI/Scheduler.png) | ![AI Model Integration](./UX:UI/AI_model.png) |
+| ![Scheduler](./Project/UX:UI/Scheduler.png) | ![AI Model Integration](./Project/UX:UI/AI_model.png) |
 
 ---
 
@@ -261,21 +263,21 @@ Giao diện lịch trình trực quan cùng với tính năng gợi ý thông mi
 Hỗ trợ quản lý dự án nhóm, giao việc, nộp bài, thảo luận trực tiếp và tương tác bằng sticker sinh động.
 
 #### 💬 Phòng thảo luận nhóm tích hợp gửi sticker thời gian thực:
-![Teamwork Chat](./UX:UI/Teamwork_chat.png)
+![Teamwork Chat](./Project/UX:UI/Teamwork_chat.png)
 
 #### 📝 Phân công công việc nhóm và Theo dõi đóng góp thành viên:
 | Phân công nhiệm vụ chi tiết & Theo dõi trạng thái | Thống kê đóng góp (Contribution) của từng thành viên |
 | :---: | :---: |
-| ![Teamwork Add Task](./UX:UI/Teamwork_add-task.png) | ![Teamwork Analytics](./UX:UI/Teamwork_analytics.png) |
+| ![Teamwork Add Task](./Project/UX:UI/Teamwork_add-task.png) | ![Teamwork Analytics](./Project/UX:UI/Teamwork_analytics.png) |
 
 #### ➕ Quản lý thành viên & Gửi lời mời gia nhập nhóm:
-![Invite Members](./UX:UI/Teamwork_invite-members.png)
+![Invite Members](./Project/UX:UI/Teamwork_invite-members.png)
 
 ---
 
 ### 📊 6.5. Thống Kê & Phân Tích Hiệu Suất Cá Nhân
 Vẽ biểu đồ phân tích giúp người dùng đánh giá thời gian phân bổ học tập thực tế và tỷ lệ hoàn thành mục tiêu.
-![Personal Analytics](./UX:UI/Analytics.png)
+![Personal Analytics](./Project/UX:UI/Analytics.png)
 
 ---
 
@@ -284,7 +286,7 @@ Người dùng dễ dàng điều chỉnh hồ sơ cá nhân, bio và tải lên
 
 | Chỉnh sửa hồ sơ cá nhân | Trạng thái hiển thị trong Log khởi chạy |
 | :---: | :---: |
-| ![Profile Bio](./UX:UI/Profile_bio.png) | ![Local Setup](./UX:UI/Local.png) |
+| ![Profile Bio](./Project/UX:UI/Profile_bio.png) | ![Local Setup](./Project/UX:UI/Local.png) |
 
 ---
 
