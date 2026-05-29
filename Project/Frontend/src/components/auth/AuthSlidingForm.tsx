@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Link from 'next/link';
@@ -135,7 +135,9 @@ export function AuthSlidingForm({ initialMode = 'login' }: AuthSlidingFormProps)
         {/* ── Sign-In Form ─────────────────────────────────────── */}
         <div className="as-form-container as-sign-in-container">
           <div className="as-form-content">
-            <LoginForm isSliding={true} onForgotPassword={() => setMode('forgot')} />
+            <Suspense fallback={null}>
+              <LoginForm isSliding={true} onForgotPassword={() => setMode('forgot')} />
+            </Suspense>
             <div className="as-mobile-toggle" onClick={() => setMode('register')}>
               Chưa có tài khoản? <span>Đăng ký</span>
             </div>

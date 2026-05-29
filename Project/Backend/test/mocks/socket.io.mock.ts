@@ -195,7 +195,7 @@ export function getSocketEmissions(socket: any, event?: string) {
  */
 export function checkServerBroadcasted(
   server: any,
-  roomName: string,
+  _roomName: string,
   event: string,
   data?: any,
 ) {
@@ -205,6 +205,12 @@ export function checkServerBroadcasted(
     // This is simplified - in real implementation you'd need to mock differently
     return call[0] === event;
   });
+
+  if (data !== undefined) {
+    return roomEmits.some(
+      (call) => JSON.stringify(call[1]) === JSON.stringify(data),
+    );
+  }
 
   return roomEmits.length > 0;
 }

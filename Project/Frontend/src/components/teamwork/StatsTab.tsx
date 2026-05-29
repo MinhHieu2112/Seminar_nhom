@@ -3,15 +3,13 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
   PieChart, Pie, Cell, Legend
 } from 'recharts';
-import type { Task, Group } from '@/types/api';
+import type { Task, Group, User } from '@/types/api';
 
 interface StatsTabProps {
   group: Group;
   tasks: Task[];
-  profiles: any[];
+  profiles: User[];
 }
-
-const COLORS = ['#10B981', '#3B82F6', '#F59E0B']; // Xong, Chờ duyệt, Chờ
 
 export function StatsTab({ group, tasks, profiles }: StatsTabProps) {
   // 1. Dữ liệu biểu đồ tròn (Task theo trạng thái)
